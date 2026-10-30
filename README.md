@@ -4,7 +4,7 @@
 
 A control panel for Linux laptops that shows what works on **your** machine, what does not, and how to fix it.
 
-> Status: early development. Right now there is a scanner (6 read-only features), USB device recognition with a device database, and a command line. The window (UI) is planned.
+> Status: early development. Right now there is a scanner (read-only), USB device recognition with a device database, a background service for two changes (performance mode, camera) and a command line. The window (UI) is planned.
 > Unofficial project. Not affiliated with Gigabyte, EPOS, Hator or any other manufacturer.
 
 Русская версия: [README.ru.md](README.ru.md)
@@ -30,6 +30,20 @@ dockit report    # text report to paste into a GitHub issue
 ```
 
 The scan only **reads** system files. It does not change anything.
+
+## Changing settings (background service)
+
+Reading works without any setup. Changing a setting needs the small DOCKIT service, which runs as root and can do **only** the actions on a fixed list (switch the performance mode, switch the built-in camera on or off). Each change asks for your confirmation through the normal system password dialog (polkit).
+
+```bash
+sudo scripts/install-dev.sh      # install the service (copy goes to /opt/dockit, owned by root)
+dockit profile                   # show the current performance mode
+dockit profile performance       # change it (asks for confirmation)
+dockit camera status|on|off      # built-in camera
+sudo scripts/uninstall-dev.sh    # remove everything again
+```
+
+Safety: the service accepts only known actions, checks every value (a mode must be in the kernel's own list), never takes a file path from the client, and uses the caller's real process ID from the socket for the polkit check. The installed code in `/opt/dockit` is owned by root so a normal program cannot edit code that runs as root. These scripts are for testing; distribution packages come later.
 
 ## Layout
 
