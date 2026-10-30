@@ -77,6 +77,73 @@ def cmd_report(_: argparse.Namespace) -> int:
     return 0
 
 
+def _ask_service(payload: dict) -> dict | None:
+    """Send a request to the service. Print a clear message and return None on failure."""
+    from ..daemon.client import DaemonUnavailable, request
+
+    try:
+        response = request(payload)
+    except DaemonUnavailable:
+        print("Служба DOCKIT не запущена. Установите её: sudo scripts/install-dev.sh")
+        return None
+    if not response.get("ok"):
+        print("Отказано: " + str(response.get("error", "неизвестная ошибка")))
+        return None
+    return response.get("result", {})
+
+
+def cmd_daemon(args: argparse.Namespace) -> int:
+    import os
+
+    from ..daemon import server
+    from ..daemon.protocol import SOCKET_PATH
+
+    if os.geteuid() != 0:
+        print("Служба должна работать от root (её запускает systemd). "
+              "Для обычной установки используйте scripts/install-dev.sh.")
+        return 1
+    server.run(args.socket or SOCKET_PATH)
+    return 0
+
+
+def cmd_profile(args: argparse.Namespace) -> int:
+    from ..daemon.actions import CHOICES, PROFILE
+    from ..core import sysfs
+
+    if args.value is None:
+        current = sysfs.read_text(PROFILE)
+        if current is None:
+            print("Режимы мощности не поддерживаются на этой модели.")
+            return 1
+        print(f"Сейчас: {current}")
+        print("Доступно: " + (sysfs.read_text(CHOICES) or "?"))
+        return 0
+    result = _ask_service({"action": "set_power_profile", "value": args.value})
+    if result is None:
+        return 1
+    print(f"Режим мощности: {result.get('profile')}")
+    return 0
+
+
+def cmd_camera(args: argparse.Namespace) -> int:
+    from ..daemon.actions import camera_state
+
+    if args.state == "status":
+        cams = camera_state()["cameras"]
+        if not cams:
+            print("Камера не найдена среди известных устройств.")
+            return 1
+        for c in cams:
+            print(f"{c['usb_id']}  {'включена' if c['enabled'] else 'выключена'}")
+        return 0
+    result = _ask_service({"action": "set_camera", "value": args.state == "on"})
+    if result is None:
+        return 1
+    for c in result.get("cameras", []):
+        print(f"{c['usb_id']}  {'включена' if c['enabled'] else 'выключена'}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="dockit",
@@ -91,6 +158,18 @@ def main(argv: list[str] | None = None) -> int:
 
     p_report = sub.add_parser("report", help="print a text report for a GitHub issue")
     p_report.set_defaults(func=cmd_report)
+
+    p_daemon = sub.add_parser("daemon", help="run the root service (started by systemd)")
+    p_daemon.add_argument("--socket", help="socket path, for tests")
+    p_daemon.set_defaults(func=cmd_daemon)
+
+    p_profile = sub.add_parser("profile", help="show or change the performance mode")
+    p_profile.add_argument("value", nargs="?", help="low-power, balanced or performance")
+    p_profile.set_defaults(func=cmd_profile)
+
+    p_camera = sub.add_parser("camera", help="camera status, on or off")
+    p_camera.add_argument("state", choices=["status", "on", "off"])
+    p_camera.set_defaults(func=cmd_camera)
 
     args = parser.parse_args(argv)
     return args.func(args)

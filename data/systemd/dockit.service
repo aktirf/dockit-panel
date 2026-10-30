@@ -1,0 +1,26 @@
+[Unit]
+Description=DOCKIT background service (laptop control)
+Documentation=https://github.com/aktirf/dockit-panel
+After=polkit.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/dockit daemon
+Restart=on-failure
+RuntimeDirectory=dockit
+RuntimeDirectoryMode=0755
+
+# The service only needs to write a few files in /sys and talk over local sockets.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

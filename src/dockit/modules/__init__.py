@@ -2,16 +2,20 @@
 
 from .battery import Battery
 from .battery_limit import BatteryLimit
+from .camera import Camera
 from .gpu_nvidia import GpuNvidia
 from .power_profile import PowerProfile
 from .sensors import Sensors
+from .service import Service
 from .wireless import Wireless
 
 ALL_MODULES = [
+    Service,
     PowerProfile,
     Sensors,
     GpuNvidia,
     Battery,
     BatteryLimit,
+    Camera,
     Wireless,
 ]

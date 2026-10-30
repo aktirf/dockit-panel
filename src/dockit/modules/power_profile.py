@@ -21,12 +21,16 @@ class PowerProfile(Module):
                 Status.UNAVAILABLE,
                 "Ядро не показывает режимы производительности для этой модели.",
             )
-        if not sysfs.is_writable(PROFILE):
-            return Detection(
-                Status.NEEDS_SETUP,
-                "Режим можно читать, но менять без прав администратора нельзя.",
-            )
-        return Detection(Status.OK, "Режим можно читать и менять.")
+        if sysfs.is_writable(PROFILE):
+            return Detection(Status.OK, "Режим можно читать и менять.")
+        from ..daemon.client import daemon_running
+
+        if daemon_running():
+            return Detection(Status.OK, "Режим можно менять через службу DOCKIT.")
+        return Detection(
+            Status.NEEDS_SETUP,
+            "Режим можно читать, но менять без службы DOCKIT нельзя.",
+        )
 
     def get_state(self):
         return {
@@ -40,4 +44,4 @@ class PowerProfile(Module):
                 "Попробуйте более новое ядро. Запасной вариант: power-profiles-daemon "
                 "и ryzenadj (лимиты мощности процессора)."
             )
-        return "Нужно правило udev или фоновая служба DOCKIT, которая работает от root."
+        return "Установите и запустите службу DOCKIT: sudo scripts/install-dev.sh."

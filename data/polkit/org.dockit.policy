@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD polkit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>DOCKIT</vendor>
+  <vendor_url>https://github.com/aktirf/dockit-panel</vendor_url>
+
+  <action id="org.dockit.set-power-profile">
+    <description>Change the laptop performance mode</description>
+    <description xml:lang="ru">Сменить режим производительности ноутбука</description>
+    <message>Authentication is required to change the laptop performance mode</message>
+    <message xml:lang="ru">Для смены режима производительности нужно подтверждение</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_self_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.dockit.set-camera">
+    <description>Switch the built-in camera on or off</description>
+    <description xml:lang="ru">Включить или выключить встроенную камеру</description>
+    <message>Authentication is required to switch the built-in camera</message>
+    <message xml:lang="ru">Для включения или выключения камеры нужно подтверждение</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_self_keep</allow_active>
+    </defaults>
+  </action>
+</policyconfig>
