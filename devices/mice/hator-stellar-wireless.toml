@@ -1,6 +1,7 @@
 name = "Hator Stellar Wireless"
 kind = "mouse"
 usb_id = "379a:3608"
+usb_ids = ["379a:3607"]
 status = "detected"
 features = ["detect"]
-notes = "The 2.4 GHz receiver reports itself as 'STELLAR WIRELESS' (vendor Compx). Battery, DPI and polling rate are not tested yet."
+notes = "The 2.4 GHz receiver reports itself as 'STELLAR WIRELESS' (vendor Compx). Seen with two different IDs (3607 and 3608) in two scans. Battery, DPI and polling rate are not tested yet."

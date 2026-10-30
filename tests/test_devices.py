@@ -54,3 +54,13 @@ def test_shipped_database_has_the_first_devices():
     assert find_by_usb(entries, "3277:00b2").kind == "camera"
     laptop = find_laptop(entries, "gigabyte  gaming a16 3vh")
     assert laptop is not None and laptop.status == "partial"
+
+
+def test_device_with_several_usb_ids(tmp_path):
+    (tmp_path / "m.toml").write_text(
+        'name = "Mouse"\nkind = "mouse"\nusb_id = "379a:3608"\nusb_ids = ["379A:3607"]\n'
+    )
+    entries = load_database([tmp_path])
+    assert find_by_usb(entries, "379a:3607").name == "Mouse"
+    assert find_by_usb(entries, "379a:3608").name == "Mouse"
+    assert find_by_usb(entries, "379a:0000") is None
