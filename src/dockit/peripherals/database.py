@@ -13,6 +13,7 @@ class DeviceEntry:
     name: str
     kind: str                      # laptop, mouse, headset, camera, keyboard, ...
     usb_id: str = ""               # "vendor:product", lower case
+    usb_ids: list[str] = field(default_factory=list)  # more IDs of the same device
     dmi_product: str = ""          # for laptops: the model name from BIOS
     features: list[str] = field(default_factory=list)
     status: str = "untested"       # untested / detected / partial / full
@@ -46,10 +47,12 @@ def load_database(dirs: list[Path] | None = None) -> list[DeviceEntry]:
             if not name:
                 continue
             features = data.get("features", [])
+            extra = data.get("usb_ids", [])
             entry = DeviceEntry(
                 name=name,
                 kind=str(data.get("kind", "unknown")),
                 usb_id=str(data.get("usb_id", "")).strip().lower(),
+                usb_ids=[str(i).strip().lower() for i in extra] if isinstance(extra, list) else [],
                 dmi_product=str(data.get("dmi_product", "")).strip(),
                 features=[str(f) for f in features] if isinstance(features, list) else [],
                 status=str(data.get("status", "untested")),
@@ -67,7 +70,7 @@ def load_database(dirs: list[Path] | None = None) -> list[DeviceEntry]:
 def find_by_usb(entries: list[DeviceEntry], usb_id: str) -> DeviceEntry | None:
     wanted = usb_id.strip().lower()
     for entry in entries:
-        if entry.usb_id and entry.usb_id == wanted:
+        if wanted and wanted in ([entry.usb_id] + entry.usb_ids):
             return entry
     return None
 
