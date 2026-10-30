@@ -4,7 +4,7 @@
 
 A control panel for Linux laptops that shows what works on **your** machine, what does not, and how to fix it.
 
-> Status: early development. Right now only the scanner and a command line exist. The window (UI) is planned.
+> Status: early development. Right now there is a scanner (6 read-only features), USB device recognition with a device database, and a command line. The window (UI) is planned.
 > Unofficial project. Not affiliated with Gigabyte, EPOS, Hator or any other manufacturer.
 
 Русская версия: [README.ru.md](README.ru.md)

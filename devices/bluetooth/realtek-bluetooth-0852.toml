@@ -1,0 +1,6 @@
+name = "Realtek Bluetooth Radio"
+kind = "bluetooth"
+usb_id = "0bda:0852"
+status = "partial"
+features = ["detect", "rfkill"]
+notes = "Built-in Bluetooth of the A16 3VH. The on/off switch is visible through rfkill."

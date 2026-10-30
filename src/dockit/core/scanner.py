@@ -31,6 +31,8 @@ class ScanItem:
 class ScanResult:
     system: dict[str, str] = field(default_factory=dict)
     items: list[ScanItem] = field(default_factory=list)
+    peripherals: list = field(default_factory=list)  # PeripheralItem objects
+    laptop: Any = None                               # DeviceEntry if the laptop is in the database
 
     def counts(self) -> dict[Status, int]:
         return {s: sum(1 for i in self.items if i.status is s) for s in Status}
@@ -56,13 +58,18 @@ def _distro() -> str:
     return "unknown"
 
 
-def scan(modules: list[type[Module]] | None = None) -> ScanResult:
+def scan(
+    modules: list[type[Module]] | None = None,
+    peripherals: bool = True,
+) -> ScanResult:
     if modules is None:
         from ..modules import ALL_MODULES
 
         modules = ALL_MODULES
 
     result = ScanResult(system=system_info())
+    if peripherals:
+        _scan_devices(result)
     for cls in modules:
         mod = cls()
         try:
@@ -79,17 +86,40 @@ def scan(modules: list[type[Module]] | None = None) -> ScanResult:
     return result
 
 
+def _scan_devices(result: ScanResult) -> None:
+    """Match the laptop and connected USB devices against the device database."""
+    try:
+        from ..peripherals.database import find_laptop, load_database
+        from ..peripherals.scan import scan_peripherals
+
+        entries = load_database()
+        result.laptop = find_laptop(entries, result.system.get("model", ""))
+        result.peripherals = scan_peripherals(entries=entries)
+    except Exception:  # devices are optional, they must never break the scan
+        pass
+
+
 def format_report(result: ScanResult) -> str:
     """Plain text report the user can paste into a GitHub issue."""
     lines = ["DOCKIT report", ""]
     for key, value in result.system.items():
         lines.append(f"{key}: {value}")
+    if result.laptop:
+        lines.append(f"laptop in database: yes ({result.laptop.status})")
+    else:
+        lines.append("laptop in database: no")
     lines.append("")
     for item in result.items:
         lines.append(f"[{LABELS_RU[item.status]}] {item.name} ({item.source})")
         lines.append(f"    {item.detail}")
         if item.hint:
             lines.append(f"    Как исправить: {item.hint}")
+    if result.peripherals:
+        lines.append("")
+        lines.append("Устройства USB:")
+        for p in result.peripherals:
+            tag = p.status if p.known else "нет в базе"
+            lines.append(f"    {p.usb_id}  {p.name}  [{tag}]")
     counts = result.counts()
     lines.append("")
     lines.append(

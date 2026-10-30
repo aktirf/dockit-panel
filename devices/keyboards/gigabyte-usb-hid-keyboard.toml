@@ -1,0 +1,6 @@
+name = "GIGABYTE USB-HID Keyboard"
+kind = "keyboard"
+usb_id = "0414:8104"
+status = "detected"
+features = ["detect"]
+notes = "Built-in laptop keyboard on USB. Backlight is not exposed through the kernel LED interface; control through a separate tool is not tested yet."
