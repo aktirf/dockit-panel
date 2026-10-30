@@ -9,6 +9,7 @@ import sys
 from .. import __version__
 from ..core.scanner import format_report, scan
 from ..core.status import LABELS_RU, Status
+from ..peripherals.scan import KIND_RU
 
 ICONS = {
     Status.OK: "OK ",
@@ -35,6 +36,18 @@ def cmd_scan(args: argparse.Namespace) -> int:
                 }
                 for i in result.items
             ],
+            "laptop_in_database": bool(result.laptop),
+            "peripherals": [
+                {
+                    "usb_id": p.usb_id,
+                    "name": p.name,
+                    "kind": p.kind,
+                    "known": p.known,
+                    "status": p.status,
+                    "features": p.features,
+                }
+                for p in result.peripherals
+            ],
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
@@ -46,6 +59,16 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print(f"       {item.detail}")
         if item.hint:
             print(f"       Как исправить: {item.hint}")
+
+    if result.peripherals:
+        print()
+        print("Устройства USB:")
+        for p in result.peripherals:
+            kind = KIND_RU.get(p.kind, KIND_RU["unknown"])
+            mark = "" if p.known else "  (нет в базе устройств)"
+            print(f"  {p.usb_id}  {kind:<11} {p.name}{mark}")
+    print()
+    print("Ваш ноутбук в базе: " + ("да (" + result.laptop.status + ")" if result.laptop else "нет"))
     return 0
 
 

@@ -1,0 +1,6 @@
+name = "EPOS H3PRO Hybrid"
+kind = "headset"
+usb_id = "1395:0101"
+status = "detected"
+features = ["detect", "audio"]
+notes = "Wired USB. Audio works through the normal sound system. Equalizer and microphone noise suppression are planned through EasyEffects."

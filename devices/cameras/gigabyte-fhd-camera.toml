@@ -1,0 +1,6 @@
+name = "GIGABYTE FHD CAMERA"
+kind = "camera"
+usb_id = "3277:00b2"
+status = "partial"
+features = ["detect", "toggle"]
+notes = "Built-in laptop camera on USB. Writing 0 to the device's 'authorized' file removes /dev/video* and 1 brings it back (tested on the A16 3VH)."

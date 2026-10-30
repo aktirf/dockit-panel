@@ -1,0 +1,6 @@
+name = "Mpow HC5"
+kind = "headset"
+usb_id = "0a12:4010"
+status = "detected"
+features = ["detect"]
+notes = "Seen while charging over USB (reports itself as a USB hub in charging mode)."

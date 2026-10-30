@@ -1,0 +1,6 @@
+name = "GIGABYTE GAMING A16 3VH"
+kind = "laptop"
+dmi_product = "GIGABYTE GAMING A16 3VH"
+status = "partial"
+features = ["platform_profile", "temperatures", "wireless", "camera_toggle", "nvidia_monitoring", "battery"]
+notes = "Checked on EndeavourOS live, kernel 7.1.8. Not exposed by the kernel: fan speed, battery charge limit, keyboard backlight. Display MUX switching and its current state are not confirmed yet."
