@@ -26,3 +26,10 @@ def test_report_has_no_serial_or_hostname():
     text = format_report(scan())
     assert "DOCKIT report" in text
     assert "serial" not in text.lower()
+
+
+def test_display_name_does_not_repeat_vendor():
+    from dockit.core.scanner import display_name
+
+    assert display_name({"vendor": "GIGABYTE", "model": "GIGABYTE GAMING A16 3VH"}) == "GIGABYTE GAMING A16 3VH"
+    assert display_name({"vendor": "ASUS", "model": "TUF A15"}) == "ASUS TUF A15"
