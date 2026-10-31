@@ -4,4 +4,4 @@ usb_id = "379a:3608"
 usb_ids = ["379a:3607"]
 status = "detected"
 features = ["detect"]
-notes = "The 2.4 GHz receiver reports itself as 'STELLAR WIRELESS' (vendor Compx). Seen with two different IDs (3607 and 3608) in two scans. Battery, DPI and polling rate are not tested yet."
+notes = "The 2.4 GHz receiver reports itself as 'STELLAR WIRELESS' (vendor Compx). Seen with two different IDs (3607 and 3608) in two scans. libratbag (ratbagctl list) does not know this mouse, so battery, DPI and polling rate cannot be read or changed from Linux at the moment. Only detection works. If you find a way (for example a wired mode with a different USB ID), please open a Device report issue."
