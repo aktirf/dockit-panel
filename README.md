@@ -87,6 +87,15 @@ dockit audio volume 50         # volume of the current output, 0-150
 
 A profile can include sound: `output = "epos"` and `input = "epos"` in `~/.config/dockit/profiles.toml`. If the device is missing (headset unplugged) the profile only reports it.
 
+## Window
+
+```bash
+sudo pacman -S pyside6 ttf-ibm-plex     # the window (Qt) and the font used in the design
+dockit gui
+```
+
+If you use a virtual environment, create it with access to system packages: `python -m venv --system-site-packages .venv`. The window reads data every 3 seconds and changes nothing by itself: modes, scenarios and the camera and microphone switches go through the background service. The Overview page is ready, the other sections are in progress.
+
 ## Layout
 
 | Folder | What it is |

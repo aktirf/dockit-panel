@@ -41,3 +41,14 @@ def daemon_running(path: str = SOCKET_PATH) -> bool:
         return bool(request({"action": "ping"}, path, timeout=2).get("ok"))
     except DaemonUnavailable:
         return False
+
+
+def ask(payload: dict, path: str = SOCKET_PATH) -> tuple[dict | None, str]:
+    """Send a request. Returns (result, "") on success or (None, message in Russian)."""
+    try:
+        response = request(payload, path)
+    except DaemonUnavailable:
+        return None, "Служба DOCKIT не запущена."
+    if not response.get("ok"):
+        return None, str(response.get("error", "Неизвестная ошибка."))
+    return response.get("result", {}), ""
