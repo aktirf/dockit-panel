@@ -45,6 +45,34 @@ sudo scripts/uninstall-dev.sh    # remove everything again
 
 Safety: the service accepts only known actions, checks every value (a mode must be in the kernel's own list), never takes a file path from the client, and uses the caller's real process ID from the socket for the polkit check. The installed code in `/opt/dockit` is owned by root so a normal program cannot edit code that runs as root. These scripts are for testing; distribution packages come later.
 
+## Profiles
+
+A profile is a bundle of settings for a task: **Games** (performance), **Work** (balanced), **Night** (low-power).
+
+```bash
+dockit mode               # list profiles
+dockit mode games         # switch to a profile (needs the service)
+dockit auto               # switch profiles by itself using rules
+```
+
+Default rules: while a Steam game (`steam_app_*`) or `gamescope` runs, Games; on battery, Work. Your own profiles and rules go in `~/.config/dockit/profiles.toml`:
+
+```toml
+[profiles.games]
+power = "performance"
+camera = false            # optional: switch the camera off in this profile
+
+[[rules]]
+profile = "games"
+processes = ["steam_app_*", "cs2"]
+
+[[rules]]
+profile = "night"
+when = "battery"          # or "ac"
+```
+
+Rules are checked top to bottom, the first match wins. Mistakes in the file are ignored and the defaults are used.
+
 ## Layout
 
 | Folder | What it is |
