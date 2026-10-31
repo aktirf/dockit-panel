@@ -65,7 +65,8 @@ def empty() -> dict:
     return {"ready": False, "model": "", "service": False, "okCount": 0, "total": 0,
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [],
-            "features": [], "counts": [], "cpuHistory": [], "gpuHistory": [], "profiles": []}
+            "features": [], "counts": [], "cpuHistory": [], "gpuHistory": [], "profiles": [],
+            "audio": {"outputs": [], "inputs": []}}
 
 
 def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str,
@@ -199,5 +200,11 @@ def profile_cards(profiles: dict, rules: list) -> list[dict]:
             "sub": "Режим: " + MODE_BY_ID.get(p.power or "", "без изменений"),
             "rows": rows,
             "rules": [_rule_text(r) for r in rules if r.profile == p.id and _rule_text(r)],
+            "edit": {
+                "power": p.power or "keep",
+                "camera": "keep" if p.camera is None else ("on" if p.camera else "off"),
+                "output": p.output or "",
+                "input": p.input or "",
+            },
         })
     return cards

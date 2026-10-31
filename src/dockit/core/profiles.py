@@ -20,6 +20,7 @@ Rules are checked from top to bottom, the first one that matches wins.
 from __future__ import annotations
 
 import fnmatch
+import json
 import os
 import tomllib
 from dataclasses import dataclass
@@ -63,6 +64,33 @@ def config_path() -> Path:
     return Path(base) / "dockit" / "profiles.toml"
 
 
+_MISSING = object()
+KEEP = "keep"   # written in the file when a profile must not touch a setting
+
+
+def _power(value, base):
+    if value is _MISSING:
+        return base
+    if value == KEEP:
+        return None
+    return value if value in POWER_VALUES else base
+
+
+def _camera(value, base):
+    if value is _MISSING:
+        return base
+    if value == KEEP:
+        return None
+    return value if isinstance(value, bool) else base
+
+
+def _text(value, base):
+    if value is _MISSING or not isinstance(value, str):
+        return base
+    value = value.strip()
+    return value or None   # an empty text means: do not touch
+
+
 def load(path: Path | None = None) -> tuple[dict[str, Profile], list[Rule]]:
     """Built-in profiles and rules, changed by the user's file if there is one.
 
@@ -82,17 +110,13 @@ def load(path: Path | None = None) -> tuple[dict[str, Profile], list[Rule]]:
             if not isinstance(body, dict) or not _safe_id(pid):
                 continue
             base = profiles.get(pid) or Profile(pid, str(body.get("name", pid)))
-            power = body.get("power", base.power)
-            camera = body.get("camera", base.camera)
-            out = body.get("output", base.output)
-            mic = body.get("input", base.input)
             profiles[pid] = Profile(
                 pid,
                 str(body.get("name", base.name)),
-                power if power in POWER_VALUES else base.power,
-                camera if isinstance(camera, bool) else base.camera,
-                out if isinstance(out, str) and out.strip() else base.output,
-                mic if isinstance(mic, str) and mic.strip() else base.input,
+                _power(body.get("power", _MISSING), base.power),
+                _camera(body.get("camera", _MISSING), base.camera),
+                _text(body.get("output", _MISSING), base.output),
+                _text(body.get("input", _MISSING), base.input),
             )
 
     custom_rules = data.get("rules")
@@ -167,3 +191,57 @@ def apply(profile: Profile, ask: Callable[[dict], dict | None]) -> list[str]:
         except audio.AudioError as exc:
             lines.append(f"{label}: {exc}")
     return lines
+
+
+def _toml_value(value) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_value(v) for v in value) + "]"
+    return json.dumps(str(value), ensure_ascii=False)   # JSON strings are valid TOML strings
+
+
+def _dump(data: dict) -> str:
+    lines = ["# DOCKIT profiles. The window rewrites this file when you change a profile.", ""]
+    for pid, body in data.get("profiles", {}).items():
+        lines.append(f"[profiles.{pid}]")
+        lines += [f"{key} = {_toml_value(value)}" for key, value in body.items()]
+        lines.append("")
+    for rule in data.get("rules", []):
+        lines.append("[[rules]]")
+        lines += [f"{key} = {_toml_value(value)}" for key, value in rule.items()]
+        lines.append("")
+    return "\n".join(lines)
+
+
+def save_profile(pid: str, power: str, camera: str, output: str, mic: str,
+                 path: Path | None = None) -> None:
+    """Store the four settings of one profile in the user's file (other content stays).
+
+    power: "keep" or a power mode; camera: "keep", "on" or "off";
+    output, mic: part of a device name, or "" to leave it alone.
+    """
+    if not _safe_id(pid):
+        raise ValueError("bad profile id")
+    if power != KEEP and power not in POWER_VALUES:
+        raise ValueError("bad power mode")
+    if camera not in (KEEP, "on", "off"):
+        raise ValueError("bad camera value")
+    if len(output) > 200 or len(mic) > 200:
+        raise ValueError("text too long")
+    path = path or config_path()
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    section = data.setdefault("profiles", {})
+    body = dict(section.get(pid, {})) if isinstance(section.get(pid), dict) else {}
+    body["power"] = power
+    body["camera"] = KEEP if camera == KEEP else camera == "on"
+    body["output"] = output.strip()
+    body["input"] = mic.strip()
+    section[pid] = body
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(".tmp")
+    temp.write_text(_dump(data), encoding="utf-8")
+    temp.replace(path)

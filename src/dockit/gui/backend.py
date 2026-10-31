@@ -106,6 +106,14 @@ class Backend(QObject):
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                                     muted, scenarios, self._scenario)
             state["profiles"] = viewmodel.profile_cards(available, rules)
+            try:
+                devices = audio.list_devices()
+            except audio.AudioError:
+                devices = []
+            state["audio"] = {
+                "outputs": [d.description for d in devices if d.kind == "output"],
+                "inputs": [d.description for d in devices if d.kind == "input"],
+            }
             self._snapshot.emit(state)
             if note:
                 self._finished.emit(note)
@@ -176,6 +184,19 @@ class Backend(QObject):
         if profile is None:
             return
         self._run(lambda: self._apply_profile(profile))
+
+    @Slot(str, str, str, str, str)
+    def saveProfile(self, pid: str, power: str, camera: str, output: str, mic: str) -> None:
+        available, _ = profiles.load()
+        if pid not in available:
+            return
+        try:
+            profiles.save_profile(pid, power, camera, output, mic)
+        except (ValueError, OSError):
+            self._say("Не удалось сохранить профиль")
+            return
+        self._say(f"Профиль «{available[pid].name}» сохранён. Нажмите «Применить сейчас», чтобы включить его.")
+        self.refresh()
 
     @Slot(str)
     def toggle(self, what: str) -> None:

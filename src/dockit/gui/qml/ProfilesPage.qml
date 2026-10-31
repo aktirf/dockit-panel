@@ -13,6 +13,21 @@ Flickable {
         return list.length > 0 ? list[0] : null
     }
 
+    function matches(name, query) {
+        return query !== "" && name.toLowerCase().indexOf(query.toLowerCase()) >= 0
+    }
+    function anyMatch(names, query) {
+        for (var i = 0; i < names.length; i++)
+            if (matches(names[i], query)) return true
+        return false
+    }
+    function save(field, value) {
+        var e = cur.edit
+        var v = { power: e.power, camera: e.camera, output: e.output, input: e.input }
+        v[field] = value
+        backend.saveProfile(cur.id, v.power, v.camera, v.output, v.input)
+    }
+
     clip: true
     contentWidth: width
     contentHeight: content.implicitHeight + 68
@@ -122,16 +137,82 @@ Flickable {
                         }
                     }
                     Txt { text: "Что применяется"; font.pixelSize: 14; font.weight: Font.DemiBold; color: Theme.muted }
-                    Repeater {
-                        model: page.cur ? page.cur.rows : []
-                        delegate: RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: modelData.label; color: Theme.soft }
-                            Txt {
-                                text: modelData.value
-                                color: modelData.value === "Не меняется" ? Theme.muted : Theme.text
+                    Txt {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: "Выберите значение, оно сохраняется сразу. «Не менять» значит, что профиль эту настройку не трогает."
+                        color: Theme.muted
+                        font.pixelSize: 12
+                    }
+
+                    Txt { text: "Режим мощности"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не менять"; sel: page.cur.edit.power === "keep"; onClicked: page.save("power", "keep") }
+                        Repeater {
+                            model: page.d.modes ? page.d.modes : []
+                            delegate: Pill {
+                                text: modelData.name
+                                sel: page.cur.edit.power === modelData.id
+                                onClicked: page.save("power", modelData.id)
                             }
                         }
+                    }
+
+                    Txt { text: "Камера"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не менять"; sel: page.cur.edit.camera === "keep"; onClicked: page.save("camera", "keep") }
+                        Pill { text: "Включить"; sel: page.cur.edit.camera === "on"; onClicked: page.save("camera", "on") }
+                        Pill { text: "Выключить"; sel: page.cur.edit.camera === "off"; onClicked: page.save("camera", "off") }
+                    }
+
+                    Txt { text: "Звук (вывод)"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не менять"; sel: page.cur.edit.output === ""; onClicked: page.save("output", "") }
+                        Repeater {
+                            model: page.d.audio ? page.d.audio.outputs : []
+                            delegate: Pill {
+                                text: modelData
+                                sel: page.matches(modelData, page.cur.edit.output)
+                                onClicked: page.save("output", modelData)
+                            }
+                        }
+                    }
+                    Txt {
+                        visible: page.cur.edit.output !== "" && !page.anyMatch(page.d.audio ? page.d.audio.outputs : [], page.cur.edit.output)
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: "Выбрано: «" + page.cur.edit.output + "». Сейчас такое устройство не подключено, при включении профиля звук останется как есть."
+                        color: Theme.warn
+                        font.pixelSize: 12
+                    }
+
+                    Txt { text: "Микрофон"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не менять"; sel: page.cur.edit.input === ""; onClicked: page.save("input", "") }
+                        Repeater {
+                            model: page.d.audio ? page.d.audio.inputs : []
+                            delegate: Pill {
+                                text: modelData
+                                sel: page.matches(modelData, page.cur.edit.input)
+                                onClicked: page.save("input", modelData)
+                            }
+                        }
+                    }
+                    Txt {
+                        visible: page.cur.edit.input !== "" && !page.anyMatch(page.d.audio ? page.d.audio.inputs : [], page.cur.edit.input)
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: "Выбрано: «" + page.cur.edit.input + "». Сейчас такое устройство не подключено, при включении профиля микрофон останется как есть."
+                        color: Theme.warn
+                        font.pixelSize: 12
                     }
                 }
 
