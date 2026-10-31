@@ -38,6 +38,15 @@ class ScanResult:
         return {s: sum(1 for i in self.items if i.status is s) for s in Status}
 
 
+def display_name(system: dict[str, str]) -> str:
+    """"GIGABYTE GAMING A16 3VH": the vendor is not repeated if the model already starts with it."""
+    vendor = system.get("vendor", "")
+    model = system.get("model", "")
+    if vendor and model.lower().startswith(vendor.lower()):
+        return model
+    return f"{vendor} {model}".strip()
+
+
 def system_info() -> dict[str, str]:
     """Model and OS info. No serial numbers, no hostname, no user names."""
     info = {

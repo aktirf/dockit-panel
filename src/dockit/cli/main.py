@@ -7,7 +7,7 @@ import json
 import sys
 
 from .. import __version__
-from ..core.scanner import format_report, scan
+from ..core.scanner import display_name, format_report, scan
 from ..core.status import LABELS_RU, Status
 from ..peripherals.scan import KIND_RU
 
@@ -52,7 +52,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
-    print(f"{result.system['vendor']} {result.system['model']}  |  {result.system['distro']}  |  {result.system['kernel']}")
+    print(f"{display_name(result.system)}  |  {result.system['distro']}  |  {result.system['kernel']}")
     print()
     for item in result.items:
         print(f"[{ICONS[item.status]}] {item.name}: {LABELS_RU[item.status]}")
