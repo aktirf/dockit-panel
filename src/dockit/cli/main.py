@@ -144,6 +144,53 @@ def cmd_camera(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mode(args: argparse.Namespace) -> int:
+    from ..core import profiles as pf
+
+    available, rules = pf.load()
+    if args.name is None:
+        from ..core import sysfs
+        from ..daemon.actions import PROFILE
+
+        print("Профили:")
+        for p in available.values():
+            extra = []
+            if p.power:
+                extra.append(f"мощность {p.power}")
+            if p.camera is not None:
+                extra.append("камера " + ("вкл" if p.camera else "выкл"))
+            print(f"  {p.id:<8} {p.name:<8} {', '.join(extra)}")
+        print(f"Сейчас режим мощности: {sysfs.read_text(PROFILE) or '?'}")
+        return 0
+    profile = available.get(args.name)
+    if profile is None:
+        print("Нет такого профиля. Список: dockit mode")
+        return 1
+    for line in pf.apply(profile, _ask_service):
+        print(line)
+    return 0
+
+
+def cmd_auto(args: argparse.Namespace) -> int:
+    import time
+
+    from ..core import profiles as pf
+    from ..modules.battery import ac_online
+
+    current = None
+    while True:
+        available, rules = pf.load()  # re-read so edits to the file take effect
+        wanted = pf.choose(rules, pf.running_processes(), ac_online())
+        if wanted and wanted != current:
+            print(f"Профиль: {available[wanted].name}", flush=True)
+            for line in pf.apply(available[wanted], _ask_service):
+                print("  " + line, flush=True)
+            current = wanted
+        if args.once:
+            return 0
+        time.sleep(max(2, args.interval))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="dockit",
@@ -170,6 +217,15 @@ def main(argv: list[str] | None = None) -> int:
     p_camera = sub.add_parser("camera", help="camera status, on or off")
     p_camera.add_argument("state", choices=["status", "on", "off"])
     p_camera.set_defaults(func=cmd_camera)
+
+    p_mode = sub.add_parser("mode", help="list profiles or switch to one (games, work, night)")
+    p_mode.add_argument("name", nargs="?")
+    p_mode.set_defaults(func=cmd_mode)
+
+    p_auto = sub.add_parser("auto", help="switch profiles automatically by the rules")
+    p_auto.add_argument("--once", action="store_true", help="check once and exit")
+    p_auto.add_argument("--interval", type=int, default=5, help="seconds between checks")
+    p_auto.set_defaults(func=cmd_auto)
 
     args = parser.parse_args(argv)
     return args.func(args)
