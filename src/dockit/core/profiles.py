@@ -35,6 +35,8 @@ class Profile:
     name: str
     power: str | None = None      # one of POWER_VALUES, or None = do not touch
     camera: bool | None = None    # True/False = switch, None = do not touch
+    output: str | None = None     # part of a sound output name, e.g. "epos"
+    input: str | None = None      # part of a microphone name
 
 
 @dataclass
@@ -82,11 +84,15 @@ def load(path: Path | None = None) -> tuple[dict[str, Profile], list[Rule]]:
             base = profiles.get(pid) or Profile(pid, str(body.get("name", pid)))
             power = body.get("power", base.power)
             camera = body.get("camera", base.camera)
+            out = body.get("output", base.output)
+            mic = body.get("input", base.input)
             profiles[pid] = Profile(
                 pid,
                 str(body.get("name", base.name)),
                 power if power in POWER_VALUES else base.power,
                 camera if isinstance(camera, bool) else base.camera,
+                out if isinstance(out, str) and out.strip() else base.output,
+                mic if isinstance(mic, str) and mic.strip() else base.input,
             )
 
     custom_rules = data.get("rules")
@@ -149,4 +155,15 @@ def apply(profile: Profile, ask: Callable[[dict], dict | None]) -> list[str]:
         result = ask({"action": "set_camera", "value": profile.camera})
         lines.append("Камера: " + ("включена" if profile.camera else "выключена") if result is not None
                      else "Камера: не удалось")
+    for kind, query in (("output", profile.output), ("input", profile.input)):
+        if not query:
+            continue
+        from . import audio  # imported here: profile logic works without sound tools
+
+        label = "Звук (вывод)" if kind == "output" else "Микрофон"
+        try:
+            device = audio.set_default(kind, query)
+            lines.append(f"{label}: {device.description}")
+        except audio.AudioError as exc:
+            lines.append(f"{label}: {exc}")
     return lines

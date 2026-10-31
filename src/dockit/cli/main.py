@@ -159,6 +159,10 @@ def cmd_mode(args: argparse.Namespace) -> int:
                 extra.append(f"мощность {p.power}")
             if p.camera is not None:
                 extra.append("камера " + ("вкл" if p.camera else "выкл"))
+            if p.output:
+                extra.append(f"звук «{p.output}»")
+            if p.input:
+                extra.append(f"микрофон «{p.input}»")
             print(f"  {p.id:<8} {p.name:<8} {', '.join(extra)}")
         print(f"Сейчас режим мощности: {sysfs.read_text(PROFILE) or '?'}")
         return 0
@@ -189,6 +193,45 @@ def cmd_auto(args: argparse.Namespace) -> int:
         if args.once:
             return 0
         time.sleep(max(2, args.interval))
+
+
+def cmd_audio(args: argparse.Namespace) -> int:
+    from ..core import audio
+
+    try:
+        if args.action == "status":
+            for d in audio.list_devices():
+                mark = "*" if d.default else " "
+                kind = "вывод " if d.kind == "output" else "микрофон"
+                vol = f"{d.volume}%" if d.volume is not None else "?"
+                muted = "  (выключен)" if d.muted else ""
+                print(f" {mark} {kind:<8} {d.description}  громкость {vol}{muted}")
+            return 0
+        if args.action in ("output", "input"):
+            if not args.value:
+                print(f"Укажите часть названия, например: dockit audio {args.action} epos")
+                return 1
+            device = audio.set_default(args.action, args.value)
+            print(f"Выбрано: {device.description}")
+            return 0
+        if args.action == "mic":
+            if args.value not in ("mute", "unmute"):
+                print("Укажите: dockit audio mic mute  или  dockit audio mic unmute")
+                return 1
+            audio.set_mute("input", args.value == "mute")
+            print("Микрофон выключен" if args.value == "mute" else "Микрофон включён")
+            return 0
+        if args.action == "volume":
+            if not args.value or not args.value.isdigit():
+                print("Укажите число от 0 до 150, например: dockit audio volume 50")
+                return 1
+            audio.set_volume("output", int(args.value))
+            print(f"Громкость: {args.value}%")
+            return 0
+    except audio.AudioError as exc:
+        print(str(exc))
+        return 1
+    return 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -226,6 +269,12 @@ def main(argv: list[str] | None = None) -> int:
     p_auto.add_argument("--once", action="store_true", help="check once and exit")
     p_auto.add_argument("--interval", type=int, default=5, help="seconds between checks")
     p_auto.set_defaults(func=cmd_auto)
+
+    p_audio = sub.add_parser("audio", help="sound: status, output, input, mic, volume")
+    p_audio.add_argument("action", nargs="?", default="status",
+                         choices=["status", "output", "input", "mic", "volume"])
+    p_audio.add_argument("value", nargs="?")
+    p_audio.set_defaults(func=cmd_audio)
 
     args = parser.parse_args(argv)
     return args.func(args)

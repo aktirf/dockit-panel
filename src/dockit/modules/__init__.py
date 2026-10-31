@@ -1,5 +1,6 @@
 """All features. To add a feature: create a file here and add it to ALL_MODULES."""
 
+from .audio import Audio
 from .battery import Battery
 from .battery_limit import BatteryLimit
 from .camera import Camera
@@ -18,4 +19,5 @@ ALL_MODULES = [
     BatteryLimit,
     Camera,
     Wireless,
+    Audio,
 ]
