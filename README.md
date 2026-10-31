@@ -65,4 +65,4 @@ Background service (root actions with confirmation), profiles (games / work / ni
 
 ## License
 
-Not chosen yet.
+GPL-3.0-or-later. See [LICENSE](LICENSE).

@@ -49,4 +49,4 @@ sudo scripts/uninstall-dev.sh    # убрать всё обратно
 
 ## Лицензия
 
-Пока не выбрана.
+GPL-3.0-or-later. Текст в файле [LICENSE](LICENSE).
