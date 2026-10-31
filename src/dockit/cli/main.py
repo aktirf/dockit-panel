@@ -234,6 +234,12 @@ def cmd_audio(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_gui(_: argparse.Namespace) -> int:
+    from ..gui.app import run
+
+    return run()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="dockit",
@@ -275,6 +281,9 @@ def main(argv: list[str] | None = None) -> int:
                          choices=["status", "output", "input", "mic", "volume"])
     p_audio.add_argument("value", nargs="?")
     p_audio.set_defaults(func=cmd_audio)
+
+    p_gui = sub.add_parser("gui", help="open the window")
+    p_gui.set_defaults(func=cmd_gui)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -20,7 +20,9 @@ def _read_all() -> dict[str, bool]:
         soft = sysfs.read_text(os.path.join(d, "soft"))
         hard = sysfs.read_text(os.path.join(d, "hard"))
         if kind in ("wlan", "bluetooth") and soft is not None:
-            result[kind] = soft == "0" and hard in (None, "0")
+            enabled = soft == "0" and hard in (None, "0")
+            # several switches of one kind can exist (extra vendor ones): the radio is on if any is on
+            result[kind] = result.get(kind, False) or enabled
     return result
 
 

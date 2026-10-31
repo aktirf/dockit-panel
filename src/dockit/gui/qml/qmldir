@@ -1,0 +1,11 @@
+singleton Theme 1.0 Theme.qml
+singleton Icons 1.0 Icons.qml
+Txt 1.0 Txt.qml
+Icon 1.0 Icon.qml
+Btn 1.0 Btn.qml
+Chip 1.0 Chip.qml
+Card 1.0 Card.qml
+Bar 1.0 Bar.qml
+Spark 1.0 Spark.qml
+NavItem 1.0 NavItem.qml
+ToggleCard 1.0 ToggleCard.qml
