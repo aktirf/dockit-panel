@@ -73,6 +73,20 @@ when = "battery"          # or "ac"
 
 Rules are checked top to bottom, the first match wins. Mistakes in the file are ignored and the defaults are used.
 
+## Sound
+
+Works through PipeWire (the `pactl` command), no root needed.
+
+```bash
+dockit audio                   # outputs and microphones, * = in use now
+dockit audio output epos       # send sound to the headset (part of the name is enough)
+dockit audio input epos        # headset microphone
+dockit audio mic mute|unmute   # mute or unmute the microphone
+dockit audio volume 50         # volume of the current output, 0-150
+```
+
+A profile can include sound: `output = "epos"` and `input = "epos"` in `~/.config/dockit/profiles.toml`. If the device is missing (headset unplugged) the profile only reports it.
+
 ## Layout
 
 | Folder | What it is |
