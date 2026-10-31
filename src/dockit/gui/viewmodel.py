@@ -65,7 +65,7 @@ def empty() -> dict:
     return {"ready": False, "model": "", "service": False, "okCount": 0, "total": 0,
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [],
-            "features": [], "counts": [], "cpuHistory": [], "gpuHistory": []}
+            "features": [], "counts": [], "cpuHistory": [], "gpuHistory": [], "profiles": []}
 
 
 def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str,
@@ -164,3 +164,40 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "cpuHistory": list(cpu_history),
         "gpuHistory": list(gpu_history),
     }
+
+
+# ---------- profiles page ----------
+
+MODE_BY_ID = {m["id"]: m["name"] for m in MODES}
+
+
+def _rule_text(rule) -> str:
+    parts = []
+    if rule.processes:
+        parts.append("Запущена программа: " + ", ".join(rule.processes))
+    if rule.when == "battery":
+        parts.append("Ноутбук работает от батареи")
+    elif rule.when == "ac":
+        parts.append("Ноутбук подключён к зарядке")
+    return " и ".join(parts)
+
+
+def profile_cards(profiles: dict, rules: list) -> list[dict]:
+    """One dict per profile: what it applies and which rules switch to it."""
+    cards = []
+    for p in profiles.values():
+        camera = "Не меняется" if p.camera is None else ("Включена" if p.camera else "Выключена")
+        rows = [
+            {"label": "Режим мощности", "value": MODE_BY_ID.get(p.power or "", "Не меняется")},
+            {"label": "Камера", "value": camera},
+            {"label": "Звук (вывод)", "value": f"«{p.output}»" if p.output else "Не меняется"},
+            {"label": "Микрофон", "value": f"«{p.input}»" if p.input else "Не меняется"},
+        ]
+        cards.append({
+            "id": p.id,
+            "name": p.name,
+            "sub": "Режим: " + MODE_BY_ID.get(p.power or "", "без изменений"),
+            "rows": rows,
+            "rules": [_rule_text(r) for r in rules if r.profile == p.id and _rule_text(r)],
+        })
+    return cards

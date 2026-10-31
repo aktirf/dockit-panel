@@ -105,6 +105,7 @@ class Backend(QObject):
                     note = self._apply_profile(available[wanted])
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                                     muted, scenarios, self._scenario)
+            state["profiles"] = viewmodel.profile_cards(available, rules)
             self._snapshot.emit(state)
             if note:
                 self._finished.emit(note)
