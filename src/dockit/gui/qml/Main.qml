@@ -405,7 +405,7 @@ Window {
                     Txt { text: "Быстрые переключатели"; font.pixelSize: 16; font.weight: Font.DemiBold }
                     GridLayout {
                         Layout.fillWidth: true
-                        columns: Math.max(1, Math.floor((width + 12) / 222))
+                        columns: (width + 12) >= 4 * 222 ? 4 : ((width + 12) >= 2 * 222 ? 2 : 1)
                         columnSpacing: 12
                         rowSpacing: 12
                         Repeater {

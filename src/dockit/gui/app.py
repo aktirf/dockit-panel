@@ -28,6 +28,7 @@ def run(argv: list[str] | None = None) -> int:
     app.setDesktopFileName("dockit")
     engine = QQmlApplicationEngine()
     backend = Backend()
+    app.aboutToQuit.connect(backend.shutdown)
     engine.rootContext().setContextProperty("backend", backend)
     engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))
     if not engine.rootObjects():

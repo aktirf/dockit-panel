@@ -6,12 +6,14 @@ runs in a thread and reports back through signals.
 
 from __future__ import annotations
 
+import subprocess
 import threading
 from collections import deque
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from ..core import audio, profiles, sysfs
+from ..core import audio, processes, profiles, sysfs
+from ..core import idle
 from ..core.cpu import CpuMonitor
 from ..core.scanner import scan
 from ..daemon import client
@@ -36,7 +38,8 @@ class Backend(QObject):
         self._cpu_name = self._cpu.name()
         self._cpu_hist: deque = deque(maxlen=40)
         self._gpu_hist: deque = deque(maxlen=40)
-        self._scenario = ""
+        self._scenario = profiles.load_scenario()
+        self._idle = idle.IdleWatcher()
         self._auto_last: str | None = None
         self._busy = False
         self._snapshot.connect(self._apply)
@@ -70,6 +73,10 @@ class Backend(QObject):
             self._toast = ""
             self.toastChanged.emit()
 
+    @Slot()
+    def shutdown(self) -> None:
+        self._idle.stop()
+
     # ---- scanning ----
     @Slot()
     def refresh(self) -> None:
@@ -99,13 +106,24 @@ class Backend(QObject):
             scenarios.append({"id": "auto", "name": "Авто"})
             note = ""
             if self._scenario == "auto":
-                wanted = profiles.choose(rules, profiles.running_processes(), ac_online())
+                self._idle.set_minutes([r.idle for r in rules if r.idle])
+                wanted = profiles.choose(rules, profiles.running_processes(), ac_online(),
+                                         self._idle.reached())
+                if wanted is None:
+                    fallback = profiles.load_fallback()
+                    wanted = fallback if fallback in available else None
                 if wanted and wanted != self._auto_last:
                     self._auto_last = wanted
                     note = self._apply_profile(available[wanted])
+            else:
+                self._idle.stop()
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                                     muted, scenarios, self._scenario)
             state["profiles"] = viewmodel.profile_cards(available, rules)
+            state["apps"] = processes.user_programs()
+            state["idleAvailable"] = idle.available()
+            fb = profiles.load_fallback()
+            state["fallback"] = fb if fb in available else ""
             try:
                 devices = audio.list_devices()
             except audio.AudioError:
@@ -172,6 +190,7 @@ class Backend(QObject):
     @Slot(str)
     def setScenario(self, scenario: str) -> None:
         self._scenario = scenario
+        profiles.save_scenario(scenario)
         self._auto_last = None
         self._state = dict(self._state, scenario=scenario)
         self.stateChanged.emit()
@@ -198,6 +217,32 @@ class Backend(QObject):
         self._say(f"Профиль «{available[pid].name}» сохранён. Нажмите «Применить сейчас», чтобы включить его.")
         self.refresh()
 
+    @Slot(str, str, str, int)
+    def saveRule(self, pid: str, programs: str, when: str, idle_minutes: int) -> None:
+        available, _ = profiles.load()
+        if pid not in available:
+            return
+        names = [n for n in programs.split(",") if n.strip()]
+        try:
+            profiles.save_rule(pid, names, when, idle_minutes)
+        except (ValueError, OSError):
+            self._say("Не удалось сохранить правило")
+            return
+        self._auto_last = None
+        self._say("Правило сохранено")
+        self.refresh()
+
+    @Slot(str)
+    def saveFallback(self, value: str) -> None:
+        try:
+            profiles.save_fallback(value)
+        except (ValueError, OSError):
+            self._say("Не удалось сохранить")
+            return
+        self._auto_last = None
+        self._say("Сохранено")
+        self.refresh()
+
     @Slot(str)
     def toggle(self, what: str) -> None:
         items = {t["id"]: t for t in self._state.get("toggles", [])}
@@ -214,6 +259,20 @@ class Backend(QObject):
             def work() -> str:
                 audio.set_mute("input", item["on"])  # on = sound is on, so the switch mutes it
                 return "Микрофон выключен" if item["on"] else "Микрофон включён"
+        elif what in ("wifi", "bluetooth"):
+            def work() -> str:
+                turn_on = not item["on"]
+                word = "on" if turn_on else "off"
+                command = (["nmcli", "radio", "wifi", word] if what == "wifi"
+                           else ["bluetoothctl", "power", word])
+                try:
+                    done = subprocess.run(command, capture_output=True, timeout=15)
+                except (OSError, subprocess.TimeoutExpired):
+                    return "Не удалось переключить"
+                name = "Wi-Fi" if what == "wifi" else "Bluetooth"
+                if done.returncode != 0:
+                    return f"{name}: не удалось переключить"
+                return f"{name} включён" if turn_on else f"{name} выключен"
         else:
             return
         self._run(work)

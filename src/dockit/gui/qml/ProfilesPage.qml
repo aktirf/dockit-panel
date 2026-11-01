@@ -28,6 +28,18 @@ Flickable {
         backend.saveProfile(cur.id, v.power, v.camera, v.output, v.input)
     }
 
+    function saveRule(procs, when, idle) {
+        backend.saveRule(cur.id, procs.join(","), when, idle)
+    }
+    function addProgram(name) {
+        var n = name.trim()
+        if (n === "" || cur.rule.processes.indexOf(n) >= 0) return
+        saveRule(cur.rule.processes.concat([n]), cur.rule.when, cur.rule.idle)
+    }
+    function removeProgram(name) {
+        saveRule(cur.rule.processes.filter(function (x) { return x !== name }), cur.rule.when, cur.rule.idle)
+    }
+
     clip: true
     contentWidth: width
     contentHeight: content.implicitHeight + 68
@@ -223,38 +235,141 @@ Flickable {
                     Txt {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Работает, когда на странице «Обзор» выбран сценарий «Авто». Проверяются правила сверху вниз, срабатывает первое подходящее."
+                        text: "Работает, когда на странице «Обзор» выбран сценарий «Авто». Если выбраны несколько условий, должны выполняться все сразу. Пусто — профиль сам не включается."
                         color: Theme.muted
-                        font.pixelSize: 13
+                        font.pixelSize: 12
                     }
-                    Repeater {
-                        model: page.cur ? page.cur.rules : []
-                        delegate: Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: ruleText.implicitHeight + 24
-                            radius: 12
-                            color: Theme.cardInner
-                            Txt {
-                                id: ruleText
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                wrapMode: Text.WordWrap
-                                text: modelData
-                                verticalAlignment: Text.AlignVCenter
+
+                    Txt { text: "Запущена программа"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        visible: page.cur.rule.processes.length > 0
+                        Repeater {
+                            model: page.cur.rule.processes
+                            delegate: Pill {
+                                text: modelData + "  ✕"
+                                sel: true
+                                onClicked: page.removeProgram(modelData)
                             }
                         }
                     }
                     Txt {
-                        visible: page.cur !== null && page.cur.rules.length === 0
+                        visible: page.cur.rule.processes.length === 0
+                        text: "Программы не выбраны"
+                        color: Theme.muted
+                        font.pixelSize: 13
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        TextField {
+                            id: nameField
+                            Layout.fillWidth: true
+                            implicitHeight: 40
+                            placeholderText: "Название программы, например cs2 или steam_app_*"
+                            placeholderTextColor: Theme.muted
+                            color: Theme.text
+                            font.family: Theme.sans
+                            font.pixelSize: 14
+                            leftPadding: 12
+                            selectByMouse: true
+                            background: Rectangle {
+                                radius: 10
+                                color: Theme.cardInner
+                                border.width: 1
+                                border.color: nameField.activeFocus ? Theme.accent : Theme.border2
+                            }
+                            onAccepted: { page.addProgram(text); text = "" }
+                        }
+                        Btn {
+                            text: "Добавить"
+                            implicitHeight: 40
+                            onClicked: { page.addProgram(nameField.text); nameField.text = "" }
+                        }
+                    }
+                    Txt {
+                        visible: suggestions.count > 0
+                        text: "Сейчас запущено (нажмите, чтобы добавить):"
+                        color: Theme.muted
+                        font.pixelSize: 12
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Repeater {
+                            id: suggestions
+                            model: (page.d.apps ? page.d.apps : []).filter(function (a) {
+                                return page.cur.rule.processes.indexOf(a) < 0
+                            })
+                            delegate: Pill {
+                                height: 30
+                                text: modelData
+                                onClicked: page.addProgram(modelData)
+                            }
+                        }
+                    }
+
+                    Txt { text: "Питание ноутбука"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не важно"; sel: page.cur.rule.when === ""; onClicked: page.saveRule(page.cur.rule.processes, "", page.cur.rule.idle) }
+                        Pill { text: "Работа от батареи"; sel: page.cur.rule.when === "battery"; onClicked: page.saveRule(page.cur.rule.processes, "battery", page.cur.rule.idle) }
+                        Pill { text: "Подключена зарядка"; sel: page.cur.rule.when === "ac"; onClicked: page.saveRule(page.cur.rule.processes, "ac", page.cur.rule.idle) }
+                    }
+
+                    Txt { text: "Нет действий с клавиатурой и мышью"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не важно"; sel: page.cur.rule.idle === 0; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, 0) }
+                        Repeater {
+                            model: [5, 10, 15, 30, 60]
+                            delegate: Pill {
+                                text: modelData + " мин"
+                                sel: page.cur.rule.idle === modelData
+                                onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, modelData)
+                            }
+                        }
+                    }
+                    Txt {
+                        visible: !page.d.idleAvailable
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Для этого профиля автоматических правил нет."
+                        text: "Чтобы это условие работало, нужна небольшая программа swayidle: sudo pacman -S swayidle"
+                        color: Theme.warn
+                        font.pixelSize: 12
+                    }
+                }
+
+                Card {
+                    Layout.fillWidth: true
+                    Txt { text: "Если ни одно правило не подошло"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Txt {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: "Например, вы отключили игру или снова подключили зарядку: в режиме «Авто» включится этот профиль."
                         color: Theme.muted
+                        font.pixelSize: 12
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Ничего не менять"; sel: page.d.fallback === ""; onClicked: backend.saveFallback("keep") }
+                        Repeater {
+                            model: page.list
+                            delegate: Pill {
+                                text: modelData.name
+                                sel: page.d.fallback === modelData.id
+                                onClicked: backend.saveFallback(modelData.id)
+                            }
+                        }
                     }
                     Txt {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Свои профили и правила описываются в файле ~/.config/dockit/profiles.toml (пример есть в README)."
+                        text: "Файл с настройками: ~/.config/dockit/profiles.toml (можно править и руками)."
                         color: Theme.muted
                         font.pixelSize: 12
                     }
