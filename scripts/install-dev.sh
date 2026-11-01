@@ -21,9 +21,13 @@ PY="${PYTHON:-python3}"
 
 echo "[1/4] Installing the program into /opt/dockit ..."
 mkdir -p /opt/dockit
-"$PY" -m venv /opt/dockit/venv
+# --system-site-packages lets the window use the system PySide6 (the service itself does not need it)
+"$PY" -m venv --system-site-packages /opt/dockit/venv
 /opt/dockit/venv/bin/pip install --quiet --upgrade "$REPO"
 ln -sf /opt/dockit/venv/bin/dockit /usr/local/bin/dockit-root
+ln -sf /opt/dockit/venv/bin/dockit /usr/local/bin/dockit
+install -Dm644 "$REPO/data/applications/dockit.desktop" /usr/share/applications/dockit.desktop
+install -Dm644 "$REPO/data/icons/dockit.svg" /usr/share/icons/hicolor/scalable/apps/dockit.svg
 
 echo "[2/4] Copying the device database ..."
 rm -rf /usr/share/dockit/devices
@@ -43,4 +47,4 @@ sleep 1
 systemctl --no-pager --lines=5 status dockit.service || true
 
 echo
-echo "Done. Try:  dockit profile    dockit camera status    dockit scan"
+echo "Done. Try:  dockit scan    dockit gui   (or find DOCKIT in the application menu)"

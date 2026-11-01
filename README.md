@@ -127,3 +127,13 @@ Background service (root actions with confirmation), profiles (games / work / ni
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).
+
+## Install
+
+```
+git clone https://github.com/aktirf/dockit-panel
+cd dockit-panel
+scripts/install.sh
+```
+
+Installs the packages DOCKIT needs, the service and an app-menu entry (Arch/EndeavourOS). Undo: `sudo scripts/uninstall-dev.sh`.
