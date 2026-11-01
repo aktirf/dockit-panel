@@ -11,6 +11,8 @@ Item {
 
     ToolTip {
         parent: root
+        x: Math.max(0, (root.width - width) / 2)
+        y: root.height + 6
         text: root.text
         delay: 450
         timeout: 8000
