@@ -12,6 +12,8 @@ NOISE = [
     "dms*", "niri", "quickshell", "bash", "zsh", "fish", "sh", "sudo", "login", "python*",
     "dockit*", "kitty", "kded*", "kwalletd*", "fcitx*", "ibus*", "upowerd", "udisks*", "agetty",
     "ps", "tee", "sleep", "cat", "less", "ls", "(sd-*", "gpg-agent", "dconf-service", "tmux*",
+    "Web Content*", "Socket Process", "Privileged Cont*", "Isolated *", "RDD Process",
+    "Utility Process", "WebExtensions", "Web Co*", "forkserver", "crashhelper*", "*-wrapped",
     "bluetoothd", "obex*", "rtkit*", "nm-*", "NetworkManager", "gcr-*", "pkexec", "mako", "dunst",
 ]
 

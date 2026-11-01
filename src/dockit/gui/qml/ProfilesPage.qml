@@ -6,6 +6,7 @@ Flickable {
     id: page
     property var d: ({})
     property string selId: ""
+    property bool showRunning: false
     readonly property var list: d.profiles ? d.profiles : []
     readonly property var cur: {
         for (var i = 0; i < list.length; i++)
@@ -292,15 +293,24 @@ Flickable {
                             onClicked: { page.addProgram(nameField.text); nameField.text = "" }
                         }
                     }
+                    Pill {
+                        height: 30
+                        text: page.showRunning ? "Скрыть запущенные программы" : "Выбрать из запущенных программ"
+                        tip: "Покажет программы, которые открыты сейчас. Наведите на название, чтобы увидеть, что это."
+                        onClicked: page.showRunning = !page.showRunning
+                    }
                     Txt {
-                        visible: suggestions.count > 0
-                        text: "Сейчас запущено (нажмите, чтобы добавить):"
+                        visible: page.showRunning && suggestions.count > 0
+                        text: "Нажмите на программу, чтобы добавить её в правило:"
                         color: Theme.muted
                         font.pixelSize: 12
                     }
                     Flow {
                         Layout.fillWidth: true
                         spacing: 6
+                        visible: page.showRunning
+                        opacity: page.showRunning ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: 200 } }
                         Repeater {
                             id: suggestions
                             model: (page.d.apps ? page.d.apps : []).filter(function (a) {
