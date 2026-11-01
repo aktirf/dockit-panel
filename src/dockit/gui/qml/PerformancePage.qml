@@ -11,6 +11,10 @@ Flickable {
         "performance": "Максимум мощности для игр и тяжёлых программ. Ноутбук греется сильнее и шумит громче, лучше работать от зарядки."
     })
 
+    SyncModel { id: modesModel }
+    Connections { target: backend; function onStateChanged() { modesModel.sync(page.d.modes) } }
+    Component.onCompleted: modesModel.sync(d.modes)
+
     contentWidth: width
     contentHeight: col.implicitHeight + 68
     clip: true
@@ -22,7 +26,7 @@ Flickable {
         x: 32
         y: 28
         width: page.width - 64
-        spacing: 24
+        spacing: 20
 
         ColumnLayout {
             spacing: 4
@@ -34,9 +38,9 @@ Flickable {
             Layout.fillWidth: true
             Txt { text: "Режим мощности"; font.pixelSize: 16; font.weight: Font.DemiBold }
             Repeater {
-                model: page.d.modes ? page.d.modes : []
+                model: modesModel
                 delegate: Rectangle {
-                    readonly property bool sel: modelData.id === page.d.currentMode
+                    readonly property bool sel: model.id === page.d.currentMode
                     Layout.fillWidth: true
                     implicitHeight: modeCol.implicitHeight + 28
                     radius: 12
@@ -52,13 +56,13 @@ Flickable {
                         spacing: 4
                         RowLayout {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: modelData.name; font.pixelSize: 15; font.weight: Font.DemiBold; color: sel ? "#FFFFFF" : Theme.text }
+                            Txt { Layout.fillWidth: true; text: model.name; font.pixelSize: 15; font.weight: Font.DemiBold; color: sel ? "#FFFFFF" : Theme.text }
                             Chip { visible: sel; kind: "ok"; text: "Выбран" }
                         }
                         Txt {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            text: page.details[modelData.id] ? page.details[modelData.id] : modelData.hint
+                            text: page.details[model.id] ? page.details[model.id] : model.hint
                             font.pixelSize: 13
                             color: sel ? "#A9D3FF" : Theme.muted
                         }
@@ -66,7 +70,7 @@ Flickable {
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: backend.setMode(modelData.id)
+                        onClicked: backend.setMode(model.id)
                     }
                 }
             }
@@ -74,17 +78,18 @@ Flickable {
 
         GridLayout {
             Layout.fillWidth: true
-            columns: Math.max(1, Math.min(2, Math.floor((width + 16) / 340)))
+            columns: width >= 520 ? 2 : 1
             columnSpacing: 16
             rowSpacing: 16
 
             Card {
+                pad: 14
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Txt { text: "Процессор"; font.pixelSize: 15; font.weight: Font.DemiBold }
                 Txt { Layout.fillWidth: true; text: page.d.cpu ? page.d.cpu.name : ""; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
                 RowLayout {
-                    Txt { text: page.d.cpu ? page.d.cpu.freq : "—"; font.pixelSize: 30; font.family: Theme.mono }
+                    Txt { text: page.d.cpu ? page.d.cpu.freq : "—"; font.pixelSize: 24; font.family: Theme.mono }
                     Txt { text: "ГГц"; color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 6 }
                 }
                 Bar { Layout.fillWidth: true; value: page.d.cpu && page.d.cpu.load !== null ? page.d.cpu.load : 0 }
@@ -96,16 +101,17 @@ Flickable {
                     Txt { Layout.fillWidth: true; text: "Температура"; color: Theme.muted }
                     Txt { text: page.d.cpu ? page.d.cpu.temp + " °C" : "—"; font.family: Theme.mono }
                 }
-                Spark { Layout.fillWidth: true; values: page.d.cpuHistory ? page.d.cpuHistory : [] }
+                Spark { Layout.fillWidth: true; Layout.preferredHeight: 28; implicitHeight: 28; values: page.d.cpuHistory ? page.d.cpuHistory : [] }
             }
 
             Card {
+                pad: 14
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Txt { text: "Видеокарта"; font.pixelSize: 15; font.weight: Font.DemiBold }
                 Txt { Layout.fillWidth: true; text: page.d.gpu ? page.d.gpu.name : ""; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
                 RowLayout {
-                    Txt { text: page.d.gpu ? page.d.gpu.clock : "—"; font.pixelSize: 30; font.family: Theme.mono }
+                    Txt { text: page.d.gpu ? page.d.gpu.clock : "—"; font.pixelSize: 24; font.family: Theme.mono }
                     Txt { text: "МГц"; color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 6 }
                 }
                 Bar { Layout.fillWidth: true; value: page.d.gpu && page.d.gpu.util !== null && page.d.gpu.util !== undefined ? page.d.gpu.util : 0 }
@@ -121,7 +127,7 @@ Flickable {
                     Txt { Layout.fillWidth: true; text: "Потребление"; color: Theme.muted }
                     Txt { text: page.d.gpu ? page.d.gpu.power + " Вт" : "—"; font.family: Theme.mono }
                 }
-                Spark { Layout.fillWidth: true; values: page.d.gpuHistory ? page.d.gpuHistory : [] }
+                Spark { Layout.fillWidth: true; Layout.preferredHeight: 28; implicitHeight: 28; values: page.d.gpuHistory ? page.d.gpuHistory : [] }
             }
         }
     }

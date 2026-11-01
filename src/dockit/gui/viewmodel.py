@@ -10,6 +10,7 @@ import shutil
 
 from ..core.scanner import ScanResult, display_name
 from ..core.status import LABELS_RU, Status
+from ..peripherals.scan import KIND_RU
 
 MODES = [
     {"id": "low-power", "name": "Тишина", "hint": "Тихо и экономно"},
@@ -59,6 +60,29 @@ def cpu_temperature(sensors_state: dict | None) -> float | None:
     return best
 
 
+CHIP_RU = {
+    "k10temp": "Процессор", "zenpower": "Процессор", "coretemp": "Процессор",
+    "nvme": "SSD (NVMe)", "amdgpu": "Встроенная графика", "nouveau": "Видеокарта",
+    "nvidia": "Видеокарта", "acpitz": "Материнская плата", "BAT0": "Батарея", "BAT1": "Батарея",
+    "spd5118": "Память", "iwlwifi_1": "Wi-Fi", "mt7921_phy0": "Wi-Fi", "r8169_0_300:00": "Сетевая карта",
+}
+
+
+def temperatures(sensors_state: dict | None) -> list[dict]:
+    """The hottest reading of every chip, with a plain name."""
+    best: dict[str, float] = {}
+    for key, value in ((sensors_state or {}).get("temps_c") or {}).items():
+        chip = key.split("/", 1)[0]
+        name = CHIP_RU.get(chip, chip)
+        best[name] = max(best.get(name, value), value)
+    return [{"name": n, "value": f"{v:.0f}", "hot": v >= 85} for n, v in sorted(best.items())]
+
+
+def _keyboard_leds() -> list[str]:
+    import glob
+    return [p.rsplit("/", 1)[-1] for p in glob.glob("/sys/class/leds/*kbd*")]
+
+
 def _item(result: ScanResult, item_id: str):
     return next((i for i in result.items if i.id == item_id), None)
 
@@ -66,7 +90,8 @@ def _item(result: ScanResult, item_id: str):
 def empty() -> dict:
     return {"ready": False, "model": "", "service": False, "okCount": 0, "total": 0,
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
-            "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [],
+            "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [], "temps": [], "fans": [],
+            "peripherals": [], "backlight": [], "system": {},
             "features": [], "counts": [], "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
             "fallback": ""}
@@ -167,6 +192,16 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "toggles": toggles,
         "features": features,
         "counts": counts,
+        "temps": temperatures(sensors.state if sensors else None),
+        "fans": [{"name": k.split("/", 1)[0], "rpm": v} for k, v in
+                 ((sensors.state or {}).get("fans_rpm", {}) if sensors else {}).items()],
+        "peripherals": [
+            {"name": p.name, "kind": KIND_RU.get(p.kind, p.kind), "usbId": p.usb_id, "known": p.known,
+             "notes": p.notes or "", "status": p.status}
+            for p in result.peripherals
+        ],
+        "backlight": _keyboard_leds(),
+        "system": dict(result.system),
         "cpuHistory": list(cpu_history),
         "gpuHistory": list(gpu_history),
     }
