@@ -39,3 +39,39 @@ def user_programs(uid: int | None = None, proc: str = "/proc") -> list[str]:
         if name and not any(fnmatch.fnmatchcase(name, pattern) for pattern in NOISE):
             names.add(name)
     return sorted(names, key=str.lower)
+
+
+# short plain-language descriptions shown as hints in the window
+KNOWN = {
+    "steam": "Steam — магазин и запуск игр.",
+    "steamwebhelper": "Встроенный браузер Steam (часть Steam).",
+    "cs2": "Counter-Strike 2.",
+    "gamescope": "Gamescope — оболочка для запуска игр с настройкой кадров и разрешения.",
+    "gamemoded": "GameMode — подстраивает систему под игру.",
+    "lutris": "Lutris — запуск игр и эмуляторов.",
+    "heroic": "Heroic — запуск игр из Epic и GOG.",
+    "wine*": "Wine — запуск Windows-программ и игр.",
+    "proton*": "Proton — запуск Windows-игр из Steam.",
+    "firefox*": "Firefox — браузер.",
+    "zen*": "Zen — браузер.",
+    "chrome*": "Chrome — браузер.",
+    "code*": "Редактор кода.",
+    "discord*": "Discord — голосовой чат.",
+    "telegram*": "Telegram — мессенджер.",
+    "obs*": "OBS — запись и трансляция экрана.",
+    "mpv": "mpv — видеоплеер.",
+    "vlc": "VLC — видеоплеер.",
+    "blender*": "Blender — 3D-редактор.",
+}
+
+
+def describe(name: str) -> str:
+    """One line about a program: what it is, or how the rule will match it."""
+    for pattern, text in KNOWN.items():
+        if fnmatch.fnmatchcase(name.lower(), pattern):
+            return text
+    if "*" in name or "?" in name:
+        return f"Шаблон: подойдёт любая программа с таким именем ({name})."
+    if name.startswith("steam_app_"):
+        return "Игра, запущенная через Steam."
+    return f"Программа «{name}». Правило сработает, пока она запущена."

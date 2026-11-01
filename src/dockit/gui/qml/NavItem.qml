@@ -14,6 +14,7 @@ Rectangle {
     implicitHeight: 44
     radius: 10
     color: active ? Theme.navActive : (mouse.containsMouse ? "#161E26" : "transparent")
+    Behavior on color { ColorAnimation { duration: 160 } }
     opacity: ready ? 1 : 0.55
 
     RowLayout {

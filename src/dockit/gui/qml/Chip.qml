@@ -6,6 +6,7 @@ Rectangle {
     property string text: ""
     property string icon: ""
     property bool big: false
+    property string tip: ""
 
     implicitHeight: big ? 34 : 26
     implicitWidth: row.implicitWidth + (big ? 28 : 20)
@@ -13,6 +14,8 @@ Rectangle {
     color: big ? Theme.card : Theme.statusBg(kind)
     border.width: big ? 1 : 0
     border.color: Theme.border2
+    Behavior on color { ColorAnimation { duration: 200 } }
+    Tip { text: root.tip }
 
     Row {
         id: row

@@ -161,7 +161,7 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не менять"; sel: page.cur.edit.power === "keep"; onClicked: page.save("power", "keep") }
+                        Pill { text: "Не менять"; tip: "Профиль не трогает режим производительности — остаётся тот, что был."; sel: page.cur.edit.power === "keep"; onClicked: page.save("power", "keep") }
                         Repeater {
                             model: page.d.modes ? page.d.modes : []
                             delegate: Pill {
@@ -249,6 +249,7 @@ Flickable {
                             model: page.cur.rule.processes
                             delegate: Pill {
                                 text: modelData + "  ✕"
+                                tip: backend.describeProgram(modelData) + "\nНажмите, чтобы убрать из списка."
                                 sel: true
                                 onClicked: page.removeProgram(modelData)
                             }
@@ -267,6 +268,9 @@ Flickable {
                             id: nameField
                             Layout.fillWidth: true
                             implicitHeight: 40
+                            ToolTip.text: "Имя процесса, как в системе (команда ps). Можно со звёздочкой: steam_app_* — любая игра из Steam."
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 450
                             placeholderText: "Название программы, например cs2 или steam_app_*"
                             placeholderTextColor: Theme.muted
                             color: Theme.text
@@ -305,6 +309,7 @@ Flickable {
                             delegate: Pill {
                                 height: 30
                                 text: modelData
+                                tip: backend.describeProgram(modelData) + "\nНажмите, чтобы добавить в правило."
                                 onClicked: page.addProgram(modelData)
                             }
                         }
@@ -315,8 +320,8 @@ Flickable {
                         Layout.fillWidth: true
                         spacing: 8
                         Pill { text: "Не важно"; sel: page.cur.rule.when === ""; onClicked: page.saveRule(page.cur.rule.processes, "", page.cur.rule.idle) }
-                        Pill { text: "Работа от батареи"; sel: page.cur.rule.when === "battery"; onClicked: page.saveRule(page.cur.rule.processes, "battery", page.cur.rule.idle) }
-                        Pill { text: "Подключена зарядка"; sel: page.cur.rule.when === "ac"; onClicked: page.saveRule(page.cur.rule.processes, "ac", page.cur.rule.idle) }
+                        Pill { text: "Работа от батареи"; tip: "Правило сработает, когда ноутбук отключён от зарядки."; sel: page.cur.rule.when === "battery"; onClicked: page.saveRule(page.cur.rule.processes, "battery", page.cur.rule.idle) }
+                        Pill { text: "Подключена зарядка"; tip: "Правило сработает, когда ноутбук подключён к розетке."; sel: page.cur.rule.when === "ac"; onClicked: page.saveRule(page.cur.rule.processes, "ac", page.cur.rule.idle) }
                     }
 
                     Txt { text: "Нет действий с клавиатурой и мышью"; color: Theme.soft }
@@ -356,7 +361,7 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Ничего не менять"; sel: page.d.fallback === ""; onClicked: backend.saveFallback("keep") }
+                        Pill { text: "Ничего не менять"; tip: "Если ни одно правило не подошло, ничего не переключается."; sel: page.d.fallback === ""; onClicked: backend.saveFallback("keep") }
                         Repeater {
                             model: page.list
                             delegate: Pill {

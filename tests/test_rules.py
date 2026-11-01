@@ -141,3 +141,11 @@ def test_profile_cards_carry_the_rule_for_editing():
     assert cards[1]["rule"] == {"processes": [], "when": "", "idle": 15}
     assert vm.profile_cards({"night": pf.Profile("night", "Ночь")}, [])[0]["rule"] == \
         {"processes": [], "when": "", "idle": 0}
+
+
+def test_describe_program():
+    from dockit.core.processes import describe
+    assert "Steam" in describe("steam")
+    assert "Шаблон" in describe("foo_*")
+    assert "Steam" in describe("steam_app_730")
+    assert "mygame" in describe("mygame")

@@ -85,13 +85,17 @@ Window {
         ProfilesPage {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: win.page === "profiles"
+            opacity: win.page === "profiles" ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: 180 } }
             d: win.d
         }
 
         Flickable {
             id: flick
-            visible: win.page === "overview"
+            opacity: win.page === "overview" ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: 180 } }
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: width
@@ -415,6 +419,7 @@ Window {
                                 label: modelData.label
                                 on: modelData.on
                                 can: modelData.can
+                                tip: backend.describeToggle(modelData.id)
                                 onToggled: backend.toggle(modelData.id)
                             }
                         }

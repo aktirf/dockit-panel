@@ -4,6 +4,7 @@ Rectangle {
     id: root
     property string text: ""
     property bool sel: false
+    property string tip: ""
     signal clicked()
 
     height: 36
@@ -12,6 +13,9 @@ Rectangle {
     color: sel ? Theme.accent : Theme.btn
     border.width: 1
     border.color: sel ? Theme.accent : Theme.border3
+    Behavior on color { ColorAnimation { duration: 160 } }
+    Behavior on border.color { ColorAnimation { duration: 160 } }
+    Tip { text: root.tip }
 
     Txt {
         id: label

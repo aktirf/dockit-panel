@@ -4,6 +4,7 @@ Rectangle {
     id: root
     property string text: ""
     property bool primary: false
+    property string tip: ""
     signal clicked()
 
     implicitHeight: 44
@@ -13,6 +14,8 @@ Rectangle {
     border.width: 1
     border.color: primary ? Theme.accent : Theme.border3
     opacity: !enabled ? 0.45 : (mouse.containsMouse ? 0.88 : 1)
+    Behavior on opacity { NumberAnimation { duration: 120 } }
+    Tip { text: root.tip }
 
     Txt {
         id: label

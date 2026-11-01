@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import subprocess
 import threading
+import time
 from collections import deque
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
@@ -42,6 +43,7 @@ class Backend(QObject):
         self._idle = idle.IdleWatcher()
         self._auto_last: str | None = None
         self._busy = False
+        self._hist_at = 0.0
         self._snapshot.connect(self._apply)
         self._finished.connect(self._done)
         self._timer = QTimer(self)
@@ -77,6 +79,19 @@ class Backend(QObject):
     def shutdown(self) -> None:
         self._idle.stop()
 
+    @Slot(str, result=str)
+    def describeProgram(self, name: str) -> str:
+        return processes.describe(name)
+
+    @Slot(str, result=str)
+    def describeToggle(self, what: str) -> str:
+        return {
+            "camera": "Включает и выключает веб-камеру на уровне системы.",
+            "mic": "Отключает звук микрофона по умолчанию.",
+            "wifi": "Включает и выключает Wi-Fi.",
+            "bluetooth": "Включает и выключает Bluetooth.",
+        }.get(what, "")
+
     # ---- scanning ----
     @Slot()
     def refresh(self) -> None:
@@ -92,10 +107,14 @@ class Backend(QObject):
             cpu = self._cpu.sample()
             sensors = next((i for i in result.items if i.id == "sensors"), None)
             temp = viewmodel.cpu_temperature(sensors.state if sensors else None)
-            if temp is not None:
+            now = time.monotonic()
+            fresh = now - self._hist_at >= 2.5
+            if fresh:
+                self._hist_at = now
+            if temp is not None and fresh:
                 self._cpu_hist.append(temp)
             gpu_item = next((i for i in result.items if i.id == "gpu_nvidia"), None)
-            if gpu_item and gpu_item.state and gpu_item.state.get("temp_c") is not None:
+            if fresh and gpu_item and gpu_item.state and gpu_item.state.get("temp_c") is not None:
                 self._gpu_hist.append(gpu_item.state["temp_c"])
             try:
                 muted = next((d.muted for d in audio.list_devices() if d.kind == "input" and d.default), None)
