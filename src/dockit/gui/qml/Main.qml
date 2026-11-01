@@ -15,6 +15,21 @@ Window {
 
     property string page: "overview"
     readonly property var d: backend.state
+
+    SyncModel { id: modesModel }
+    SyncModel { id: scenariosModel }
+    SyncModel { id: togglesModel }
+    SyncModel { id: countsModel }
+    SyncModel { id: featuresModel }
+    function syncAll() {
+        modesModel.sync(d.modes)
+        scenariosModel.sync(d.scenarios)
+        togglesModel.sync(d.toggles)
+        countsModel.sync(d.counts)
+        featuresModel.sync(d.features)
+    }
+    Connections { target: backend; function onStateChanged() { win.syncAll() } }
+    Component.onCompleted: syncAll()
     readonly property int problems: d.features ? d.features.filter(function (f) { return f.status !== "ok" }).length : 0
 
     function modeName(id) {
@@ -67,7 +82,7 @@ Window {
                 }
 
                 NavItem { icon: "grid"; text: "Обзор"; active: win.page === "overview"; onClicked: win.page = "overview" }
-                NavItem { icon: "gauge"; text: "Производительность"; ready: false; onClicked: win.soon() }
+                NavItem { icon: "gauge"; text: "Производительность"; active: win.page === "performance"; onClicked: win.page = "performance" }
                 NavItem { icon: "battery"; text: "Питание и батарея"; ready: false; onClicked: win.soon() }
                 NavItem { icon: "fan"; text: "Охлаждение"; ready: false; onClicked: win.soon() }
                 NavItem { icon: "sun"; text: "Подсветка"; ready: false; onClicked: win.soon() }
@@ -85,19 +100,26 @@ Window {
         ProfilesPage {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            opacity: win.page === "profiles" ? 1 : 0
-            visible: opacity > 0
-            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-            transform: Translate { y: win.page === "profiles" ? 0 : 18; Behavior on y { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } } }
+            visible: win.page === "profiles"
+            onVisibleChanged: if (visible) fadeProfiles.restart()
+            NumberAnimation on opacity { id: fadeProfiles; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            d: win.d
+        }
+
+        PerformancePage {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: win.page === "performance"
+            onVisibleChanged: if (visible) fadePerformance.restart()
+            NumberAnimation on opacity { id: fadePerformance; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             d: win.d
         }
 
         Flickable {
             id: flick
-            opacity: win.page === "overview" ? 1 : 0
-            visible: opacity > 0
-            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-            transform: Translate { y: win.page === "overview" ? 0 : 18; Behavior on y { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } } }
+            visible: win.page === "overview"
+            onVisibleChanged: if (visible) fadeOverview.restart()
+            NumberAnimation on opacity { id: fadeOverview; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: width
@@ -157,9 +179,9 @@ Window {
                         columnSpacing: 10
                         rowSpacing: 10
                         Repeater {
-                            model: d.modes
+                            model: modesModel
                             delegate: Rectangle {
-                                readonly property bool sel: modelData.id === d.currentMode
+                                readonly property bool sel: model.id === d.currentMode
                                 Layout.fillWidth: true
                                 implicitWidth: 170
                                 Layout.preferredHeight: 72
@@ -172,13 +194,13 @@ Window {
                                     anchors.margins: 14
                                     spacing: 4
                                     Txt {
-                                        text: modelData.name
+                                        text: model.name
                                         font.pixelSize: 15
                                         font.weight: Font.DemiBold
                                         color: sel ? "#FFFFFF" : Theme.text
                                     }
                                     Txt {
-                                        text: modelData.hint
+                                        text: model.hint
                                         font.pixelSize: 12
                                         color: sel ? "#A9D3FF" : Theme.muted
                                     }
@@ -186,7 +208,7 @@ Window {
                                 MouseArea {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: backend.setMode(modelData.id)
+                                    onClicked: backend.setMode(model.id)
                                 }
                             }
                         }
@@ -203,9 +225,9 @@ Window {
                             rightPadding: 4
                         }
                         Repeater {
-                            model: d.scenarios
+                            model: scenariosModel
                             delegate: Rectangle {
-                                readonly property bool sel: modelData.id === d.scenario
+                                readonly property bool sel: model.id === d.scenario
                                 height: 44
                                 width: pillText.implicitWidth + 36
                                 radius: 22
@@ -215,14 +237,14 @@ Window {
                                 Txt {
                                     id: pillText
                                     anchors.centerIn: parent
-                                    text: modelData.name
+                                    text: model.name
                                     color: sel ? "#0B1218" : Theme.soft
                                     font.weight: sel ? Font.DemiBold : Font.Medium
                                 }
                                 MouseArea {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: backend.setScenario(modelData.id)
+                                    onClicked: backend.setScenario(model.id)
                                 }
                             }
                         }
@@ -415,14 +437,14 @@ Window {
                         columnSpacing: 12
                         rowSpacing: 12
                         Repeater {
-                            model: d.toggles
+                            model: togglesModel
                             delegate: ToggleCard {
                                 Layout.fillWidth: true
-                                label: modelData.label
-                                on: modelData.on
-                                can: modelData.can
-                                tip: backend.describeToggle(modelData.id)
-                                onToggled: backend.toggle(modelData.id)
+                                label: model.label
+                                on: model.on
+                                can: model.can
+                                tip: backend.describeToggle(model.id)
+                                onToggled: backend.toggle(model.id)
                             }
                         }
                     }
@@ -436,15 +458,15 @@ Window {
                         spacing: 12
                         Txt { Layout.fillWidth: true; text: "Состояние функций"; font.pixelSize: 16; font.weight: Font.DemiBold }
                         Repeater {
-                            model: d.counts
-                            delegate: Chip { kind: modelData.status; text: modelData.text }
+                            model: countsModel
+                            delegate: Chip { kind: model.status; text: model.text }
                         }
                     }
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 10
                         Repeater {
-                            model: d.features
+                            model: featuresModel
                             delegate: Rectangle {
                                 Layout.fillWidth: true
                                 implicitHeight: rowLayout.implicitHeight + 28
@@ -460,35 +482,35 @@ Window {
                                         implicitWidth: 36
                                         implicitHeight: 36
                                         radius: 10
-                                        color: Theme.statusBg(modelData.status)
+                                        color: Theme.statusBg(model.status)
                                         Icon {
                                             anchors.centerIn: parent
                                             size: 18
-                                            name: Theme.statusIcon(modelData.status)
-                                            color: Theme.statusColor(modelData.status)
+                                            name: Theme.statusIcon(model.status)
+                                            color: Theme.statusColor(model.status)
                                         }
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 2
-                                        Txt { text: modelData.name; font.weight: Font.Medium }
+                                        Txt { text: model.name; font.weight: Font.Medium }
                                         Txt {
                                             Layout.fillWidth: true
-                                            text: modelData.detail
+                                            text: model.detail
                                             wrapMode: Text.WordWrap
                                             font.pixelSize: 13
                                             color: Theme.muted
                                         }
                                         Txt {
                                             Layout.fillWidth: true
-                                            visible: modelData.hint !== ""
-                                            text: "Как исправить: " + modelData.hint
+                                            visible: model.hint !== ""
+                                            text: "Как исправить: " + model.hint
                                             wrapMode: Text.WordWrap
                                             font.pixelSize: 13
                                             color: Theme.warn
                                         }
                                     }
-                                    Chip { kind: modelData.status; text: modelData.statusText }
+                                    Chip { kind: model.status; text: model.statusText }
                                 }
                             }
                         }

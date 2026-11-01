@@ -12,3 +12,5 @@ ToggleCard 1.0 ToggleCard.qml
 ProfilesPage 1.0 ProfilesPage.qml
 Pill 1.0 Pill.qml
 Tip 1.0 Tip.qml
+SyncModel 1.0 SyncModel.qml
+PerformancePage 1.0 PerformancePage.qml

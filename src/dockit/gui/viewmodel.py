@@ -132,7 +132,7 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
 
     features = [
         {"id": i.id, "name": i.name, "status": STATUS_KEY[i.status], "statusText": LABELS_RU[i.status],
-         "detail": i.detail, "hint": i.hint}
+         "detail": i.detail or "", "hint": i.hint or ""}
         for i in result.items
     ]
     order = {"setup": 0, "root": 1, "no": 2, "ok": 3}
