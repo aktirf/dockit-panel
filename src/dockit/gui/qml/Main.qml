@@ -83,16 +83,16 @@ Window {
 
                 NavItem { icon: "grid"; text: "Обзор"; active: win.page === "overview"; onClicked: win.page = "overview" }
                 NavItem { icon: "gauge"; text: "Производительность"; active: win.page === "performance"; onClicked: win.page = "performance" }
-                NavItem { icon: "battery"; text: "Питание и батарея"; ready: false; onClicked: win.soon() }
-                NavItem { icon: "fan"; text: "Охлаждение"; ready: false; onClicked: win.soon() }
-                NavItem { icon: "sun"; text: "Подсветка"; ready: false; onClicked: win.soon() }
-                NavItem { icon: "mouse"; text: "Периферия"; ready: false; onClicked: win.soon() }
+                NavItem { icon: "battery"; text: "Питание и батарея"; active: win.page === "battery"; onClicked: win.page = "battery" }
+                NavItem { icon: "fan"; text: "Охлаждение"; active: win.page === "cooling"; onClicked: win.page = "cooling" }
+                NavItem { icon: "sun"; text: "Подсветка"; active: win.page === "backlight"; onClicked: win.page = "backlight" }
+                NavItem { icon: "mouse"; text: "Периферия"; active: win.page === "peripherals"; onClicked: win.page = "peripherals" }
                 NavItem { icon: "layers"; text: "Профили"; active: win.page === "profiles"; onClicked: win.page = "profiles" }
 
                 Item { Layout.fillHeight: true }
 
-                NavItem { icon: "pulse"; text: "Диагностика"; badge: win.problems; ready: false; onClicked: win.soon() }
-                NavItem { icon: "sliders"; text: "Настройки"; ready: false; onClicked: win.soon() }
+                NavItem { icon: "pulse"; text: "Диагностика"; badge: win.problems; active: win.page === "diagnostics"; onClicked: win.page = "diagnostics" }
+                NavItem { icon: "sliders"; text: "Настройки"; active: win.page === "settings"; onClicked: win.page = "settings" }
             }
         }
 
@@ -112,6 +112,72 @@ Window {
             visible: win.page === "performance"
             onVisibleChanged: if (visible) fadePerformance.restart()
             NumberAnimation on opacity { id: fadePerformance; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            d: win.d
+        }
+
+        BatteryPage {
+            id: batteryPage
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: win.page === "battery"
+            onVisibleChanged: if (visible) batteryFade.restart()
+            NumberAnimation on opacity { id: batteryFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            onGoto: function (name) { win.page = name }
+            d: win.d
+        }
+
+        CoolingPage {
+            id: coolingPage
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: win.page === "cooling"
+            onVisibleChanged: if (visible) coolingFade.restart()
+            NumberAnimation on opacity { id: coolingFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            onGoto: function (name) { win.page = name }
+            d: win.d
+        }
+
+        BacklightPage {
+            id: backlightPage
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: win.page === "backlight"
+            onVisibleChanged: if (visible) backlightFade.restart()
+            NumberAnimation on opacity { id: backlightFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            onGoto: function (name) { win.page = name }
+            d: win.d
+        }
+
+        PeripheralsPage {
+            id: peripheralsPage
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: win.page === "peripherals"
+            onVisibleChanged: if (visible) peripheralsFade.restart()
+            NumberAnimation on opacity { id: peripheralsFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            onGoto: function (name) { win.page = name }
+            d: win.d
+        }
+
+        DiagnosticsPage {
+            id: diagnosticsPage
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: win.page === "diagnostics"
+            onVisibleChanged: if (visible) diagnosticsFade.restart()
+            NumberAnimation on opacity { id: diagnosticsFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            onGoto: function (name) { win.page = name }
+            d: win.d
+        }
+
+        SettingsPage {
+            id: settingsPage
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: win.page === "settings"
+            onVisibleChanged: if (visible) settingsFade.restart()
+            NumberAnimation on opacity { id: settingsFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            onGoto: function (name) { win.page = name }
             d: win.d
         }
 
@@ -201,18 +267,6 @@ Window {
                                 }
                             }
                         }
-                    }
-                }
-
-                // short live summary; details are on the Performance page
-                Card {
-                    Layout.fillWidth: true
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 10
-                        Chip { big: true; text: "Процессор: " + (d.cpu.load !== null && d.cpu.load !== undefined ? d.cpu.load + " %" : "—") + ", " + d.cpu.temp + " °C"; tip: "Подробнее на странице «Производительность»" }
-                        Chip { big: true; text: "Видеокарта: " + (d.gpu.util !== null && d.gpu.util !== undefined ? d.gpu.util + " %" : "—") + ", " + d.gpu.temp + " °C"; tip: "Подробнее на странице «Производительность»" }
-                        Btn { text: "Открыть «Производительность»"; implicitHeight: 34; onClicked: win.page = "performance" }
                     }
                 }
 
@@ -332,70 +386,20 @@ Window {
                     }
                 }
 
-                // feature status list
+                // problems: details are on the Diagnostics page
                 Card {
                     Layout.fillWidth: true
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 12
-                        Txt { Layout.fillWidth: true; text: "Состояние функций"; font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Repeater {
-                            model: countsModel
-                            delegate: Chip { kind: model.status; text: model.text }
+                        Chip { kind: win.problems > 0 ? "setup" : "ok"; text: win.problems > 0 ? "Не работает: " + win.problems : "Всё работает" }
+                        Txt {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: Theme.muted
+                            text: win.problems > 0 ? "Некоторые функции недоступны. Что именно и как исправить, написано в «Диагностике»." : "Все функции этого ноутбука, которые знает DOCKIT, работают."
                         }
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
-                        Repeater {
-                            model: featuresModel
-                            delegate: Rectangle {
-                                Layout.fillWidth: true
-                                implicitHeight: rowLayout.implicitHeight + 28
-                                radius: 12
-                                color: Theme.cardInner
-                                RowLayout {
-                                    id: rowLayout
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 16
-                                    anchors.rightMargin: 16
-                                    spacing: 14
-                                    Rectangle {
-                                        implicitWidth: 36
-                                        implicitHeight: 36
-                                        radius: 10
-                                        color: Theme.statusBg(model.status)
-                                        Icon {
-                                            anchors.centerIn: parent
-                                            size: 18
-                                            name: Theme.statusIcon(model.status)
-                                            color: Theme.statusColor(model.status)
-                                        }
-                                    }
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 2
-                                        Txt { text: model.name; font.weight: Font.Medium }
-                                        Txt {
-                                            Layout.fillWidth: true
-                                            text: model.detail
-                                            wrapMode: Text.WordWrap
-                                            font.pixelSize: 13
-                                            color: Theme.muted
-                                        }
-                                        Txt {
-                                            Layout.fillWidth: true
-                                            visible: model.hint !== ""
-                                            text: "Как исправить: " + model.hint
-                                            wrapMode: Text.WordWrap
-                                            font.pixelSize: 13
-                                            color: Theme.warn
-                                        }
-                                    }
-                                    Chip { kind: model.status; text: model.statusText }
-                                }
-                            }
-                        }
+                        Btn { text: "Открыть «Диагностику»"; onClicked: win.page = "diagnostics" }
                     }
                 }
             }

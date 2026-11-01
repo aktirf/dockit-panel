@@ -14,3 +14,11 @@ Pill 1.0 Pill.qml
 Tip 1.0 Tip.qml
 SyncModel 1.0 SyncModel.qml
 PerformancePage 1.0 PerformancePage.qml
+PageFrame 1.0 PageFrame.qml
+Row2 1.0 Row2.qml
+BatteryPage 1.0 BatteryPage.qml
+CoolingPage 1.0 CoolingPage.qml
+BacklightPage 1.0 BacklightPage.qml
+PeripheralsPage 1.0 PeripheralsPage.qml
+DiagnosticsPage 1.0 DiagnosticsPage.qml
+SettingsPage 1.0 SettingsPage.qml

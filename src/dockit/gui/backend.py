@@ -6,6 +6,8 @@ runs in a thread and reports back through signals.
 
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import threading
 import time
@@ -28,6 +30,7 @@ MODE_NAMES = {m["id"]: m["name"] for m in viewmodel.MODES}
 class Backend(QObject):
     stateChanged = Signal()
     toastChanged = Signal()
+    settingsChanged = Signal()
     _snapshot = Signal(object)   # worker thread -> main thread
     _finished = Signal(str)
 
@@ -47,7 +50,8 @@ class Backend(QObject):
         self._snapshot.connect(self._apply)
         self._finished.connect(self._done)
         self._timer = QTimer(self)
-        self._timer.setInterval(3000)
+        self._settings = self._load_settings()
+        self._timer.setInterval(self._settings["interval"] * 1000)
         self._timer.timeout.connect(self.refresh)
         self._timer.start()
         self.refresh()
@@ -74,6 +78,58 @@ class Backend(QObject):
         if self._toast:
             self._toast = ""
             self.toastChanged.emit()
+
+    # ---- settings (saved in ~/.config/dockit/settings.json) ----
+    @staticmethod
+    def _settings_path() -> str:
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+        return os.path.join(base, "dockit", "settings.json")
+
+    def _load_settings(self) -> dict:
+        data = {"interval": 3}
+        try:
+            with open(self._settings_path(), encoding="utf-8") as f:
+                loaded = json.load(f)
+            if loaded.get("interval") in (1, 3, 5, 10):
+                data["interval"] = loaded["interval"]
+        except (OSError, ValueError, AttributeError):
+            pass
+        return data
+
+    @Property(int, notify=settingsChanged)
+    def interval(self) -> int:
+        return self._settings["interval"]
+
+    @Property(str, constant=True)
+    def version(self) -> str:
+        from .. import __version__
+        return __version__
+
+    @Slot(int)
+    def setInterval(self, seconds: int) -> None:
+        if seconds not in (1, 3, 5, 10):
+            return
+        self._settings["interval"] = seconds
+        self._timer.setInterval(seconds * 1000)
+        try:
+            os.makedirs(os.path.dirname(self._settings_path()), exist_ok=True)
+            with open(self._settings_path(), "w", encoding="utf-8") as f:
+                json.dump(self._settings, f)
+        except OSError:
+            self._say("Не удалось сохранить настройку")
+        self.settingsChanged.emit()
+
+    @Slot()
+    def copyReport(self) -> None:
+        from PySide6.QtGui import QGuiApplication
+        st = self._state
+        lines = [f"DOCKIT {self.version}", ", ".join(f"{k}: {v}" for k, v in st.get("system", {}).items()), ""]
+        for f in st.get("features", []):
+            lines.append(f"[{f['statusText']}] {f['name']}: {f['detail']}")
+            if f.get("hint"):
+                lines.append(f"    Как исправить: {f['hint']}")
+        QGuiApplication.clipboard().setText("\n".join(lines))
+        self._say("Отчёт скопирован. Его можно вставить в сообщение об ошибке.")
 
     @Slot()
     def shutdown(self) -> None:
