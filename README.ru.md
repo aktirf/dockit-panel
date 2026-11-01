@@ -101,3 +101,13 @@ dockit gui
 ## Лицензия
 
 GPL-3.0-or-later. Текст в файле [LICENSE](LICENSE).
+
+## Установка
+
+```
+git clone https://github.com/aktirf/dockit-panel
+cd dockit-panel
+scripts/install.sh
+```
+
+Ставит нужные пакеты, службу и ярлык в меню приложений (Arch/EndeavourOS). Удалить: `sudo scripts/uninstall-dev.sh`.
