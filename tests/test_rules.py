@@ -137,10 +137,10 @@ def test_profile_cards_carry_the_rule_for_editing():
     profs = {"games": pf.Profile("games", "Игры"), "work": pf.Profile("work", "Работа")}
     rules = [pf.Rule("games", ["cs2"], "ac", 0), pf.Rule("work", [], "", 15)]
     cards = vm.profile_cards(profs, rules)
-    assert cards[0]["rule"] == {"processes": ["cs2"], "when": "ac", "idle": 0}
-    assert cards[1]["rule"] == {"processes": [], "when": "", "idle": 15}
+    assert cards[0]["rule"] == {"processes": ["cs2"], "when": "ac", "idle": 0, "temp": 0, "hours": ""}
+    assert cards[1]["rule"] == {"processes": [], "when": "", "idle": 15, "temp": 0, "hours": ""}
     assert vm.profile_cards({"night": pf.Profile("night", "Ночь")}, [])[0]["rule"] == \
-        {"processes": [], "when": "", "idle": 0}
+        {"processes": [], "when": "", "idle": 0, "temp": 0, "hours": ""}
 
 
 def test_describe_program():
@@ -149,3 +149,27 @@ def test_describe_program():
     assert "Шаблон" in describe("foo_*")
     assert "Steam" in describe("steam_app_730")
     assert "mygame" in describe("mygame")
+
+
+def test_temperature_and_hours_rules(tmp_path):
+    import datetime
+    from dockit.core import profiles as pf
+    f = tmp_path / "p.toml"
+    pf.save_rule("night", [], "", 0, f, hours="22:00-07:00")
+    pf.save_rule("work", [], "", 0, f, temp=90)
+    _, rules = pf.load(f)
+    assert rules[0].profile == "work" and rules[0].temp == 90          # heat protection goes first
+    assert any(r.hours == "22:00-07:00" for r in rules)
+    at = lambda h, m: datetime.time(h, m)
+    assert pf.choose(rules, set(), None, cpu_temp=95, now=at(12, 0)) == "work"
+    assert pf.choose(rules, set(), None, cpu_temp=60, now=at(23, 30)) == "night"
+    assert pf.choose(rules, set(), None, cpu_temp=60, now=at(3, 0)) == "night"
+    assert pf.choose(rules, set(), None, cpu_temp=None, now=at(12, 0)) != "work"
+
+
+def test_hours_validation():
+    from dockit.core.profiles import valid_hours, in_hours
+    import datetime
+    assert valid_hours("") and valid_hours("07:00-22:30")
+    assert not valid_hours("7:00-22:00") and not valid_hours("25:00-01:00") and not valid_hours("abc")
+    assert in_hours("09:00-17:00", datetime.time(12, 0)) and not in_hours("09:00-17:00", datetime.time(18, 0))

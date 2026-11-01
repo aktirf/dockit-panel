@@ -11,6 +11,9 @@ Window {
     minimumHeight: 520
     visible: true
     title: "DOCKIT"
+    onClosing: function (close) {
+        if (backend.trayActive) { close.accepted = false; win.hide() } else Qt.quit()
+    }
     color: Theme.bg
 
     property string page: "overview"
@@ -21,12 +24,14 @@ Window {
     SyncModel { id: togglesModel }
     SyncModel { id: countsModel }
     SyncModel { id: featuresModel }
+    SyncModel { id: journalModel }
     function syncAll() {
         modesModel.sync(d.modes)
         scenariosModel.sync(d.scenarios)
         togglesModel.sync(d.toggles)
         countsModel.sync(d.counts)
         featuresModel.sync(d.features)
+        journalModel.sync(d.journal)
     }
     Connections { target: backend; function onStateChanged() { win.syncAll() } }
     Component.onCompleted: syncAll()
@@ -382,6 +387,29 @@ Window {
                                 tip: backend.describeToggle(model.id)
                                 onToggled: backend.toggle(model.id)
                             }
+                        }
+                    }
+                }
+
+                // what the program switched and why
+                Card {
+                    Layout.fillWidth: true
+                    Txt { text: "Что переключалось"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Txt {
+                        visible: journalModel.count === 0
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Theme.muted
+                        font.pixelSize: 13
+                        text: "Пока ничего. Здесь появятся смены профилей и режимов с причиной, например «Авто: Работа (работа от батареи)»."
+                    }
+                    Repeater {
+                        model: journalModel
+                        delegate: RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+                            Txt { text: model.time; color: Theme.muted; font.family: Theme.mono; font.pixelSize: 13 }
+                            Txt { Layout.fillWidth: true; text: model.text; wrapMode: Text.WordWrap; font.pixelSize: 13 }
                         }
                     }
                 }

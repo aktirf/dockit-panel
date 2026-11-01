@@ -68,14 +68,18 @@ CHIP_RU = {
 }
 
 
-def temperatures(sensors_state: dict | None) -> list[dict]:
-    """The hottest reading of every chip, with a plain name."""
+def chip_temps(sensors_state: dict | None) -> dict[str, float]:
+    """The hottest reading of every chip, by a plain name."""
     best: dict[str, float] = {}
     for key, value in ((sensors_state or {}).get("temps_c") or {}).items():
         chip = key.split("/", 1)[0]
         name = CHIP_RU.get(chip, chip)
         best[name] = max(best.get(name, value), value)
-    return [{"name": n, "value": f"{v:.0f}", "hot": v >= 85} for n, v in sorted(best.items())]
+    return best
+
+
+def temperatures(sensors_state: dict | None) -> list[dict]:
+    return [{"name": n, "value": f"{v:.0f}", "hot": v >= 85} for n, v in sorted(chip_temps(sensors_state).items())]
 
 
 def _keyboard_leds() -> list[str]:
@@ -92,7 +96,7 @@ def empty() -> dict:
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [], "temps": [], "fans": [],
             "peripherals": [], "backlight": [], "system": {},
-            "features": [], "counts": [], "cpuHistory": [], "gpuHistory": [], "profiles": [],
+            "features": [], "counts": [], "cooling": {}, "journal": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
             "fallback": ""}
 
@@ -214,8 +218,9 @@ MODE_BY_ID = {m["id"]: m["name"] for m in MODES}
 
 def _rule_edit(rule) -> dict:
     if rule is None:
-        return {"processes": [], "when": "", "idle": 0}
-    return {"processes": list(rule.processes), "when": rule.when, "idle": rule.idle}
+        return {"processes": [], "when": "", "idle": 0, "temp": 0, "hours": ""}
+    return {"processes": list(rule.processes), "when": rule.when, "idle": rule.idle,
+            "temp": rule.temp, "hours": rule.hours}
 
 
 def _rule_text(rule) -> str:
