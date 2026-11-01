@@ -1,0 +1,33 @@
+# Maintainer: AkTirF <semenburlacenko3@gmail.com>
+pkgname=dockit-panel
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Control panel for Gigabyte laptops and peripherals on Linux (GiMATE replacement)'
+arch=('any')
+url='https://github.com/aktirf/dockit-panel'
+license=('GPL-3.0-or-later')
+depends=('python' 'pyside6' 'ttf-ibm-plex' 'swayidle' 'libpulse' 'polkit'
+         'upower' 'lm_sensors' 'networkmanager' 'bluez-utils')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+optdepends=('nvidia-utils: NVIDIA GPU information'
+            'libratbag: mouse settings where supported')
+install=dockit-panel.install
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname-$pkgver"
+    python -m build --wheel --no-isolation
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 data/polkit/org.dockit.policy "$pkgdir/usr/share/polkit-1/actions/org.dockit.policy"
+    install -Dm644 data/systemd/dockit.service "$pkgdir/usr/lib/systemd/system/dockit.service"
+    install -Dm644 data/applications/dockit.desktop "$pkgdir/usr/share/applications/dockit.desktop"
+    install -Dm644 data/icons/dockit.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/dockit.svg"
+    install -dm755 "$pkgdir/usr/share/dockit"
+    cp -r devices "$pkgdir/usr/share/dockit/devices"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

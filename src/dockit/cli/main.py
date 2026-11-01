@@ -179,20 +179,29 @@ def cmd_auto(args: argparse.Namespace) -> int:
     import time
 
     from ..core import profiles as pf
+    from ..core.idle import IdleWatcher
     from ..modules.battery import ac_online
 
+    watcher = IdleWatcher()
     current = None
-    while True:
-        available, rules = pf.load()  # re-read so edits to the file take effect
-        wanted = pf.choose(rules, pf.running_processes(), ac_online())
-        if wanted and wanted != current:
-            print(f"Профиль: {available[wanted].name}", flush=True)
-            for line in pf.apply(available[wanted], _ask_service):
-                print("  " + line, flush=True)
-            current = wanted
-        if args.once:
-            return 0
-        time.sleep(max(2, args.interval))
+    try:
+        while True:
+            available, rules = pf.load()  # re-read so edits to the file take effect
+            watcher.set_minutes([r.idle for r in rules if r.idle])
+            wanted = pf.choose(rules, pf.running_processes(), ac_online(), watcher.reached())
+            if wanted is None:
+                fallback = pf.load_fallback()
+                wanted = fallback if fallback in available else None
+            if wanted and wanted != current:
+                print(f"Профиль: {available[wanted].name}", flush=True)
+                for line in pf.apply(available[wanted], _ask_service):
+                    print("  " + line, flush=True)
+                current = wanted
+            if args.once:
+                return 0
+            time.sleep(max(2, args.interval))
+    finally:
+        watcher.stop()
 
 
 def cmd_audio(args: argparse.Namespace) -> int:

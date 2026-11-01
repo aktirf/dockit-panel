@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DOCKIT
+GenericName=Laptop control panel
+Comment=Shows what works on your laptop and lets you tune it
+Exec=dockit gui
+Icon=dockit
+Terminal=false
+Categories=System;Settings;HardwareSettings;
+StartupWMClass=dockit

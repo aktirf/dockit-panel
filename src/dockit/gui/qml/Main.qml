@@ -13,6 +13,7 @@ Window {
     title: "DOCKIT"
     color: Theme.bg
 
+    property string page: "overview"
     readonly property var d: backend.state
     readonly property int problems: d.features ? d.features.filter(function (f) { return f.status !== "ok" }).length : 0
 
@@ -65,13 +66,13 @@ Window {
                     }
                 }
 
-                NavItem { icon: "grid"; text: "Обзор"; active: true }
+                NavItem { icon: "grid"; text: "Обзор"; active: win.page === "overview"; onClicked: win.page = "overview" }
                 NavItem { icon: "gauge"; text: "Производительность"; ready: false; onClicked: win.soon() }
                 NavItem { icon: "battery"; text: "Питание и батарея"; ready: false; onClicked: win.soon() }
                 NavItem { icon: "fan"; text: "Охлаждение"; ready: false; onClicked: win.soon() }
                 NavItem { icon: "sun"; text: "Подсветка"; ready: false; onClicked: win.soon() }
                 NavItem { icon: "mouse"; text: "Периферия"; ready: false; onClicked: win.soon() }
-                NavItem { icon: "layers"; text: "Профили"; ready: false; onClicked: win.soon() }
+                NavItem { icon: "layers"; text: "Профили"; active: win.page === "profiles"; onClicked: win.page = "profiles" }
 
                 Item { Layout.fillHeight: true }
 
@@ -81,8 +82,20 @@ Window {
         }
 
         // ---------- content ----------
+        ProfilesPage {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            opacity: win.page === "profiles" ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: 180 } }
+            d: win.d
+        }
+
         Flickable {
             id: flick
+            opacity: win.page === "overview" ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: 180 } }
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: width
@@ -396,7 +409,7 @@ Window {
                     Txt { text: "Быстрые переключатели"; font.pixelSize: 16; font.weight: Font.DemiBold }
                     GridLayout {
                         Layout.fillWidth: true
-                        columns: Math.max(1, Math.floor((width + 12) / 222))
+                        columns: (width + 12) >= 4 * 222 ? 4 : ((width + 12) >= 2 * 222 ? 2 : 1)
                         columnSpacing: 12
                         rowSpacing: 12
                         Repeater {
@@ -406,6 +419,7 @@ Window {
                                 label: modelData.label
                                 on: modelData.on
                                 can: modelData.can
+                                tip: backend.describeToggle(modelData.id)
                                 onToggled: backend.toggle(modelData.id)
                             }
                         }
