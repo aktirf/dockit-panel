@@ -29,8 +29,10 @@ Flickable {
         backend.saveProfile(cur.id, v.power, v.camera, v.output, v.input)
     }
 
-    function saveRule(procs, when, idle) {
-        backend.saveRule(cur.id, procs.join(","), when, idle)
+    function saveRule(procs, when, idle, temp, hours) {
+        backend.saveRule(cur.id, procs.join(","), when, idle,
+                         temp === undefined ? cur.rule.temp : temp,
+                         hours === undefined ? cur.rule.hours : hours)
     }
     function addProgram(name) {
         var n = name.trim()
@@ -355,6 +357,59 @@ Flickable {
                         text: "Чтобы это условие работало, нужна небольшая программа swayidle: sudo pacman -S swayidle"
                         color: Theme.warn
                         font.pixelSize: 12
+                    }
+
+                    Txt { text: "Процессор горячее"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не важно"; tip: "Температура не учитывается."; sel: page.cur.rule.temp === 0; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, 0) }
+                        Repeater {
+                            model: [80, 85, 90, 95]
+                            delegate: Pill {
+                                text: modelData + " °C"
+                                tip: "Защита от перегрева: правило сработает, когда процессор достигнет этой температуры. Оно проверяется раньше остальных. Обычно ему назначают профиль «Ночь» (тихий режим)."
+                                sel: page.cur.rule.temp === modelData
+                                onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, modelData)
+                            }
+                        }
+                    }
+
+                    Txt { text: "Время суток"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не важно"; sel: page.cur.rule.hours === ""; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, "") }
+                        Repeater {
+                            model: ["22:00-07:00", "09:00-18:00", "18:00-23:00"]
+                            delegate: Pill {
+                                text: modelData.replace("-", " – ")
+                                tip: "Правило сработает только в это время суток."
+                                sel: page.cur.rule.hours === modelData
+                                onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, modelData)
+                            }
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        TextField {
+                            id: hoursField
+                            implicitHeight: 40
+                            implicitWidth: 180
+                            placeholderText: "ЧЧ:ММ-ЧЧ:ММ"
+                            placeholderTextColor: Theme.muted
+                            color: Theme.text
+                            font.family: Theme.sans
+                            font.pixelSize: 14
+                            leftPadding: 12
+                            ToolTip.text: "Своё время, например 23:30-06:45. Можно через полночь."
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 450
+                            background: Rectangle { radius: 10; color: Theme.cardInner; border.width: 1; border.color: hoursField.activeFocus ? Theme.accent : Theme.border2 }
+                            onAccepted: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, text)
+                        }
+                        Btn { text: "Задать время"; implicitHeight: 40; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, hoursField.text) }
                     }
                 }
 

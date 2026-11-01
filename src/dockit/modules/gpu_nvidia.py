@@ -83,6 +83,24 @@ def _query() -> tuple[list[dict] | None, str]:
     return (gpus, "") if gpus else (None, "failed")
 
 
+def thermal_throttled() -> bool | None:
+    """True if the card lowers its speed because of heat; None if the driver does not say."""
+    tool = shutil.which("nvidia-smi")
+    if tool is None:
+        return None
+    for prefix in ("clocks_event_reasons", "clocks_throttle_reasons"):   # new and old driver names
+        fields = f"{prefix}.hw_thermal_slowdown,{prefix}.sw_thermal_slowdown"
+        try:
+            proc = subprocess.run([tool, f"--query-gpu={fields}", "--format=csv,noheader,nounits"],
+                                  capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if proc.returncode == 0 and proc.stdout.strip():
+            tokens = [t.strip() for t in proc.stdout.replace("\n", ",").split(",")]
+            return "Active" in tokens
+    return None
+
+
 class GpuNvidia(Module):
     id = "gpu_nvidia"
     name = "Видеокарта NVIDIA"
@@ -106,7 +124,12 @@ class GpuNvidia(Module):
 
     def get_state(self):
         gpus, _ = _query()
-        return gpus[0] if gpus else None
+        if not gpus:
+            return None
+        gpu = gpus[0]
+        if (gpu.get("temp_c") or 0) >= 75:       # only worth asking when the card is hot
+            gpu["throttled"] = thermal_throttled()
+        return gpu
 
     def fix_hint(self) -> str:
         if nvidia_card_present():

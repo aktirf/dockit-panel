@@ -14,6 +14,7 @@ def run(argv: list[str] | None = None) -> int:
     try:
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QGuiApplication
+        from PySide6.QtWidgets import QApplication, QSystemTrayIcon
         from PySide6.QtQml import QQmlApplicationEngine
     except ImportError:
         print("Для окна нужен PySide6. Установите: sudo pacman -S pyside6")
@@ -23,7 +24,8 @@ def run(argv: list[str] | None = None) -> int:
 
     from .backend import Backend
 
-    app = QGuiApplication(argv if argv is not None else sys.argv)
+    app = QApplication(argv if argv is not None else sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("DOCKIT")
     app.setDesktopFileName("dockit")
     engine = QQmlApplicationEngine()
@@ -34,4 +36,13 @@ def run(argv: list[str] | None = None) -> int:
     if not engine.rootObjects():
         print("Не удалось загрузить окно (смотрите сообщения выше).")
         return 1
-    return app.exec()
+    window = engine.rootObjects()[0]
+    tray = None
+    if QSystemTrayIcon.isSystemTrayAvailable():
+        from .tray import Tray
+        backend.set_tray_available(True)
+        tray = Tray(app, window, backend)
+    window.destroyed.connect(app.quit)      # closing the window really quits unless the tray keeps it
+    result = app.exec()
+    del tray
+    return result
