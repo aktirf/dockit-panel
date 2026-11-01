@@ -1,0 +1,7 @@
+post_install() {
+    systemctl daemon-reload
+    systemctl enable --now dockit.service || true
+    echo "DOCKIT installed. Open it from the application menu or run: dockit gui"
+}
+post_upgrade() { systemctl daemon-reload; systemctl try-restart dockit.service || true; }
+pre_remove() { systemctl disable --now dockit.service || true; }
