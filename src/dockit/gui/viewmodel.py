@@ -6,6 +6,8 @@ simple dicts, lists, strings, numbers and booleans.
 
 from __future__ import annotations
 
+import shutil
+
 from ..core.scanner import ScanResult, display_name
 from ..core.status import LABELS_RU, Status
 
@@ -65,7 +67,9 @@ def empty() -> dict:
     return {"ready": False, "model": "", "service": False, "okCount": 0, "total": 0,
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [],
-            "features": [], "counts": [], "cpuHistory": [], "gpuHistory": []}
+            "features": [], "counts": [], "cpuHistory": [], "gpuHistory": [], "profiles": [],
+            "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
+            "fallback": ""}
 
 
 def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str,
@@ -120,8 +124,10 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         {"id": "camera", "label": "Веб-камера", "on": bool(cam_state and cam_state.get("enabled")),
          "can": bool(cam_state is not None and service and service.status is Status.OK)},
         {"id": "mic", "label": "Микрофон", "on": mic_muted is False, "can": mic_muted is not None},
-        {"id": "wifi", "label": "Wi-Fi", "on": bool(wireless.get("wlan")), "can": False},
-        {"id": "bluetooth", "label": "Bluetooth", "on": bool(wireless.get("bluetooth")), "can": False},
+        {"id": "wifi", "label": "Wi-Fi", "on": bool(wireless.get("wlan")), "can": shutil.which("nmcli") is not None
+         and "wlan" in wireless},
+        {"id": "bluetooth", "label": "Bluetooth", "on": bool(wireless.get("bluetooth")),
+         "can": shutil.which("bluetoothctl") is not None and "bluetooth" in wireless},
     ]
 
     features = [
@@ -164,3 +170,53 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "cpuHistory": list(cpu_history),
         "gpuHistory": list(gpu_history),
     }
+
+
+# ---------- profiles page ----------
+
+MODE_BY_ID = {m["id"]: m["name"] for m in MODES}
+
+
+def _rule_edit(rule) -> dict:
+    if rule is None:
+        return {"processes": [], "when": "", "idle": 0}
+    return {"processes": list(rule.processes), "when": rule.when, "idle": rule.idle}
+
+
+def _rule_text(rule) -> str:
+    parts = []
+    if rule.processes:
+        parts.append("Запущена программа: " + ", ".join(rule.processes))
+    if rule.when == "battery":
+        parts.append("Ноутбук работает от батареи")
+    elif rule.when == "ac":
+        parts.append("Ноутбук подключён к зарядке")
+    return " и ".join(parts)
+
+
+def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> list[dict]:
+    """One dict per profile: what it applies and which rules switch to it."""
+    cards = []
+    for p in profiles.values():
+        camera = "Не меняется" if p.camera is None else ("Включена" if p.camera else "Выключена")
+        rows = [
+            {"label": "Режим мощности", "value": MODE_BY_ID.get(p.power or "", "Не меняется")},
+            {"label": "Камера", "value": camera},
+            {"label": "Звук (вывод)", "value": f"«{p.output}»" if p.output else "Не меняется"},
+            {"label": "Микрофон", "value": f"«{p.input}»" if p.input else "Не меняется"},
+        ]
+        cards.append({
+            "id": p.id,
+            "name": p.name,
+            "sub": "Режим: " + MODE_BY_ID.get(p.power or "", "без изменений"),
+            "rows": rows,
+            "rules": [_rule_text(r) for r in rules if r.profile == p.id and _rule_text(r)],
+            "rule": _rule_edit(next((r for r in rules if r.profile == p.id), None)),
+            "edit": {
+                "power": p.power or "keep",
+                "camera": "keep" if p.camera is None else ("on" if p.camera else "off"),
+                "output": p.output or "",
+                "input": p.input or "",
+            },
+        })
+    return cards
