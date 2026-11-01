@@ -94,3 +94,23 @@ def test_cpu_monitor_load(tmp_path):
 def test_cpu_monitor_without_files(tmp_path):
     m = CpuMonitor(str(tmp_path / "a"), str(tmp_path / "b"), str(tmp_path / "c"))
     assert m.sample() == {"load_pct": None, "freq_mhz": None}
+
+
+def test_profile_cards_show_what_is_applied_and_rules():
+    from dockit.core import profiles as pf
+    from dockit.gui import viewmodel as vm
+
+    profs = {
+        "games": pf.Profile("games", "Игры", power="performance", camera=False, output="epos"),
+        "work": pf.Profile("work", "Работа", power="balanced"),
+    }
+    rules = [pf.Rule("games", ["steam_app_*"]), pf.Rule("work", [], when="battery")]
+    cards = vm.profile_cards(profs, rules)
+    games = cards[0]
+    assert games["name"] == "Игры" and games["sub"] == "Режим: Производительность"
+    values = {r["label"]: r["value"] for r in games["rows"]}
+    assert values["Камера"] == "Выключена" and values["Звук (вывод)"] == "«epos»"
+    assert values["Микрофон"] == "Не меняется"
+    assert games["rules"] == ["Запущена программа: steam_app_*"]
+    assert cards[1]["rules"] == ["Ноутбук работает от батареи"]
+    assert vm.empty()["profiles"] == []

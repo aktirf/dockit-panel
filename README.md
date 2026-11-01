@@ -96,6 +96,16 @@ dockit gui
 
 If you use a virtual environment, create it with access to system packages: `python -m venv --system-site-packages .venv`. The window reads data every 3 seconds and changes nothing by itself: modes, scenarios and the camera and microphone switches go through the background service. The Overview page is ready, the other sections are in progress.
 
+## Automatic rules
+
+On the Profiles page each profile can say when it switches on by itself (works with the "Auto" scenario on the Overview page):
+
+- **A program is running**: pick from what is running now, or type a name (for example `cs2` or `steam_app_*`);
+- **Power**: on battery or on the charger;
+- **No activity** with keyboard and mouse for 5-60 minutes (needs `swayidle`: `sudo pacman -S swayidle`).
+
+If several conditions are chosen, all of them must hold. Programs are checked first, then the rest. If no rule matches, the profile set under "If no rule matches" is used ("Work" by default). The chosen scenario ("Auto" and so on) is remembered between runs.
+
 ## Layout
 
 | Folder | What it is |
