@@ -170,60 +170,12 @@ Window {
                     Layout.fillWidth: true
                     RowLayout {
                         Layout.fillWidth: true
-                        Txt { Layout.fillWidth: true; text: "Режим работы"; font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Txt { text: "Сейчас: " + win.modeName(d.currentMode); color: Theme.muted; font.pixelSize: 13 }
-                    }
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: Math.max(1, Math.min(3, Math.floor((width + 10) / 190)))
-                        columnSpacing: 10
-                        rowSpacing: 10
-                        Repeater {
-                            model: modesModel
-                            delegate: Rectangle {
-                                readonly property bool sel: model.id === d.currentMode
-                                Layout.fillWidth: true
-                                implicitWidth: 170
-                                Layout.preferredHeight: 72
-                                radius: 12
-                                color: sel ? "#1B2D40" : Theme.cardInner
-                                border.width: 1
-                                border.color: sel ? Theme.accent : Theme.border2
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 14
-                                    spacing: 4
-                                    Txt {
-                                        text: model.name
-                                        font.pixelSize: 15
-                                        font.weight: Font.DemiBold
-                                        color: sel ? "#FFFFFF" : Theme.text
-                                    }
-                                    Txt {
-                                        text: model.hint
-                                        font.pixelSize: 12
-                                        color: sel ? "#A9D3FF" : Theme.muted
-                                    }
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: backend.setMode(model.id)
-                                }
-                            }
-                        }
+                        Txt { Layout.fillWidth: true; text: "Сценарий"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                        Txt { text: "Режим сейчас: " + win.modeName(d.currentMode); color: Theme.muted; font.pixelSize: 13 }
                     }
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Txt {
-                            text: "Сценарий"
-                            font.pixelSize: 13
-                            color: Theme.muted
-                            height: 44
-                            verticalAlignment: Text.AlignVCenter
-                            rightPadding: 4
-                        }
                         Repeater {
                             model: scenariosModel
                             delegate: Rectangle {
@@ -234,6 +186,7 @@ Window {
                                 color: sel ? Theme.accent : Theme.btn
                                 border.width: 1
                                 border.color: sel ? Theme.accent : Theme.border3
+                                Behavior on color { ColorAnimation { duration: 160 } }
                                 Txt {
                                     id: pillText
                                     anchors.centerIn: parent
@@ -251,97 +204,26 @@ Window {
                     }
                 }
 
-                // four cards
+                // short live summary; details are on the Performance page
+                Card {
+                    Layout.fillWidth: true
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Chip { big: true; text: "Процессор: " + (d.cpu.load !== null && d.cpu.load !== undefined ? d.cpu.load + " %" : "—") + ", " + d.cpu.temp + " °C"; tip: "Подробнее на странице «Производительность»" }
+                        Chip { big: true; text: "Видеокарта: " + (d.gpu.util !== null && d.gpu.util !== undefined ? d.gpu.util + " %" : "—") + ", " + d.gpu.temp + " °C"; tip: "Подробнее на странице «Производительность»" }
+                        Btn { text: "Открыть «Производительность»"; implicitHeight: 34; onClicked: win.page = "performance" }
+                    }
+                }
+
+                // battery and graphics mode
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: Math.max(1, Math.floor((width + 16) / 296))
+                    columns: Math.max(1, Math.min(2, Math.floor((width + 16) / 296)))
                     columnSpacing: 16
                     rowSpacing: 16
 
-                    Card {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Процессор"; font.pixelSize: 15; font.weight: Font.DemiBold }
-                            Chip {
-                                kind: d.cpu.freq && d.cpu.freq !== "—" ? "ok" : "neutral"
-                                icon: d.cpu.freq && d.cpu.freq !== "—" ? "check" : ""
-                                text: d.cpu.freq && d.cpu.freq !== "—" ? "Работает" : "Нет данных"
-                            }
-                        }
-                        Row {
-                            spacing: 8
-                            Txt { text: d.cpu.freq || "—"; font.family: Theme.mono; font.pixelSize: 36; font.weight: Font.Medium }
-                            Txt { text: "ГГц"; color: Theme.muted; anchors.baseline: parent.children[0].baseline }
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 6
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Txt { Layout.fillWidth: true; text: "Загрузка"; font.pixelSize: 13; color: Theme.muted }
-                                Txt { text: (d.cpu.load !== undefined && d.cpu.load !== null ? d.cpu.load : "—") + " %"; font.family: Theme.mono; font.pixelSize: 13 }
-                            }
-                            Bar { Layout.fillWidth: true; value: d.cpu.load || 0 }
-                        }
-                        Spark { Layout.fillWidth: true; Layout.preferredHeight: 40; values: d.cpuHistory }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Температура"; color: Theme.soft }
-                            Txt { text: (d.cpu.temp || "—") + " °C"; font.family: Theme.mono }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Вентилятор"; color: Theme.soft }
-                            Txt { text: (d.cpu.fan || "—") + (d.cpu.fanUnit ? " " + d.cpu.fanUnit : ""); font.family: Theme.mono }
-                        }
-                    }
 
-                    Card {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Видеокарта"; font.pixelSize: 15; font.weight: Font.DemiBold }
-                            Chip {
-                                kind: d.gpu.status || "no"
-                                icon: Theme.statusIcon(d.gpu.status || "no")
-                                text: d.gpu.statusText || "Нет данных"
-                            }
-                        }
-                        Row {
-                            spacing: 8
-                            Txt { text: d.gpu.clock || "—"; font.family: Theme.mono; font.pixelSize: 36; font.weight: Font.Medium }
-                            Txt { text: "МГц"; color: Theme.muted; anchors.baseline: parent.children[0].baseline }
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 6
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Txt { Layout.fillWidth: true; text: "Видеопамять"; font.pixelSize: 13; color: Theme.muted }
-                                Txt { text: (d.gpu.memUsed || "—") + " / " + (d.gpu.memTotal || "—") + " ГБ"; font.family: Theme.mono; font.pixelSize: 13 }
-                            }
-                            Bar { Layout.fillWidth: true; value: d.gpu.memPct || 0 }
-                        }
-                        Spark { Layout.fillWidth: true; Layout.preferredHeight: 40; values: d.gpuHistory }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Загрузка"; color: Theme.soft }
-                            Txt { text: (d.gpu.util !== undefined && d.gpu.util !== null ? d.gpu.util : "—") + " %"; font.family: Theme.mono }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Температура"; color: Theme.soft }
-                            Txt { text: (d.gpu.temp || "—") + " °C"; font.family: Theme.mono }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Потребление"; color: Theme.soft }
-                            Txt { text: (d.gpu.power || "—") + " Вт"; font.family: Theme.mono }
-                        }
-                    }
 
                     Card {
                         Layout.fillWidth: true
