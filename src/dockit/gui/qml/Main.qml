@@ -87,7 +87,8 @@ Window {
             Layout.fillHeight: true
             opacity: win.page === "profiles" ? 1 : 0
             visible: opacity > 0
-            Behavior on opacity { NumberAnimation { duration: 180 } }
+            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+            transform: Translate { y: win.page === "profiles" ? 0 : 18; Behavior on y { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } } }
             d: win.d
         }
 
@@ -95,7 +96,8 @@ Window {
             id: flick
             opacity: win.page === "overview" ? 1 : 0
             visible: opacity > 0
-            Behavior on opacity { NumberAnimation { duration: 180 } }
+            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+            transform: Translate { y: win.page === "overview" ? 0 : 18; Behavior on y { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } } }
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: width
