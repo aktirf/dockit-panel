@@ -245,3 +245,10 @@ def test_tuning_and_battery_estimate(tmp_path):
     b = read_batteries(str(tmp_path / "ps"))[0]
     assert b["power_w"] == 20.0 and b["energy_wh"] == 40.0
     assert minutes_left(b) == 120
+
+
+def test_bluetooth_info_parse():
+    from dockit.core.bluetooth import parse_info
+    text = "Device AA:BB:CC:DD:EE:FF (public)\n\tName: EPOS H3PRO\n\tIcon: audio-headset\n\tBattery Percentage: 0x55 (85)\n"
+    assert parse_info(text) == {"name": "EPOS H3PRO", "battery": 85, "icon": "audio-headset"}
+    assert parse_info("Name: Mouse\n")["battery"] is None

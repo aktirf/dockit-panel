@@ -70,8 +70,33 @@ PageFrame {
                         color: Theme.warn
                     }
                 }
+                Btn {
+                    visible: model.fix !== ""
+                    text: "Установить"
+                    implicitHeight: 34
+                    tip: "Установит пакеты: " + model.fix + ". Попросит пароль."
+                    onClicked: backend.installFix(model.id)
+                }
                 Chip { kind: model.status; text: model.statusText }
             }
+        }
+    }
+
+    Card {
+        Layout.fillWidth: true
+        RowLayout {
+            Layout.fillWidth: true
+            Txt { Layout.fillWidth: true; text: "Журнал фоновой службы"; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Btn { text: "Показать"; implicitHeight: 34; tip: "Последние 40 строк журнала службы DOCKIT: помогает понять, почему что-то не работает."; onClicked: backend.loadLog() }
+        }
+        Txt {
+            visible: backend.logText !== ""
+            Layout.fillWidth: true
+            text: backend.logText
+            wrapMode: Text.WrapAnywhere
+            font.family: Theme.mono
+            font.pixelSize: 11
+            color: Theme.muted
         }
     }
 }

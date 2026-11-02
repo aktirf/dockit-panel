@@ -19,7 +19,7 @@ from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from ..core import audio, processes, profiles, sysfs
 from ..core import idle
-from ..core import tuning
+from ..core import bluetooth, tuning
 from ..core.cpu import CpuMonitor
 from ..core.scanner import scan
 from ..daemon import client
@@ -36,8 +36,10 @@ class Backend(QObject):
     settingsChanged = Signal()
     trayChanged = Signal()
     profileCreated = Signal(str)
+    logChanged = Signal()
     _snapshot = Signal(object)   # worker thread -> main thread
     _finished = Signal(str)
+    _logLoaded = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -62,6 +64,7 @@ class Backend(QObject):
         self._hist_at = 0.0
         self._snapshot.connect(self._apply)
         self._finished.connect(self._done)
+        self._logLoaded.connect(self.logChanged)
         self._timer = QTimer(self)
         self._settings = self._load_settings()
         self._timer.setInterval(self._settings["interval"] * 1000)
@@ -201,6 +204,63 @@ class Backend(QObject):
             self._say("Не удалось изменить автозапуск")
         self.settingsChanged.emit()
         self.refresh()
+
+    def _bluetooth(self) -> list:
+        now = time.monotonic()
+        if now - getattr(self, "_bt_at", -999) > 20:
+            self._bt_at = now
+            self._bt_cache = [{"name": d["name"], "battery": -1 if d["battery"] is None else d["battery"]}
+                              for d in bluetooth.connected_devices()]
+        return list(getattr(self, "_bt_cache", []))
+
+    @Property(str, notify=logChanged)
+    def logText(self) -> str:
+        return getattr(self, "_log_text", "")
+
+    @Slot()
+    def loadLog(self) -> None:
+        def target():
+            try:
+                proc = subprocess.run(["journalctl", "-u", "dockit", "-n", "40", "--no-pager"],
+                                      capture_output=True, text=True, timeout=8)
+                text = proc.stdout.strip() or proc.stderr.strip() or "Журнал пуст."
+            except (OSError, subprocess.TimeoutExpired):
+                text = "Не удалось прочитать журнал (нужна команда journalctl)."
+            self._log_text = text
+            self._logLoaded.emit()
+
+        threading.Thread(target=target, daemon=True).start()
+
+    @Slot(str)
+    def installFix(self, feature_id: str) -> None:
+        packages = viewmodel.FIX_PACKAGES.get(feature_id)
+        if not packages or shutil.which("pkexec") is None or shutil.which("pacman") is None:
+            self._say("Автоматическая установка недоступна на этой системе")
+            return
+
+        def work() -> str:
+            proc = subprocess.run(["pkexec", "pacman", "-S", "--needed", "--noconfirm", *packages],
+                                  capture_output=True, text=True, timeout=900)
+            if proc.returncode == 0:
+                return "Установлено: " + ", ".join(packages) + ". Если функция не появилась, перезапустите DOCKIT."
+            return "Не удалось установить (пароль не введён или нет сети)."
+
+        self._say("Устанавливаю " + ", ".join(packages) + "…")
+        self._run(work)
+
+    @Slot(str, str)
+    def setAudio(self, kind: str, description: str) -> None:
+        if kind not in ("output", "input"):
+            return
+
+        def work() -> str:
+            try:
+                device = audio.set_default(kind, description)
+            except audio.AudioError as exc:
+                return str(exc)
+            return ("Звук: " if kind == "output" else "Микрофон: ") + device.description
+
+        self._run(work)
 
     def _tuning(self) -> dict:
         now = time.monotonic()
@@ -412,6 +472,7 @@ class Backend(QObject):
                 self._idle.stop()
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                                     muted, scenarios, self._scenario)
+            state["bluetooth"] = self._bluetooth()
             state["display"] = self._display()
             if fresh:
                 self._top_cache = self._top.sample()
@@ -433,6 +494,8 @@ class Backend(QObject):
             state["audio"] = {
                 "outputs": [d.description for d in devices if d.kind == "output"],
                 "inputs": [d.description for d in devices if d.kind == "input"],
+                "outputDefault": next((d.description for d in devices if d.kind == "output" and d.default), ""),
+                "inputDefault": next((d.description for d in devices if d.kind == "input" and d.default), ""),
             }
             self._snapshot.emit(state)
             if note:

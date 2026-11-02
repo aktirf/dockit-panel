@@ -79,6 +79,15 @@ def _left_text(b: dict) -> str:
     return f"≈ {text} до разрядки" if b.get("status") == "Discharging" else f"≈ {text} до полной зарядки"
 
 
+# packages DOCKIT may offer to install for a feature (nothing else is ever installed)
+FIX_PACKAGES = {
+    "sensors": ["lm_sensors"],
+    "audio": ["libpulse", "pipewire-pulse"],
+    "wireless": ["networkmanager", "bluez-utils"],
+    "gpu_nvidia": ["nvidia-open", "nvidia-utils"],
+}
+
+
 def chip_temps(sensors_state: dict | None) -> dict[str, float]:
     """The hottest reading of every chip, by a plain name."""
     best: dict[str, float] = {}
@@ -107,7 +116,7 @@ def empty() -> dict:
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [], "temps": [], "fans": [],
             "peripherals": [], "backlight": [], "system": {},
-            "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
+            "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "bluetooth": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
             "fallback": ""}
 
@@ -174,7 +183,8 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
 
     features = [
         {"id": i.id, "name": i.name, "status": STATUS_KEY[i.status], "statusText": LABELS_RU[i.status],
-         "detail": i.detail or "", "hint": i.hint or ""}
+         "detail": i.detail or "", "hint": i.hint or "",
+         "fix": " ".join(FIX_PACKAGES.get(i.id, [])) if i.status is not Status.OK else ""}
         for i in result.items
     ]
     order = {"setup": 0, "root": 1, "no": 2, "ok": 3}
