@@ -6,8 +6,10 @@ runs in a thread and reports back through signals.
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -17,6 +19,7 @@ from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from ..core import audio, processes, profiles, sysfs
 from ..core import idle
+from ..core import bluetooth, tuning
 from ..core.cpu import CpuMonitor
 from ..core.scanner import scan
 from ..daemon import client
@@ -31,8 +34,12 @@ class Backend(QObject):
     stateChanged = Signal()
     toastChanged = Signal()
     settingsChanged = Signal()
+    trayChanged = Signal()
+    profileCreated = Signal(str)
+    logChanged = Signal()
     _snapshot = Signal(object)   # worker thread -> main thread
     _finished = Signal(str)
+    _logLoaded = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -40,8 +47,16 @@ class Backend(QObject):
         self._toast = ""
         self._cpu = CpuMonitor()
         self._cpu_name = self._cpu.name()
-        self._cpu_hist: deque = deque(maxlen=40)
-        self._gpu_hist: deque = deque(maxlen=40)
+        self._cpu_hist: deque = deque(maxlen=100)
+        self._gpu_hist: deque = deque(maxlen=100)
+        self._ssd_hist: deque = deque(maxlen=100)
+        self._max_temp: dict[str, float] = {}
+        self._journal: deque = deque(maxlen=30)
+        self._warn_at = 0.0
+        self._tray_available = False
+        self._top = processes.TopCpu()
+        self._bat_hist = self._load_bat_hist()
+        self._bat_at = 0.0
         self._scenario = profiles.load_scenario()
         self._idle = idle.IdleWatcher()
         self._auto_last: str | None = None
@@ -49,6 +64,7 @@ class Backend(QObject):
         self._hist_at = 0.0
         self._snapshot.connect(self._apply)
         self._finished.connect(self._done)
+        self._logLoaded.connect(self.logChanged)
         self._timer = QTimer(self)
         self._settings = self._load_settings()
         self._timer.setInterval(self._settings["interval"] * 1000)
@@ -80,37 +96,35 @@ class Backend(QObject):
             self.toastChanged.emit()
 
     # ---- settings (saved in ~/.config/dockit/settings.json) ----
+    DEFAULTS = {"interval": 3, "warn_temp": 90, "notify": True, "tray": False}
+
     @staticmethod
     def _settings_path() -> str:
         base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
         return os.path.join(base, "dockit", "settings.json")
 
+    @staticmethod
+    def _autostart_path() -> str:
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+        return os.path.join(base, "autostart", "dockit.desktop")
+
     def _load_settings(self) -> dict:
-        data = {"interval": 3}
+        data = dict(self.DEFAULTS)
         try:
             with open(self._settings_path(), encoding="utf-8") as f:
                 loaded = json.load(f)
             if loaded.get("interval") in (1, 3, 5, 10):
                 data["interval"] = loaded["interval"]
+            if loaded.get("warn_temp") in (0, 80, 85, 90, 95):
+                data["warn_temp"] = loaded["warn_temp"]
+            for key in ("notify", "tray"):
+                if isinstance(loaded.get(key), bool):
+                    data[key] = loaded[key]
         except (OSError, ValueError, AttributeError):
             pass
         return data
 
-    @Property(int, notify=settingsChanged)
-    def interval(self) -> int:
-        return self._settings["interval"]
-
-    @Property(str, constant=True)
-    def version(self) -> str:
-        from .. import __version__
-        return __version__
-
-    @Slot(int)
-    def setInterval(self, seconds: int) -> None:
-        if seconds not in (1, 3, 5, 10):
-            return
-        self._settings["interval"] = seconds
-        self._timer.setInterval(seconds * 1000)
+    def _save_settings(self) -> None:
         try:
             os.makedirs(os.path.dirname(self._settings_path()), exist_ok=True)
             with open(self._settings_path(), "w", encoding="utf-8") as f:
@@ -118,6 +132,252 @@ class Backend(QObject):
         except OSError:
             self._say("Не удалось сохранить настройку")
         self.settingsChanged.emit()
+
+    def _settings_view(self) -> dict:
+        view = dict(self._settings)
+        view["autostart"] = os.path.exists(self._autostart_path())
+        view["trayAvailable"] = self._tray_available
+        view["notifyAvailable"] = shutil.which("notify-send") is not None
+        return view
+
+    @Property(int, notify=settingsChanged)
+    def interval(self) -> int:
+        return self._settings["interval"]
+
+    @Property(bool, notify=trayChanged)
+    def trayActive(self) -> bool:
+        return self._tray_available and self._settings["tray"]
+
+    @Property(str, constant=True)
+    def version(self) -> str:
+        from .. import __version__
+        return __version__
+
+    def set_tray_available(self, value: bool) -> None:
+        self._tray_available = value
+        self.trayChanged.emit()
+
+    @Slot(int)
+    def setInterval(self, seconds: int) -> None:
+        if seconds not in (1, 3, 5, 10):
+            return
+        self._settings["interval"] = seconds
+        self._timer.setInterval(seconds * 1000)
+        self._save_settings()
+        self.refresh()
+
+    @Slot(int)
+    def setWarnTemp(self, value: int) -> None:
+        if value in (0, 80, 85, 90, 95):
+            self._settings["warn_temp"] = value
+            self._save_settings()
+            self.refresh()
+
+    @Slot(bool)
+    def setNotify(self, value: bool) -> None:
+        self._settings["notify"] = bool(value)
+        self._save_settings()
+        self.refresh()
+
+    @Slot(bool)
+    def setTray(self, value: bool) -> None:
+        self._settings["tray"] = bool(value)
+        self._save_settings()
+        self.trayChanged.emit()
+        self.refresh()
+
+    @Slot(bool)
+    def setAutostart(self, value: bool) -> None:
+        path = self._autostart_path()
+        try:
+            if value:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write("[Desktop Entry]\nType=Application\nName=DOCKIT\nExec=dockit gui\n"
+                            "Icon=dockit\nX-GNOME-Autostart-enabled=true\n")
+                self._say("Автозапуск включён. Если окно не появится при входе, добавьте в конфиг niri: "
+                          "spawn-at-startup \"dockit\" \"gui\"")
+            elif os.path.exists(path):
+                os.remove(path)
+                self._say("Автозапуск выключен")
+        except OSError:
+            self._say("Не удалось изменить автозапуск")
+        self.settingsChanged.emit()
+        self.refresh()
+
+    def _bluetooth(self) -> list:
+        now = time.monotonic()
+        if now - getattr(self, "_bt_at", -999) > 20:
+            self._bt_at = now
+            self._bt_cache = [{"name": d["name"], "battery": -1 if d["battery"] is None else d["battery"]}
+                              for d in bluetooth.connected_devices()]
+        return list(getattr(self, "_bt_cache", []))
+
+    @Property(str, notify=logChanged)
+    def logText(self) -> str:
+        return getattr(self, "_log_text", "")
+
+    @Slot()
+    def loadLog(self) -> None:
+        def target():
+            try:
+                proc = subprocess.run(["journalctl", "-u", "dockit", "-n", "40", "--no-pager"],
+                                      capture_output=True, text=True, timeout=8)
+                text = proc.stdout.strip() or proc.stderr.strip() or "Журнал пуст."
+            except (OSError, subprocess.TimeoutExpired):
+                text = "Не удалось прочитать журнал (нужна команда journalctl)."
+            self._log_text = text
+            self._logLoaded.emit()
+
+        threading.Thread(target=target, daemon=True).start()
+
+    @Slot(str)
+    def installFix(self, feature_id: str) -> None:
+        packages = viewmodel.FIX_PACKAGES.get(feature_id)
+        if not packages or shutil.which("pkexec") is None or shutil.which("pacman") is None:
+            self._say("Автоматическая установка недоступна на этой системе")
+            return
+
+        def work() -> str:
+            proc = subprocess.run(["pkexec", "pacman", "-S", "--needed", "--noconfirm", *packages],
+                                  capture_output=True, text=True, timeout=900)
+            if proc.returncode == 0:
+                return "Установлено: " + ", ".join(packages) + ". Если функция не появилась, перезапустите DOCKIT."
+            return "Не удалось установить (пароль не введён или нет сети)."
+
+        self._say("Устанавливаю " + ", ".join(packages) + "…")
+        self._run(work)
+
+    @Slot(str, str)
+    def setAudio(self, kind: str, description: str) -> None:
+        if kind not in ("output", "input"):
+            return
+
+        def work() -> str:
+            try:
+                device = audio.set_default(kind, description)
+            except audio.AudioError as exc:
+                return str(exc)
+            return ("Звук: " if kind == "output" else "Микрофон: ") + device.description
+
+        self._run(work)
+
+    def _tuning(self) -> dict:
+        now = time.monotonic()
+        if now - getattr(self, "_tuning_at", 0) > 10 or not hasattr(self, "_tuning_cache"):
+            self._tuning_at = now
+            data = {"boost": tuning.read_boost(), "epp": tuning.read_epp(), "eppChoices": tuning.epp_choices()}
+            if now - getattr(self, "_gpu_lim_at", -999) > 60:
+                self._gpu_lim_at = now
+                self._gpu_lim = tuning.gpu_power_limits()
+            data["gpuLimit"] = self._gpu_lim
+            self._tuning_cache = data
+        return dict(self._tuning_cache)
+
+    @staticmethod
+    def _bat_path() -> str:
+        base = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+        return os.path.join(base, "dockit", "battery.json")
+
+    def _load_bat_hist(self) -> list:
+        try:
+            with open(self._bat_path(), encoding="utf-8") as f:
+                data = json.load(f)
+            cutoff = time.time() - 24 * 3600
+            return [[t, p] for t, p in data if isinstance(t, (int, float)) and isinstance(p, int) and t >= cutoff]
+        except (OSError, ValueError, TypeError):
+            return []
+
+    def _battery_history(self, percent) -> list:
+        """Charge level every 5 minutes for the last 24 hours (kept in ~/.local/state/dockit)."""
+        now = time.time()
+        if percent is not None and now - self._bat_at >= 300:
+            self._bat_at = now
+            self._bat_hist = [e for e in self._bat_hist if e[0] >= now - 24 * 3600] + [[now, int(percent)]]
+            try:
+                os.makedirs(os.path.dirname(self._bat_path()), exist_ok=True)
+                with open(self._bat_path(), "w", encoding="utf-8") as f:
+                    json.dump(self._bat_hist, f)
+            except OSError:
+                pass
+        return [p for _, p in self._bat_hist]
+
+    @Slot(bool)
+    def setBoost(self, value: bool) -> None:
+        def work() -> str:
+            result, error = client.ask({"action": "set_boost", "value": bool(value)})
+            self._tuning_at = 0
+            return "Turbo Boost " + ("включён" if value else "выключен") if result is not None else error
+
+        self._run(work)
+
+    @Slot(str)
+    def setEpp(self, value: str) -> None:
+        def work() -> str:
+            result, error = client.ask({"action": "set_epp", "value": value})
+            self._tuning_at = 0
+            return f"Энергопотребление процессора: {value}" if result is not None else error
+
+        self._run(work)
+
+    @Slot(int)
+    def setGpuLimit(self, watts: int) -> None:
+        def work() -> str:
+            result, error = client.ask({"action": "set_gpu_power_limit", "value": watts})
+            self._tuning_at = 0
+            self._gpu_lim_at = -999
+            return f"Лимит видеокарты: {watts} Вт" if result is not None else error
+
+        self._run(work)
+
+    def _display(self) -> dict:
+        from ..core import display
+        now = time.monotonic()
+        if now - getattr(self, "_display_at", 0) > 10 or not hasattr(self, "_display_cache"):
+            self._display_at = now
+            info = display.refresh_info()
+            self._display_cache = {"brightness": display.brightness_percent(),
+                                   "refresh": info["current"], "rates": info["rates"]}
+        return dict(self._display_cache)
+
+    # ---- notifications, journal, cooling ----
+    def _log(self, text: str) -> None:
+        self._journal.append({"time": datetime.datetime.now().strftime("%H:%M"), "text": text})
+
+    def _notify(self, title: str, body: str) -> None:
+        if not self._settings["notify"] or shutil.which("notify-send") is None:
+            return
+        try:
+            subprocess.Popen(["notify-send", "-a", "DOCKIT", "-i", "dockit", title, body],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+    def _cooling(self, cpu: dict, cpu_temp, gpu_temp, ssd_temp, gpu_throttled: bool) -> dict:
+        warn = self._settings["warn_temp"]
+        max_mhz = self._cpu.max_frequency_mhz()
+        freq = cpu.get("freq_mhz")
+        load = cpu.get("load_pct") or 0
+        cpu_throttled = bool(cpu_temp is not None and (
+            cpu_temp >= 95 or (cpu_temp >= 85 and load >= 80 and max_mhz and freq and freq < 0.7 * max_mhz)))
+        hottest = max([t for t in (cpu_temp, gpu_temp) if t is not None], default=None)
+        hot = bool(warn and hottest is not None and hottest >= warn)
+        now = time.monotonic()
+        if hot and now - self._warn_at > 300:
+            self._warn_at = now
+            self._log(f"Перегрев: {hottest:.0f} °C")
+            self._notify("DOCKIT: ноутбук горячий", f"Температура {hottest:.0f} °C. Можно переключить режим на «Баланс» или «Тишина».")
+
+        def part(key, now_value, hist, throttled=False):
+            return {"has": now_value is not None,
+                    "now": f"{now_value:.0f}" if now_value is not None else "—",
+                    "max": f"{self._max_temp[key]:.0f}" if key in self._max_temp else "—",
+                    "values": list(hist), "throttled": throttled}
+
+        return {"cpu": part("cpu", cpu_temp, self._cpu_hist, cpu_throttled),
+                "gpu": part("gpu", gpu_temp, self._gpu_hist, gpu_throttled),
+                "ssd": part("ssd", ssd_temp, self._ssd_hist),
+                "warn": warn, "hot": hot}
 
     @Slot()
     def copyReport(self) -> None:
@@ -170,8 +430,17 @@ class Backend(QObject):
             if temp is not None and fresh:
                 self._cpu_hist.append(temp)
             gpu_item = next((i for i in result.items if i.id == "gpu_nvidia"), None)
-            if fresh and gpu_item and gpu_item.state and gpu_item.state.get("temp_c") is not None:
-                self._gpu_hist.append(gpu_item.state["temp_c"])
+            gpu_temp = gpu_item.state.get("temp_c") if gpu_item and gpu_item.state else None
+            if fresh and gpu_temp is not None:
+                self._gpu_hist.append(gpu_temp)
+            ssd_temp = viewmodel.chip_temps(sensors.state if sensors else None).get("SSD (NVMe)")
+            if fresh and ssd_temp is not None:
+                self._ssd_hist.append(ssd_temp)
+            for key, value in (("cpu", temp), ("gpu", gpu_temp), ("ssd", ssd_temp)):
+                if value is not None:
+                    self._max_temp[key] = max(self._max_temp.get(key, value), value)
+            cooling = self._cooling(cpu, temp, gpu_temp, ssd_temp,
+                                    bool(gpu_item and gpu_item.state and gpu_item.state.get("throttled")))
             try:
                 muted = next((d.muted for d in audio.list_devices() if d.kind == "input" and d.default), None)
             except audio.AudioError:
@@ -182,18 +451,37 @@ class Backend(QObject):
             note = ""
             if self._scenario == "auto":
                 self._idle.set_minutes([r.idle for r in rules if r.idle])
-                wanted = profiles.choose(rules, profiles.running_processes(), ac_online(),
-                                         self._idle.reached())
-                if wanted is None:
+                running = profiles.running_processes()
+                matched = profiles.match_rule(rules, running, ac_online(), self._idle.reached(), temp)
+                reason = ""
+                if matched is not None:
+                    wanted = matched.profile
+                    reason = profiles.explain(matched, running)
+                else:
                     fallback = profiles.load_fallback()
                     wanted = fallback if fallback in available else None
+                    reason = "ни одно правило не подошло"
                 if wanted and wanted != self._auto_last:
+                    first = self._auto_last is None
                     self._auto_last = wanted
                     note = self._apply_profile(available[wanted])
+                    self._log(f"Авто: «{available[wanted].name}» ({reason})")
+                    if not first:
+                        self._notify("DOCKIT", f"Включён профиль «{available[wanted].name}»: {reason}")
             else:
                 self._idle.stop()
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                                     muted, scenarios, self._scenario)
+            state["bluetooth"] = self._bluetooth()
+            state["display"] = self._display()
+            if fresh:
+                self._top_cache = self._top.sample()
+            state["top"] = getattr(self, "_top_cache", [])
+            state["tuning"] = self._tuning()
+            state["batteryHistory"] = self._battery_history(state["battery"].get("percent"))
+            state["cooling"] = cooling
+            state["journal"] = list(reversed(self._journal))[:6]
+            state["settings"] = self._settings_view()
             state["profiles"] = viewmodel.profile_cards(available, rules)
             state["apps"] = processes.user_programs()
             state["idleAvailable"] = idle.available()
@@ -206,6 +494,8 @@ class Backend(QObject):
             state["audio"] = {
                 "outputs": [d.description for d in devices if d.kind == "output"],
                 "inputs": [d.description for d in devices if d.kind == "input"],
+                "outputDefault": next((d.description for d in devices if d.kind == "output" and d.default), ""),
+                "inputDefault": next((d.description for d in devices if d.kind == "input" and d.default), ""),
             }
             self._snapshot.emit(state)
             if note:
@@ -258,6 +548,8 @@ class Backend(QObject):
 
         def work() -> str:
             result, error = client.ask({"action": "set_power_profile", "value": mode})
+            if result is not None:
+                self._log(f"Режим мощности: {MODE_NAMES.get(mode, mode)}")
             return f"Режим: {MODE_NAMES.get(mode, mode)}" if result is not None else error
 
         self._run(work)
@@ -277,29 +569,72 @@ class Backend(QObject):
         profile = available.get(scenario)
         if profile is None:
             return
+        self._log(f"Вручную: «{profile.name}»")
         self._run(lambda: self._apply_profile(profile))
 
-    @Slot(str, str, str, str, str)
-    def saveProfile(self, pid: str, power: str, camera: str, output: str, mic: str) -> None:
+    @Slot(str, str, str, str, str, int, int)
+    def saveProfile(self, pid: str, power: str, camera: str, output: str, mic: str,
+                    brightness: int, refresh: int) -> None:
         available, _ = profiles.load()
         if pid not in available:
             return
         try:
-            profiles.save_profile(pid, power, camera, output, mic)
+            profiles.save_profile(pid, power, camera, output, mic, brightness=brightness, refresh=refresh)
         except (ValueError, OSError):
             self._say("Не удалось сохранить профиль")
             return
         self._say(f"Профиль «{available[pid].name}» сохранён. Нажмите «Применить сейчас», чтобы включить его.")
         self.refresh()
 
-    @Slot(str, str, str, int)
-    def saveRule(self, pid: str, programs: str, when: str, idle_minutes: int) -> None:
+    @Slot(str)
+    def createProfile(self, name: str) -> None:
+        try:
+            pid = profiles.create_profile(name)
+        except (ValueError, OSError):
+            self._say("Не удалось создать профиль (название от 1 до 30 символов)")
+            return
+        self._say(f"Профиль «{name.strip()}» создан. Настройте его справа.")
+        self.profileCreated.emit(pid)
+        self.refresh()
+
+    @Slot(str)
+    def deleteProfile(self, pid: str) -> None:
+        try:
+            profiles.delete_profile(pid)
+        except (ValueError, OSError):
+            self._say("Не удалось удалить профиль")
+            return
+        if self._scenario == pid:
+            self.setScenario("auto")
+        self._say("Профиль удалён")
+        self.refresh()
+
+    @Slot(int)
+    def setBrightness(self, percent: int) -> None:
+        def work() -> str:
+            result, error = client.ask({"action": "set_brightness", "value": percent})
+            self._display_at = 0
+            return f"Яркость: {percent} %" if result is not None else error
+
+        self._run(work)
+
+    @Slot(int)
+    def setRefresh(self, hz: int) -> None:
+        def work() -> str:
+            from ..core import display
+            self._display_at = 0
+            return display.set_refresh(hz) or f"Частота экрана: {hz} Гц"
+
+        self._run(work)
+
+    @Slot(str, str, str, int, int, str)
+    def saveRule(self, pid: str, programs: str, when: str, idle_minutes: int, temp: int, hours: str) -> None:
         available, _ = profiles.load()
         if pid not in available:
             return
         names = [n for n in programs.split(",") if n.strip()]
         try:
-            profiles.save_rule(pid, names, when, idle_minutes)
+            profiles.save_rule(pid, names, when, idle_minutes, temp=temp, hours=hours)
         except (ValueError, OSError):
             self._say("Не удалось сохранить правило")
             return

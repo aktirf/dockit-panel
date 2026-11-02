@@ -77,3 +77,56 @@ def describe(name: str) -> str:
     if name.startswith("steam_app_"):
         return "Игра, запущенная через Steam."
     return f"Программа «{name}». Правило сработает, пока она запущена."
+
+
+class TopCpu:
+    """Which programs use the processor most. Call sample() regularly; shares are measured between calls."""
+
+    def __init__(self, proc: str = "/proc", clock: float | None = None, now=None):
+        import time
+        self.proc = proc
+        self._ticks = clock or float(os.sysconf("SC_CLK_TCK")) if hasattr(os, "sysconf") else 100.0
+        self._time = now or time.monotonic
+        self._last: dict[str, float] = {}
+        self._last_at = self._time()
+
+    def _read(self) -> dict[str, float]:
+        totals: dict[str, float] = {}
+        try:
+            entries = os.listdir(self.proc)
+        except OSError:
+            return totals
+        for entry in entries:
+            if not entry.isdigit():
+                continue
+            try:
+                with open(f"{self.proc}/{entry}/stat", encoding="utf-8") as f:
+                    text = f.read()
+            except OSError:
+                continue
+            start, end = text.find("("), text.rfind(")")
+            if start < 0 or end < 0:
+                continue
+            fields = text[end + 2:].split()
+            try:
+                used = (int(fields[11]) + int(fields[12])) / self._ticks   # utime + stime, seconds
+            except (IndexError, ValueError):
+                continue
+            name = text[start + 1:end]
+            totals[name] = totals.get(name, 0.0) + used
+        return totals
+
+    def sample(self, count: int = 5) -> list[dict]:
+        now = self._time()
+        current = self._read()
+        span = now - self._last_at
+        result = []
+        if span > 0 and self._last:
+            for name, used in current.items():
+                delta = used - self._last.get(name, used)
+                if delta > 0:
+                    result.append({"name": name, "cpu": round(100 * delta / span)})
+        self._last, self._last_at = current, now
+        result = [r for r in result if r["cpu"] >= 1]
+        result.sort(key=lambda r: -r["cpu"])
+        return result[:count]

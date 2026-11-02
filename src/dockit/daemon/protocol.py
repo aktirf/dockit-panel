@@ -13,4 +13,8 @@ POLKIT_IDS = {
     "ping": None,
     "set_power_profile": "org.dockit.set-power-profile",
     "set_camera": "org.dockit.set-camera",
+    "set_brightness": "org.dockit.set-brightness",
+    "set_boost": "org.dockit.set-cpu",
+    "set_epp": "org.dockit.set-cpu",
+    "set_gpu_power_limit": "org.dockit.set-gpu-limit",
 }

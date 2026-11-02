@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import shutil
 
+from ..core.profiles import DEFAULT_PROFILES
+from ..modules.battery import minutes_left
 from ..core.scanner import ScanResult, display_name
 from ..core.status import LABELS_RU, Status
 from ..peripherals.scan import KIND_RU
@@ -68,14 +70,36 @@ CHIP_RU = {
 }
 
 
-def temperatures(sensors_state: dict | None) -> list[dict]:
-    """The hottest reading of every chip, with a plain name."""
+def _left_text(b: dict) -> str:
+    minutes = minutes_left(b)
+    if minutes is None:
+        return ""
+    h, m = divmod(minutes, 60)
+    text = (f"{h} ч " if h else "") + f"{m} мин"
+    return f"≈ {text} до разрядки" if b.get("status") == "Discharging" else f"≈ {text} до полной зарядки"
+
+
+# packages DOCKIT may offer to install for a feature (nothing else is ever installed)
+FIX_PACKAGES = {
+    "sensors": ["lm_sensors"],
+    "audio": ["libpulse", "pipewire-pulse"],
+    "wireless": ["networkmanager", "bluez-utils"],
+    "gpu_nvidia": ["nvidia-open", "nvidia-utils"],
+}
+
+
+def chip_temps(sensors_state: dict | None) -> dict[str, float]:
+    """The hottest reading of every chip, by a plain name."""
     best: dict[str, float] = {}
     for key, value in ((sensors_state or {}).get("temps_c") or {}).items():
         chip = key.split("/", 1)[0]
         name = CHIP_RU.get(chip, chip)
         best[name] = max(best.get(name, value), value)
-    return [{"name": n, "value": f"{v:.0f}", "hot": v >= 85} for n, v in sorted(best.items())]
+    return best
+
+
+def temperatures(sensors_state: dict | None) -> list[dict]:
+    return [{"name": n, "value": f"{v:.0f}", "hot": v >= 85} for n, v in sorted(chip_temps(sensors_state).items())]
 
 
 def _keyboard_leds() -> list[str]:
@@ -92,7 +116,7 @@ def empty() -> dict:
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [], "temps": [], "fans": [],
             "peripherals": [], "backlight": [], "system": {},
-            "features": [], "counts": [], "cpuHistory": [], "gpuHistory": [], "profiles": [],
+            "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "bluetooth": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
             "fallback": ""}
 
@@ -135,6 +159,8 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "source": "От сети" if ac else ("От батареи" if ac is False else ""),
         "health": num(b.get("health_pct"), 0) if b.get("health_pct") is not None else "—",
         "cycles": b.get("cycles"),
+        "power": num(b.get("power_w"), 1) if b.get("power_w") else "—",
+        "left": _left_text(b),
         "status": STATUS_KEY[bat_item.status] if bat_item else "no",
         "statusText": LABELS_RU[bat_item.status] if bat_item else "",
     }
@@ -157,7 +183,8 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
 
     features = [
         {"id": i.id, "name": i.name, "status": STATUS_KEY[i.status], "statusText": LABELS_RU[i.status],
-         "detail": i.detail or "", "hint": i.hint or ""}
+         "detail": i.detail or "", "hint": i.hint or "",
+         "fix": " ".join(FIX_PACKAGES.get(i.id, [])) if i.status is not Status.OK else ""}
         for i in result.items
     ]
     order = {"setup": 0, "root": 1, "no": 2, "ok": 3}
@@ -214,8 +241,9 @@ MODE_BY_ID = {m["id"]: m["name"] for m in MODES}
 
 def _rule_edit(rule) -> dict:
     if rule is None:
-        return {"processes": [], "when": "", "idle": 0}
-    return {"processes": list(rule.processes), "when": rule.when, "idle": rule.idle}
+        return {"processes": [], "when": "", "idle": 0, "temp": 0, "hours": ""}
+    return {"processes": list(rule.processes), "when": rule.when, "idle": rule.idle,
+            "temp": rule.temp, "hours": rule.hours}
 
 
 def _rule_text(rule) -> str:
@@ -239,10 +267,13 @@ def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> l
             {"label": "Камера", "value": camera},
             {"label": "Звук (вывод)", "value": f"«{p.output}»" if p.output else "Не меняется"},
             {"label": "Микрофон", "value": f"«{p.input}»" if p.input else "Не меняется"},
+            {"label": "Яркость", "value": f"{p.brightness} %" if p.brightness else "Не меняется"},
+            {"label": "Частота экрана", "value": f"{p.refresh} Гц" if p.refresh else "Не меняется"},
         ]
         cards.append({
             "id": p.id,
             "name": p.name,
+            "custom": p.id not in DEFAULT_PROFILES,
             "sub": "Режим: " + MODE_BY_ID.get(p.power or "", "без изменений"),
             "rows": rows,
             "rules": [_rule_text(r) for r in rules if r.profile == p.id and _rule_text(r)],
@@ -252,6 +283,8 @@ def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> l
                 "camera": "keep" if p.camera is None else ("on" if p.camera else "off"),
                 "output": p.output or "",
                 "input": p.input or "",
+                "brightness": p.brightness or 0,
+                "refresh": p.refresh or 0,
             },
         })
     return cards

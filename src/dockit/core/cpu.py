@@ -47,6 +47,14 @@ class CpuMonitor:
                 values.append(int(raw))
         return round(sum(values) / len(values) / 1000) if values else None
 
+    def max_frequency_mhz(self) -> int | None:
+        values = []
+        for f in glob.glob(os.path.join(self.cpu_dir, "cpu[0-9]*", "cpufreq", "cpuinfo_max_freq")):
+            raw = sysfs.read_text(f)
+            if raw and raw.isdigit():
+                values.append(int(raw))
+        return round(max(values) / 1000) if values else None
+
     def sample(self) -> dict:
         now = self._read_stat()
         load = None

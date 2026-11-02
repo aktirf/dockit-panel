@@ -14,7 +14,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 # what DOCKIT uses: window, fonts, idle detection, sound, power, sensors, Wi-Fi and Bluetooth
 PACKAGES=(python python-pip pyside6 ttf-ibm-plex swayidle libpulse pipewire-pulse
-          polkit upower lm_sensors networkmanager bluez-utils)
+          polkit upower lm_sensors networkmanager bluez-utils libnotify)
 
 if command -v pacman >/dev/null 2>&1; then
     echo "[1/2] Installing packages DOCKIT needs ..."

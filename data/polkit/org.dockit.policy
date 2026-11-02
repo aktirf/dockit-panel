@@ -28,4 +28,40 @@
       <allow_active>auth_self_keep</allow_active>
     </defaults>
   </action>
+
+  <action id="org.dockit.set-brightness">
+    <description>Change the screen brightness</description>
+    <description xml:lang="ru">Изменить яркость экрана</description>
+    <message>Authentication is required to change the screen brightness</message>
+    <message xml:lang="ru">Для изменения яркости экрана нужно подтверждение</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_self_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.dockit.set-cpu">
+    <description>Change processor tuning (Turbo Boost, energy preference)</description>
+    <description xml:lang="ru">Изменить настройки процессора (Turbo Boost, энергопотребление)</description>
+    <message>Authentication is required: change processor tuning (turbo boost, energy preference)</message>
+    <message xml:lang="ru">Нужно подтверждение: изменить настройки процессора (Turbo Boost, энергопотребление)</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_self_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.dockit.set-gpu-limit">
+    <description>Change the video card power limit</description>
+    <description xml:lang="ru">Изменить лимит мощности видеокарты</description>
+    <message>Authentication is required: change the video card power limit</message>
+    <message xml:lang="ru">Нужно подтверждение: изменить лимит мощности видеокарты</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_self_keep</allow_active>
+    </defaults>
+  </action>
 </policyconfig>

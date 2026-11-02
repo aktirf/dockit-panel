@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ..core import sysfs
+from ..core import display, sysfs, tuning
 from ..core.usb import BASE as USB_BASE
 from ..core.usb import list_usb
 from ..peripherals.database import DeviceEntry, load_database
@@ -75,3 +75,62 @@ def set_camera(enabled, usb_base: str = USB_BASE, entries: list[DeviceEntry] | N
         except OSError as exc:
             raise ActionError(f"Не удалось переключить камеру: {exc.strerror or 'ошибка'}.") from exc
     return camera_state(usb_base, entries)
+
+
+def set_brightness(value, base: str = display.BACKLIGHT) -> dict:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 100:
+        raise ActionError("Яркость должна быть числом от 1 до 100.")
+    dev = display.backlight_device(base)
+    if dev is None:
+        raise ActionError("Управление яркостью экрана не найдено.")
+    top = int(sysfs.read_text(f"{dev}/max_brightness") or 0)
+    if top <= 0:
+        raise ActionError("Не удалось узнать максимальную яркость.")
+    target = max(1, round(top * value / 100))
+    try:
+        Path(f"{dev}/brightness").write_text(str(target), encoding="ascii")
+    except OSError as exc:
+        raise ActionError(f"Не удалось изменить яркость: {exc.strerror or 'ошибка'}.") from exc
+    return {"brightness": display.brightness_percent(base)}
+
+
+def set_boost(value, base: str = tuning.CPU) -> dict:
+    if not isinstance(value, bool):
+        raise ActionError("Значение должно быть true или false.")
+    if tuning.read_boost(base) is None:
+        raise ActionError("Эта модель не поддерживает отключение Turbo Boost.")
+    try:
+        Path(tuning.boost_path(base)).write_text("1" if value else "0", encoding="ascii")
+    except OSError as exc:
+        raise ActionError(f"Не удалось изменить Turbo Boost: {exc.strerror or 'ошибка'}.") from exc
+    return {"boost": tuning.read_boost(base)}
+
+
+def set_epp(value, base: str = tuning.CPU) -> dict:
+    choices = tuning.epp_choices(base)
+    if not isinstance(value, str) or value not in choices:
+        raise ActionError(f"Недопустимое значение. Доступно: {', '.join(choices) or 'нет'}.")
+    try:
+        for f in tuning.epp_files(base):
+            Path(f).write_text(value, encoding="ascii")
+    except OSError as exc:
+        raise ActionError(f"Не удалось изменить: {exc.strerror or 'ошибка'}.") from exc
+    return {"epp": tuning.read_epp(base)}
+
+
+def set_gpu_power_limit(value) -> dict:
+    import subprocess
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ActionError("Лимит должен быть числом (ватты).")
+    limits = tuning.gpu_power_limits()
+    if limits is None:
+        raise ActionError("Видеокарта не позволяет менять лимит мощности.")
+    if not limits["min"] <= value <= limits["max"]:
+        raise ActionError(f"Допустимо от {limits['min']} до {limits['max']} Вт.")
+    try:
+        proc = subprocess.run(["nvidia-smi", "-pl", str(value)], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ActionError("Не удалось запустить nvidia-smi.") from exc
+    if proc.returncode != 0:
+        raise ActionError("Драйвер отказался менять лимит мощности.")
+    return {"limit": value}

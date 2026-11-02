@@ -44,6 +44,8 @@ class Profile:
     camera: bool | None = None    # True/False = switch, None = do not touch
     output: str | None = None     # part of a sound output name, e.g. "epos"
     input: str | None = None      # part of a microphone name
+    brightness: int | None = None  # screen brightness in percent, None = do not touch
+    refresh: int | None = None     # screen refresh rate in Hz, None = do not touch
 
 
 @dataclass
@@ -52,6 +54,8 @@ class Rule:
     processes: list[str]          # process name patterns, "*" allowed
     when: str = ""                # "", "battery" or "ac"
     idle: int = 0                 # minutes without activity, 0 = not used
+    temp: int = 0                 # processor temperature in °C, matches when it is at least this hot
+    hours: str = ""               # "22:00-07:00": matches only at this time of day
 
 
 DEFAULT_PROFILES = {
@@ -91,6 +95,16 @@ def _camera(value, base):
     return value if isinstance(value, bool) else base
 
 
+def _number(value, base, low: int, high: int):
+    if value is _MISSING:
+        return base
+    if value == KEEP or value == "":
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+        return base
+    return value
+
+
 def _text(value, base):
     if value is _MISSING or not isinstance(value, str):
         return base
@@ -124,6 +138,8 @@ def load(path: Path | None = None) -> tuple[dict[str, Profile], list[Rule]]:
                 _camera(body.get("camera", _MISSING), base.camera),
                 _text(body.get("output", _MISSING), base.output),
                 _text(body.get("input", _MISSING), base.input),
+                _number(body.get("brightness", _MISSING), base.brightness, 1, 100),
+                _number(body.get("refresh", _MISSING), base.refresh, 24, 360),
             )
 
     custom_rules = data.get("rules")
@@ -139,6 +155,50 @@ def load(path: Path | None = None) -> tuple[dict[str, Profile], list[Rule]]:
     return profiles, rules
 
 
+def valid_hours(text) -> bool:
+    """"" or "HH:MM-HH:MM"."""
+    if text == "":
+        return True
+    if not isinstance(text, str) or len(text) != 11 or text[5] != "-":
+        return False
+    for part in (text[:5], text[6:]):
+        h, sep, m = part.partition(":")
+        if sep != ":" or not (h.isdigit() and m.isdigit() and len(h) == 2 and len(m) == 2):
+            return False
+        if int(h) > 23 or int(m) > 59:
+            return False
+    return True
+
+
+def in_hours(text: str, now) -> bool:
+    """True if the time `now` (datetime.time) is inside "HH:MM-HH:MM"; works across midnight."""
+    start = tuple(int(x) for x in text[:5].split(":"))
+    end = tuple(int(x) for x in text[6:].split(":"))
+    cur = (now.hour, now.minute)
+    if start <= end:
+        return start <= cur < end
+    return cur >= start or cur < end
+
+
+def _valid_temp(value) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int) and 0 <= value <= 120
+
+
+def rule_to_dict(rule: "Rule") -> dict:
+    item: dict = {"profile": rule.profile}
+    if rule.processes:
+        item["processes"] = rule.processes
+    if rule.when:
+        item["when"] = rule.when
+    if rule.idle:
+        item["idle_minutes"] = rule.idle
+    if rule.temp:
+        item["temp_over_c"] = rule.temp
+    if rule.hours:
+        item["hours"] = rule.hours
+    return item
+
+
 def _parse_rule(body: dict, profiles: dict) -> Rule | None:
     procs = body.get("processes", [])
     when = body.get("when", "")
@@ -149,10 +209,14 @@ def _parse_rule(body: dict, profiles: dict) -> Rule | None:
         return None
     if isinstance(idle, bool) or not isinstance(idle, int) or not 0 <= idle <= 1440:
         return None
-    procs = [str(p) for p in procs][:MAX_PROCESSES]
-    if not (procs or when or idle):
+    temp = body.get("temp_over_c", 0)
+    hours = body.get("hours", "")
+    if not _valid_temp(temp) or not valid_hours(hours):
         return None
-    return Rule(body["profile"], procs, when, idle)
+    procs = [str(p) for p in procs][:MAX_PROCESSES]
+    if not (procs or when or idle or temp or hours):
+        return None
+    return Rule(body["profile"], procs, when, idle, temp, hours)
 
 
 def load_fallback(path: Path | None = None) -> str | None:
@@ -188,14 +252,49 @@ def running_processes() -> set[str]:
     return names
 
 
+def explain(rule: Rule, processes: set[str] = frozenset()) -> str:
+    """Short human reason why a rule matched, for the activity log."""
+    parts = []
+    if rule.temp:
+        parts.append(f"процессор горячее {rule.temp} °C")
+    if rule.hours:
+        parts.append(f"время {rule.hours}")
+    if rule.processes:
+        hit = sorted(n for n in processes for pat in rule.processes if fnmatch.fnmatchcase(n, pat))
+        parts.append("запущено: " + ", ".join(hit[:3]) if hit else "запущена нужная программа")
+    if rule.when == "battery":
+        parts.append("работа от батареи")
+    elif rule.when == "ac":
+        parts.append("подключена зарядка")
+    if rule.idle:
+        parts.append(f"нет действий {rule.idle} мин")
+    return ", ".join(parts)
+
+
 def choose(rules: list[Rule], processes: set[str], on_ac: bool | None,
-           idle_reached: set[int] | frozenset = frozenset()) -> str | None:
-    """Id of the profile that should be active now, or None if no rule matches.
+           idle_reached: set[int] | frozenset = frozenset(), cpu_temp: float | None = None,
+           now=None) -> str | None:
+    """Id of the profile that should be active now, or None if no rule matches."""
+    rule = match_rule(rules, processes, on_ac, idle_reached, cpu_temp, now)
+    return rule.profile if rule else None
+
+
+def match_rule(rules: list[Rule], processes: set[str], on_ac: bool | None,
+               idle_reached: set[int] | frozenset = frozenset(), cpu_temp: float | None = None,
+               now=None) -> Rule | None:
+    """The first rule whose conditions all hold, or None.
 
     idle_reached: the "idle_minutes" values of rules whose waiting time has passed.
     """
+    if now is None:
+        import datetime
+        now = datetime.datetime.now().time()
     for rule in rules:
         if rule.idle and rule.idle not in idle_reached:
+            continue
+        if rule.temp and (cpu_temp is None or cpu_temp < rule.temp):
+            continue
+        if rule.hours and not in_hours(rule.hours, now):
             continue
         if rule.when == "battery" and on_ac is not False:
             continue
@@ -205,7 +304,7 @@ def choose(rules: list[Rule], processes: set[str], on_ac: bool | None,
             fnmatch.fnmatchcase(name, pattern) for name in processes for pattern in rule.processes
         ):
             continue
-        return rule.profile
+        return rule
     return None
 
 
@@ -215,6 +314,13 @@ def apply(profile: Profile, ask: Callable[[dict], dict | None]) -> list[str]:
     if profile.power:
         result = ask({"action": "set_power_profile", "value": profile.power})
         lines.append(f"Режим мощности: {result['profile']}" if result else "Режим мощности: не удалось")
+    if profile.brightness is not None:
+        result = ask({"action": "set_brightness", "value": profile.brightness})
+        lines.append(f"Яркость: {profile.brightness} %" if result else "Яркость: не удалось")
+    if profile.refresh is not None:
+        from . import display  # needs the compositor, so loaded only when a profile asks for it
+        error = display.set_refresh(profile.refresh)
+        lines.append(error or f"Частота экрана: {profile.refresh} Гц")
     if profile.camera is not None:
         result = ask({"action": "set_camera", "value": profile.camera})
         lines.append("Камера: " + ("включена" if profile.camera else "выключена") if result is not None
@@ -262,7 +368,7 @@ def _dump(data: dict) -> str:
 
 
 def save_profile(pid: str, power: str, camera: str, output: str, mic: str,
-                 path: Path | None = None) -> None:
+                 path: Path | None = None, brightness: int = 0, refresh: int = 0) -> None:
     """Store the four settings of one profile in the user's file (other content stays).
 
     power: "keep" or a power mode; camera: "keep", "on" or "off";
@@ -276,6 +382,10 @@ def save_profile(pid: str, power: str, camera: str, output: str, mic: str,
         raise ValueError("bad camera value")
     if len(output) > 200 or len(mic) > 200:
         raise ValueError("text too long")
+    if isinstance(brightness, bool) or not isinstance(brightness, int) or not 0 <= brightness <= 100:
+        raise ValueError("bad brightness")
+    if isinstance(refresh, bool) or not isinstance(refresh, int) or not (refresh == 0 or 24 <= refresh <= 360):
+        raise ValueError("bad refresh rate")
     path = path or config_path()
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -287,6 +397,8 @@ def save_profile(pid: str, power: str, camera: str, output: str, mic: str,
     body["camera"] = KEEP if camera == KEEP else camera == "on"
     body["output"] = output.strip()
     body["input"] = mic.strip()
+    body["brightness"] = brightness if brightness else KEEP     # 0 = do not touch
+    body["refresh"] = refresh if refresh else KEEP
     section[pid] = body
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
@@ -307,7 +419,8 @@ def clean_processes(names: list[str]) -> list[str]:
     return result[:MAX_PROCESSES]
 
 
-def save_rule(pid: str, processes: list[str], when: str, idle: int, path: Path | None = None) -> None:
+def save_rule(pid: str, processes: list[str], when: str, idle: int, path: Path | None = None,
+              temp: int = 0, hours: str = "") -> None:
     """Make `pid` have exactly one rule with these conditions (all of them must hold).
 
     Other profiles' rules and their order stay as they are. If the file had no
@@ -319,6 +432,10 @@ def save_rule(pid: str, processes: list[str], when: str, idle: int, path: Path |
         raise ValueError("bad condition")
     if isinstance(idle, bool) or not isinstance(idle, int) or not 0 <= idle <= 1440:
         raise ValueError("bad idle time")
+    if not _valid_temp(temp):
+        raise ValueError("bad temperature")
+    if not valid_hours(hours):
+        raise ValueError("bad hours")
     processes = clean_processes(processes)
     path = path or config_path()
     try:
@@ -333,6 +450,10 @@ def save_rule(pid: str, processes: list[str], when: str, idle: int, path: Path |
         new_rule["when"] = when
     if idle:
         new_rule["idle_minutes"] = idle
+    if temp:
+        new_rule["temp_over_c"] = temp
+    if hours:
+        new_rule["hours"] = hours
     rules_out: list[dict] = []
     placed = False
     for rule in current:
@@ -341,16 +462,12 @@ def save_rule(pid: str, processes: list[str], when: str, idle: int, path: Path |
                 rules_out.append(new_rule)
                 placed = True
             continue
-        item: dict = {"profile": rule.profile}
-        if rule.processes:
-            item["processes"] = rule.processes
-        if rule.when:
-            item["when"] = rule.when
-        if rule.idle:
-            item["idle_minutes"] = rule.idle
-        rules_out.append(item)
+        rules_out.append(rule_to_dict(rule))
     if not placed and len(new_rule) > 1:
         rules_out.append(new_rule)
+    if temp and new_rule in rules_out:   # protection against heat is checked before everything else
+        rules_out.remove(new_rule)
+        rules_out.insert(0, new_rule)
     data["rules"] = rules_out
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
@@ -397,3 +514,45 @@ def save_scenario(value: str, path: Path | None = None) -> None:
         path.write_text(value + "\n", encoding="utf-8")
     except OSError:
         pass  # remembering the choice is a convenience, never an error
+
+
+def create_profile(name: str, path: Path | None = None) -> str:
+    """Add an empty profile with this name; returns its new id (custom1, custom2, ...)."""
+    name = name.strip()
+    if not 1 <= len(name) <= 30:
+        raise ValueError("bad name")
+    path = path or config_path()
+    profiles, _ = load(path)
+    n = 1
+    while f"custom{n}" in profiles:
+        n += 1
+    pid = f"custom{n}"
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    data.setdefault("profiles", {})[pid] = {"name": name}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(".tmp")
+    temp.write_text(_dump(data), encoding="utf-8")
+    temp.replace(path)
+    return pid
+
+
+def delete_profile(pid: str, path: Path | None = None) -> None:
+    """Remove a profile the user created (built-in ones cannot be deleted) and its rules."""
+    if pid in DEFAULT_PROFILES or not _safe_id(pid):
+        raise ValueError("this profile cannot be deleted")
+    path = path or config_path()
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    _, current = load(path)
+    data.get("profiles", {}).pop(pid, None)
+    data["rules"] = [rule_to_dict(r) for r in current if r.profile != pid]
+    if data.get("fallback") == pid:
+        data["fallback"] = KEEP
+    temp = path.with_suffix(".tmp")
+    temp.write_text(_dump(data), encoding="utf-8")
+    temp.replace(path)

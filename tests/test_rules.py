@@ -137,10 +137,10 @@ def test_profile_cards_carry_the_rule_for_editing():
     profs = {"games": pf.Profile("games", "Игры"), "work": pf.Profile("work", "Работа")}
     rules = [pf.Rule("games", ["cs2"], "ac", 0), pf.Rule("work", [], "", 15)]
     cards = vm.profile_cards(profs, rules)
-    assert cards[0]["rule"] == {"processes": ["cs2"], "when": "ac", "idle": 0}
-    assert cards[1]["rule"] == {"processes": [], "when": "", "idle": 15}
+    assert cards[0]["rule"] == {"processes": ["cs2"], "when": "ac", "idle": 0, "temp": 0, "hours": ""}
+    assert cards[1]["rule"] == {"processes": [], "when": "", "idle": 15, "temp": 0, "hours": ""}
     assert vm.profile_cards({"night": pf.Profile("night", "Ночь")}, [])[0]["rule"] == \
-        {"processes": [], "when": "", "idle": 0}
+        {"processes": [], "when": "", "idle": 0, "temp": 0, "hours": ""}
 
 
 def test_describe_program():
@@ -149,3 +149,106 @@ def test_describe_program():
     assert "Шаблон" in describe("foo_*")
     assert "Steam" in describe("steam_app_730")
     assert "mygame" in describe("mygame")
+
+
+def test_temperature_and_hours_rules(tmp_path):
+    import datetime
+    from dockit.core import profiles as pf
+    f = tmp_path / "p.toml"
+    pf.save_rule("night", [], "", 0, f, hours="22:00-07:00")
+    pf.save_rule("work", [], "", 0, f, temp=90)
+    _, rules = pf.load(f)
+    assert rules[0].profile == "work" and rules[0].temp == 90          # heat protection goes first
+    assert any(r.hours == "22:00-07:00" for r in rules)
+    at = lambda h, m: datetime.time(h, m)
+    assert pf.choose(rules, set(), None, cpu_temp=95, now=at(12, 0)) == "work"
+    assert pf.choose(rules, set(), None, cpu_temp=60, now=at(23, 30)) == "night"
+    assert pf.choose(rules, set(), None, cpu_temp=60, now=at(3, 0)) == "night"
+    assert pf.choose(rules, set(), None, cpu_temp=None, now=at(12, 0)) != "work"
+
+
+def test_hours_validation():
+    from dockit.core.profiles import valid_hours, in_hours
+    import datetime
+    assert valid_hours("") and valid_hours("07:00-22:30")
+    assert not valid_hours("7:00-22:00") and not valid_hours("25:00-01:00") and not valid_hours("abc")
+    assert in_hours("09:00-17:00", datetime.time(12, 0)) and not in_hours("09:00-17:00", datetime.time(18, 0))
+
+
+def test_brightness_refresh_create_delete(tmp_path):
+    from dockit.core import profiles as pf
+    f = tmp_path / "p.toml"
+    pf.save_profile("work", "balanced", "keep", "", "", f, brightness=60, refresh=60)
+    profs, _ = pf.load(f)
+    assert profs["work"].brightness == 60 and profs["work"].refresh == 60
+    pf.save_profile("work", "balanced", "keep", "", "", f)
+    profs, _ = pf.load(f)
+    assert profs["work"].brightness is None and profs["work"].refresh is None
+    pid = pf.create_profile("Кино", f)
+    assert pid == "custom1"
+    pf.save_rule(pid, ["mpv"], "", 0, f)
+    pf.save_fallback(pid, f)
+    pf.delete_profile(pid, f)
+    profs, rules = pf.load(f)
+    assert pid not in profs and all(r.profile != pid for r in rules)
+    assert pf.load_fallback(f) is None
+    import pytest
+    with pytest.raises(ValueError):
+        pf.delete_profile("games", f)
+    with pytest.raises(ValueError):
+        pf.save_profile("work", "balanced", "keep", "", "", f, brightness=200)
+
+
+def test_display_helpers(tmp_path):
+    from dockit.core import display
+    d = tmp_path / "bl"
+    (d / "amdgpu_bl1").mkdir(parents=True)
+    (d / "amdgpu_bl1" / "max_brightness").write_text("255")
+    (d / "amdgpu_bl1" / "brightness").write_text("128")
+    assert display.brightness_percent(str(d)) == 50
+    out = {"eDP-1": {"modes": [{"width": 2560, "height": 1600, "refresh_rate": 165000},
+                               {"width": 2560, "height": 1600, "refresh_rate": 60001},
+                               {"width": 1920, "height": 1200, "refresh_rate": 120000}], "current_mode": 0}}
+    info = display.refresh_info(out)
+    assert info == {"output": "eDP-1", "current": 165, "rates": [60, 165]}
+    from dockit.daemon import actions
+    actions.set_brightness(20, str(d))
+    assert (d / "amdgpu_bl1" / "brightness").read_text() == "51"
+    import pytest
+    with pytest.raises(actions.ActionError):
+        actions.set_brightness(0, str(d))
+
+
+def test_tuning_and_battery_estimate(tmp_path):
+    from dockit.core import tuning
+    from dockit.daemon import actions
+    from dockit.modules.battery import minutes_left, read_batteries
+    base = tmp_path / "cpu"
+    (base / "cpufreq").mkdir(parents=True)
+    (base / "cpufreq" / "boost").write_text("1")
+    (base / "cpu0" / "cpufreq").mkdir(parents=True)
+    (base / "cpu0" / "cpufreq" / "energy_performance_available_preferences").write_text("performance balance_power power")
+    (base / "cpu0" / "cpufreq" / "energy_performance_preference").write_text("balance_power")
+    assert tuning.read_boost(str(base)) is True
+    actions.set_boost(False, str(base))
+    assert (base / "cpufreq" / "boost").read_text() == "0"
+    actions.set_epp("power", str(base))
+    assert tuning.read_epp(str(base)) == "power"
+    import pytest
+    with pytest.raises(actions.ActionError):
+        actions.set_epp("turbo-everything", str(base))
+    ps = tmp_path / "ps" / "BAT0"
+    ps.mkdir(parents=True)
+    for name, val in {"capacity": 50, "status": "Discharging", "energy_now": 40_000_000,
+                      "energy_full": 80_000_000, "energy_full_design": 90_000_000, "power_now": 20_000_000}.items():
+        (ps / name).write_text(str(val))
+    b = read_batteries(str(tmp_path / "ps"))[0]
+    assert b["power_w"] == 20.0 and b["energy_wh"] == 40.0
+    assert minutes_left(b) == 120
+
+
+def test_bluetooth_info_parse():
+    from dockit.core.bluetooth import parse_info
+    text = "Device AA:BB:CC:DD:EE:FF (public)\n\tName: EPOS H3PRO\n\tIcon: audio-headset\n\tBattery Percentage: 0x55 (85)\n"
+    assert parse_info(text) == {"name": "EPOS H3PRO", "battery": 85, "icon": "audio-headset"}
+    assert parse_info("Name: Mouse\n")["battery"] is None

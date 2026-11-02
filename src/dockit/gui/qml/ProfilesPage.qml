@@ -14,6 +14,8 @@ Flickable {
         return list.length > 0 ? list[0] : null
     }
 
+    Connections { target: backend; function onProfileCreated(pid) { page.selId = pid } }
+
     function matches(name, query) {
         return query !== "" && name.toLowerCase().indexOf(query.toLowerCase()) >= 0
     }
@@ -24,13 +26,16 @@ Flickable {
     }
     function save(field, value) {
         var e = cur.edit
-        var v = { power: e.power, camera: e.camera, output: e.output, input: e.input }
+        var v = { power: e.power, camera: e.camera, output: e.output, input: e.input,
+                  brightness: e.brightness, refresh: e.refresh }
         v[field] = value
-        backend.saveProfile(cur.id, v.power, v.camera, v.output, v.input)
+        backend.saveProfile(cur.id, v.power, v.camera, v.output, v.input, v.brightness, v.refresh)
     }
 
-    function saveRule(procs, when, idle) {
-        backend.saveRule(cur.id, procs.join(","), when, idle)
+    function saveRule(procs, when, idle, temp, hours) {
+        backend.saveRule(cur.id, procs.join(","), when, idle,
+                         temp === undefined ? cur.rule.temp : temp,
+                         hours === undefined ? cur.rule.hours : hours)
     }
     function addProgram(name) {
         var n = name.trim()
@@ -73,6 +78,28 @@ Flickable {
                 Layout.fillWidth: page.width < 860
                 Layout.alignment: Qt.AlignTop
                 Txt { text: "Ваши профили"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    TextField {
+                        id: newName
+                        Layout.fillWidth: true
+                        implicitHeight: 40
+                        placeholderText: "Новый профиль"
+                        placeholderTextColor: Theme.muted
+                        color: Theme.text
+                        font.family: Theme.sans
+                        font.pixelSize: 14
+                        leftPadding: 12
+                        maximumLength: 30
+                        ToolTip.text: "Назовите профиль, например «Кино» или «Учёба», и нажмите «Создать»."
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 450
+                        background: Rectangle { radius: 10; color: Theme.cardInner; border.width: 1; border.color: newName.activeFocus ? Theme.accent : Theme.border2 }
+                        onAccepted: { backend.createProfile(text); text = "" }
+                    }
+                    Btn { text: "Создать"; implicitHeight: 40; onClicked: { backend.createProfile(newName.text); newName.text = "" } }
+                }
                 Repeater {
                     model: page.list
                     delegate: Rectangle {
@@ -147,6 +174,12 @@ Flickable {
                             primary: true
                             text: "Применить сейчас"
                             onClicked: backend.setScenario(page.cur.id)
+                        }
+                        Btn {
+                            visible: page.cur !== null && page.cur.custom === true
+                            text: "Удалить"
+                            tip: "Удалить этот профиль и его правила. Встроенные профили удалить нельзя."
+                            onClicked: backend.deleteProfile(page.cur.id)
                         }
                     }
                     Txt { text: "Что применяется"; font.pixelSize: 14; font.weight: Font.DemiBold; color: Theme.muted }
@@ -225,6 +258,49 @@ Flickable {
                         wrapMode: Text.WordWrap
                         text: "Выбрано: «" + page.cur.edit.input + "». Сейчас такое устройство не подключено, при включении профиля микрофон останется как есть."
                         color: Theme.warn
+                        font.pixelSize: 12
+                    }
+                }
+
+                Card {
+                    Layout.fillWidth: true
+                    visible: page.cur !== null
+                    Txt { text: "Экран"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Txt { text: "Яркость"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не менять"; sel: page.cur.edit.brightness === 0; onClicked: page.save("brightness", 0) }
+                        Repeater {
+                            model: [20, 40, 60, 80, 100]
+                            delegate: Pill {
+                                text: modelData + " %"
+                                sel: page.cur.edit.brightness === modelData
+                                onClicked: page.save("brightness", modelData)
+                            }
+                        }
+                    }
+                    Txt { text: "Частота экрана"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не менять"; sel: page.cur.edit.refresh === 0; onClicked: page.save("refresh", 0) }
+                        Repeater {
+                            model: page.d.display && page.d.display.rates ? page.d.display.rates : []
+                            delegate: Pill {
+                                text: modelData + " Гц"
+                                tip: "Меньшая частота экономит заряд, большая даёт более плавную картинку."
+                                sel: page.cur.edit.refresh === modelData
+                                onClicked: page.save("refresh", modelData)
+                            }
+                        }
+                    }
+                    Txt {
+                        visible: !page.d.display || !page.d.display.rates || page.d.display.rates.length === 0
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: "Список частот не найден: смена частоты экрана работает только в niri."
+                        color: Theme.muted
                         font.pixelSize: 12
                     }
                 }
@@ -355,6 +431,59 @@ Flickable {
                         text: "Чтобы это условие работало, нужна небольшая программа swayidle: sudo pacman -S swayidle"
                         color: Theme.warn
                         font.pixelSize: 12
+                    }
+
+                    Txt { text: "Процессор горячее"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не важно"; tip: "Температура не учитывается."; sel: page.cur.rule.temp === 0; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, 0) }
+                        Repeater {
+                            model: [80, 85, 90, 95]
+                            delegate: Pill {
+                                text: modelData + " °C"
+                                tip: "Защита от перегрева: правило сработает, когда процессор достигнет этой температуры. Оно проверяется раньше остальных. Обычно ему назначают профиль «Ночь» (тихий режим)."
+                                sel: page.cur.rule.temp === modelData
+                                onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, modelData)
+                            }
+                        }
+                    }
+
+                    Txt { text: "Время суток"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не важно"; sel: page.cur.rule.hours === ""; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, "") }
+                        Repeater {
+                            model: ["22:00-07:00", "09:00-18:00", "18:00-23:00"]
+                            delegate: Pill {
+                                text: modelData.replace("-", " – ")
+                                tip: "Правило сработает только в это время суток."
+                                sel: page.cur.rule.hours === modelData
+                                onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, modelData)
+                            }
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        TextField {
+                            id: hoursField
+                            implicitHeight: 40
+                            implicitWidth: 180
+                            placeholderText: "ЧЧ:ММ-ЧЧ:ММ"
+                            placeholderTextColor: Theme.muted
+                            color: Theme.text
+                            font.family: Theme.sans
+                            font.pixelSize: 14
+                            leftPadding: 12
+                            ToolTip.text: "Своё время, например 23:30-06:45. Можно через полночь."
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 450
+                            background: Rectangle { radius: 10; color: Theme.cardInner; border.width: 1; border.color: hoursField.activeFocus ? Theme.accent : Theme.border2 }
+                            onAccepted: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, text)
+                        }
+                        Btn { text: "Задать время"; implicitHeight: 40; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, hoursField.text) }
                     }
                 }
 

@@ -7,7 +7,7 @@ arch=('any')
 url='https://github.com/aktirf/dockit-panel'
 license=('GPL-3.0-or-later')
 depends=('python' 'pyside6' 'ttf-ibm-plex' 'swayidle' 'libpulse' 'polkit'
-         'upower' 'lm_sensors' 'networkmanager' 'bluez-utils')
+         'upower' 'lm_sensors' 'networkmanager' 'bluez-utils' 'libnotify')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 optdepends=('nvidia-utils: NVIDIA GPU information'
             'libratbag: mouse settings where supported')
