@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ..core import sysfs
+from ..core import display, sysfs
 from ..core.usb import BASE as USB_BASE
 from ..core.usb import list_usb
 from ..peripherals.database import DeviceEntry, load_database
@@ -75,3 +75,20 @@ def set_camera(enabled, usb_base: str = USB_BASE, entries: list[DeviceEntry] | N
         except OSError as exc:
             raise ActionError(f"Не удалось переключить камеру: {exc.strerror or 'ошибка'}.") from exc
     return camera_state(usb_base, entries)
+
+
+def set_brightness(value, base: str = display.BACKLIGHT) -> dict:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 100:
+        raise ActionError("Яркость должна быть числом от 1 до 100.")
+    dev = display.backlight_device(base)
+    if dev is None:
+        raise ActionError("Управление яркостью экрана не найдено.")
+    top = int(sysfs.read_text(f"{dev}/max_brightness") or 0)
+    if top <= 0:
+        raise ActionError("Не удалось узнать максимальную яркость.")
+    target = max(1, round(top * value / 100))
+    try:
+        Path(f"{dev}/brightness").write_text(str(target), encoding="ascii")
+    except OSError as exc:
+        raise ActionError(f"Не удалось изменить яркость: {exc.strerror or 'ошибка'}.") from exc
+    return {"brightness": display.brightness_percent(base)}

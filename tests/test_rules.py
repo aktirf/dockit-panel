@@ -173,3 +173,47 @@ def test_hours_validation():
     assert valid_hours("") and valid_hours("07:00-22:30")
     assert not valid_hours("7:00-22:00") and not valid_hours("25:00-01:00") and not valid_hours("abc")
     assert in_hours("09:00-17:00", datetime.time(12, 0)) and not in_hours("09:00-17:00", datetime.time(18, 0))
+
+
+def test_brightness_refresh_create_delete(tmp_path):
+    from dockit.core import profiles as pf
+    f = tmp_path / "p.toml"
+    pf.save_profile("work", "balanced", "keep", "", "", f, brightness=60, refresh=60)
+    profs, _ = pf.load(f)
+    assert profs["work"].brightness == 60 and profs["work"].refresh == 60
+    pf.save_profile("work", "balanced", "keep", "", "", f)
+    profs, _ = pf.load(f)
+    assert profs["work"].brightness is None and profs["work"].refresh is None
+    pid = pf.create_profile("Кино", f)
+    assert pid == "custom1"
+    pf.save_rule(pid, ["mpv"], "", 0, f)
+    pf.save_fallback(pid, f)
+    pf.delete_profile(pid, f)
+    profs, rules = pf.load(f)
+    assert pid not in profs and all(r.profile != pid for r in rules)
+    assert pf.load_fallback(f) is None
+    import pytest
+    with pytest.raises(ValueError):
+        pf.delete_profile("games", f)
+    with pytest.raises(ValueError):
+        pf.save_profile("work", "balanced", "keep", "", "", f, brightness=200)
+
+
+def test_display_helpers(tmp_path):
+    from dockit.core import display
+    d = tmp_path / "bl"
+    (d / "amdgpu_bl1").mkdir(parents=True)
+    (d / "amdgpu_bl1" / "max_brightness").write_text("255")
+    (d / "amdgpu_bl1" / "brightness").write_text("128")
+    assert display.brightness_percent(str(d)) == 50
+    out = {"eDP-1": {"modes": [{"width": 2560, "height": 1600, "refresh_rate": 165000},
+                               {"width": 2560, "height": 1600, "refresh_rate": 60001},
+                               {"width": 1920, "height": 1200, "refresh_rate": 120000}], "current_mode": 0}}
+    info = display.refresh_info(out)
+    assert info == {"output": "eDP-1", "current": 165, "rates": [60, 165]}
+    from dockit.daemon import actions
+    actions.set_brightness(20, str(d))
+    assert (d / "amdgpu_bl1" / "brightness").read_text() == "51"
+    import pytest
+    with pytest.raises(actions.ActionError):
+        actions.set_brightness(0, str(d))

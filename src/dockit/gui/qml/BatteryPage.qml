@@ -67,4 +67,53 @@ PageFrame {
             Btn { text: "Автопереключение"; onClicked: goto("profiles") }
         }
     }
+
+    Card {
+        Layout.fillWidth: true
+        Txt { text: "Экран"; font.pixelSize: 16; font.weight: Font.DemiBold }
+        Row2 { label: "Яркость сейчас"; value: d.display && d.display.brightness !== null && d.display.brightness !== undefined ? d.display.brightness + " %" : "—" }
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            Repeater {
+                model: [20, 40, 60, 80, 100]
+                delegate: Pill {
+                    text: modelData + " %"
+                    sel: d.display && d.display.brightness !== null && Math.abs(d.display.brightness - modelData) < 10
+                    tip: "Меньше яркость — дольше работа от батареи."
+                    onClicked: backend.setBrightness(modelData)
+                }
+            }
+        }
+        Txt {
+            visible: !d.display || d.display.brightness === null || d.display.brightness === undefined
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: Theme.muted
+            font.pixelSize: 12
+            text: "Яркость экрана не найдена в системе. Её можно менять клавишами Fn."
+        }
+        Row2 { label: "Частота экрана сейчас"; value: d.display && d.display.refresh ? d.display.refresh + " Гц" : "—" }
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            Repeater {
+                model: d.display && d.display.rates ? d.display.rates : []
+                delegate: Pill {
+                    text: modelData + " Гц"
+                    sel: d.display && d.display.refresh === modelData
+                    tip: "Меньшая частота экономит заряд, большая даёт более плавную картинку."
+                    onClicked: backend.setRefresh(modelData)
+                }
+            }
+        }
+        Txt {
+            visible: !d.display || !d.display.rates || d.display.rates.length === 0
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: Theme.muted
+            font.pixelSize: 12
+            text: "Смена частоты экрана работает только в niri."
+        }
+    }
 }

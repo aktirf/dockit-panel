@@ -14,6 +14,8 @@ Flickable {
         return list.length > 0 ? list[0] : null
     }
 
+    Connections { target: backend; function onProfileCreated(pid) { page.selId = pid } }
+
     function matches(name, query) {
         return query !== "" && name.toLowerCase().indexOf(query.toLowerCase()) >= 0
     }
@@ -24,9 +26,10 @@ Flickable {
     }
     function save(field, value) {
         var e = cur.edit
-        var v = { power: e.power, camera: e.camera, output: e.output, input: e.input }
+        var v = { power: e.power, camera: e.camera, output: e.output, input: e.input,
+                  brightness: e.brightness, refresh: e.refresh }
         v[field] = value
-        backend.saveProfile(cur.id, v.power, v.camera, v.output, v.input)
+        backend.saveProfile(cur.id, v.power, v.camera, v.output, v.input, v.brightness, v.refresh)
     }
 
     function saveRule(procs, when, idle, temp, hours) {
@@ -75,6 +78,28 @@ Flickable {
                 Layout.fillWidth: page.width < 860
                 Layout.alignment: Qt.AlignTop
                 Txt { text: "Ваши профили"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    TextField {
+                        id: newName
+                        Layout.fillWidth: true
+                        implicitHeight: 40
+                        placeholderText: "Новый профиль"
+                        placeholderTextColor: Theme.muted
+                        color: Theme.text
+                        font.family: Theme.sans
+                        font.pixelSize: 14
+                        leftPadding: 12
+                        maximumLength: 30
+                        ToolTip.text: "Назовите профиль, например «Кино» или «Учёба», и нажмите «Создать»."
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 450
+                        background: Rectangle { radius: 10; color: Theme.cardInner; border.width: 1; border.color: newName.activeFocus ? Theme.accent : Theme.border2 }
+                        onAccepted: { backend.createProfile(text); text = "" }
+                    }
+                    Btn { text: "Создать"; implicitHeight: 40; onClicked: { backend.createProfile(newName.text); newName.text = "" } }
+                }
                 Repeater {
                     model: page.list
                     delegate: Rectangle {
@@ -149,6 +174,12 @@ Flickable {
                             primary: true
                             text: "Применить сейчас"
                             onClicked: backend.setScenario(page.cur.id)
+                        }
+                        Btn {
+                            visible: page.cur !== null && page.cur.custom === true
+                            text: "Удалить"
+                            tip: "Удалить этот профиль и его правила. Встроенные профили удалить нельзя."
+                            onClicked: backend.deleteProfile(page.cur.id)
                         }
                     }
                     Txt { text: "Что применяется"; font.pixelSize: 14; font.weight: Font.DemiBold; color: Theme.muted }
@@ -227,6 +258,49 @@ Flickable {
                         wrapMode: Text.WordWrap
                         text: "Выбрано: «" + page.cur.edit.input + "». Сейчас такое устройство не подключено, при включении профиля микрофон останется как есть."
                         color: Theme.warn
+                        font.pixelSize: 12
+                    }
+                }
+
+                Card {
+                    Layout.fillWidth: true
+                    visible: page.cur !== null
+                    Txt { text: "Экран"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Txt { text: "Яркость"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не менять"; sel: page.cur.edit.brightness === 0; onClicked: page.save("brightness", 0) }
+                        Repeater {
+                            model: [20, 40, 60, 80, 100]
+                            delegate: Pill {
+                                text: modelData + " %"
+                                sel: page.cur.edit.brightness === modelData
+                                onClicked: page.save("brightness", modelData)
+                            }
+                        }
+                    }
+                    Txt { text: "Частота экрана"; color: Theme.soft }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Pill { text: "Не менять"; sel: page.cur.edit.refresh === 0; onClicked: page.save("refresh", 0) }
+                        Repeater {
+                            model: page.d.display && page.d.display.rates ? page.d.display.rates : []
+                            delegate: Pill {
+                                text: modelData + " Гц"
+                                tip: "Меньшая частота экономит заряд, большая даёт более плавную картинку."
+                                sel: page.cur.edit.refresh === modelData
+                                onClicked: page.save("refresh", modelData)
+                            }
+                        }
+                    }
+                    Txt {
+                        visible: !page.d.display || !page.d.display.rates || page.d.display.rates.length === 0
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: "Список частот не найден: смена частоты экрана работает только в niri."
+                        color: Theme.muted
                         font.pixelSize: 12
                     }
                 }

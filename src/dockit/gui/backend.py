@@ -34,6 +34,7 @@ class Backend(QObject):
     toastChanged = Signal()
     settingsChanged = Signal()
     trayChanged = Signal()
+    profileCreated = Signal(str)
     _snapshot = Signal(object)   # worker thread -> main thread
     _finished = Signal(str)
 
@@ -197,6 +198,16 @@ class Backend(QObject):
         self.settingsChanged.emit()
         self.refresh()
 
+    def _display(self) -> dict:
+        from ..core import display
+        now = time.monotonic()
+        if now - getattr(self, "_display_at", 0) > 10 or not hasattr(self, "_display_cache"):
+            self._display_at = now
+            info = display.refresh_info()
+            self._display_cache = {"brightness": display.brightness_percent(),
+                                   "refresh": info["current"], "rates": info["rates"]}
+        return dict(self._display_cache)
+
     # ---- notifications, journal, cooling ----
     def _log(self, text: str) -> None:
         self._journal.append({"time": datetime.datetime.now().strftime("%H:%M"), "text": text})
@@ -329,6 +340,7 @@ class Backend(QObject):
                 self._idle.stop()
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                                     muted, scenarios, self._scenario)
+            state["display"] = self._display()
             state["cooling"] = cooling
             state["journal"] = list(reversed(self._journal))[:6]
             state["settings"] = self._settings_view()
@@ -420,18 +432,60 @@ class Backend(QObject):
         self._log(f"Вручную: «{profile.name}»")
         self._run(lambda: self._apply_profile(profile))
 
-    @Slot(str, str, str, str, str)
-    def saveProfile(self, pid: str, power: str, camera: str, output: str, mic: str) -> None:
+    @Slot(str, str, str, str, str, int, int)
+    def saveProfile(self, pid: str, power: str, camera: str, output: str, mic: str,
+                    brightness: int, refresh: int) -> None:
         available, _ = profiles.load()
         if pid not in available:
             return
         try:
-            profiles.save_profile(pid, power, camera, output, mic)
+            profiles.save_profile(pid, power, camera, output, mic, brightness=brightness, refresh=refresh)
         except (ValueError, OSError):
             self._say("Не удалось сохранить профиль")
             return
         self._say(f"Профиль «{available[pid].name}» сохранён. Нажмите «Применить сейчас», чтобы включить его.")
         self.refresh()
+
+    @Slot(str)
+    def createProfile(self, name: str) -> None:
+        try:
+            pid = profiles.create_profile(name)
+        except (ValueError, OSError):
+            self._say("Не удалось создать профиль (название от 1 до 30 символов)")
+            return
+        self._say(f"Профиль «{name.strip()}» создан. Настройте его справа.")
+        self.profileCreated.emit(pid)
+        self.refresh()
+
+    @Slot(str)
+    def deleteProfile(self, pid: str) -> None:
+        try:
+            profiles.delete_profile(pid)
+        except (ValueError, OSError):
+            self._say("Не удалось удалить профиль")
+            return
+        if self._scenario == pid:
+            self.setScenario("auto")
+        self._say("Профиль удалён")
+        self.refresh()
+
+    @Slot(int)
+    def setBrightness(self, percent: int) -> None:
+        def work() -> str:
+            result, error = client.ask({"action": "set_brightness", "value": percent})
+            self._display_at = 0
+            return f"Яркость: {percent} %" if result is not None else error
+
+        self._run(work)
+
+    @Slot(int)
+    def setRefresh(self, hz: int) -> None:
+        def work() -> str:
+            from ..core import display
+            self._display_at = 0
+            return display.set_refresh(hz) or f"Частота экрана: {hz} Гц"
+
+        self._run(work)
 
     @Slot(str, str, str, int, int, str)
     def saveRule(self, pid: str, programs: str, when: str, idle_minutes: int, temp: int, hours: str) -> None:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import shutil
 
+from ..core.profiles import DEFAULT_PROFILES
 from ..core.scanner import ScanResult, display_name
 from ..core.status import LABELS_RU, Status
 from ..peripherals.scan import KIND_RU
@@ -96,7 +97,7 @@ def empty() -> dict:
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [], "temps": [], "fans": [],
             "peripherals": [], "backlight": [], "system": {},
-            "features": [], "counts": [], "cooling": {}, "journal": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
+            "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
             "fallback": ""}
 
@@ -244,10 +245,13 @@ def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> l
             {"label": "Камера", "value": camera},
             {"label": "Звук (вывод)", "value": f"«{p.output}»" if p.output else "Не меняется"},
             {"label": "Микрофон", "value": f"«{p.input}»" if p.input else "Не меняется"},
+            {"label": "Яркость", "value": f"{p.brightness} %" if p.brightness else "Не меняется"},
+            {"label": "Частота экрана", "value": f"{p.refresh} Гц" if p.refresh else "Не меняется"},
         ]
         cards.append({
             "id": p.id,
             "name": p.name,
+            "custom": p.id not in DEFAULT_PROFILES,
             "sub": "Режим: " + MODE_BY_ID.get(p.power or "", "без изменений"),
             "rows": rows,
             "rules": [_rule_text(r) for r in rules if r.profile == p.id and _rule_text(r)],
@@ -257,6 +261,8 @@ def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> l
                 "camera": "keep" if p.camera is None else ("on" if p.camera else "off"),
                 "output": p.output or "",
                 "input": p.input or "",
+                "brightness": p.brightness or 0,
+                "refresh": p.refresh or 0,
             },
         })
     return cards

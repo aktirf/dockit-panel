@@ -44,6 +44,8 @@ class Profile:
     camera: bool | None = None    # True/False = switch, None = do not touch
     output: str | None = None     # part of a sound output name, e.g. "epos"
     input: str | None = None      # part of a microphone name
+    brightness: int | None = None  # screen brightness in percent, None = do not touch
+    refresh: int | None = None     # screen refresh rate in Hz, None = do not touch
 
 
 @dataclass
@@ -93,6 +95,16 @@ def _camera(value, base):
     return value if isinstance(value, bool) else base
 
 
+def _number(value, base, low: int, high: int):
+    if value is _MISSING:
+        return base
+    if value == KEEP or value == "":
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+        return base
+    return value
+
+
 def _text(value, base):
     if value is _MISSING or not isinstance(value, str):
         return base
@@ -126,6 +138,8 @@ def load(path: Path | None = None) -> tuple[dict[str, Profile], list[Rule]]:
                 _camera(body.get("camera", _MISSING), base.camera),
                 _text(body.get("output", _MISSING), base.output),
                 _text(body.get("input", _MISSING), base.input),
+                _number(body.get("brightness", _MISSING), base.brightness, 1, 100),
+                _number(body.get("refresh", _MISSING), base.refresh, 24, 360),
             )
 
     custom_rules = data.get("rules")
@@ -300,6 +314,13 @@ def apply(profile: Profile, ask: Callable[[dict], dict | None]) -> list[str]:
     if profile.power:
         result = ask({"action": "set_power_profile", "value": profile.power})
         lines.append(f"Режим мощности: {result['profile']}" if result else "Режим мощности: не удалось")
+    if profile.brightness is not None:
+        result = ask({"action": "set_brightness", "value": profile.brightness})
+        lines.append(f"Яркость: {profile.brightness} %" if result else "Яркость: не удалось")
+    if profile.refresh is not None:
+        from . import display  # needs the compositor, so loaded only when a profile asks for it
+        error = display.set_refresh(profile.refresh)
+        lines.append(error or f"Частота экрана: {profile.refresh} Гц")
     if profile.camera is not None:
         result = ask({"action": "set_camera", "value": profile.camera})
         lines.append("Камера: " + ("включена" if profile.camera else "выключена") if result is not None
@@ -347,7 +368,7 @@ def _dump(data: dict) -> str:
 
 
 def save_profile(pid: str, power: str, camera: str, output: str, mic: str,
-                 path: Path | None = None) -> None:
+                 path: Path | None = None, brightness: int = 0, refresh: int = 0) -> None:
     """Store the four settings of one profile in the user's file (other content stays).
 
     power: "keep" or a power mode; camera: "keep", "on" or "off";
@@ -361,6 +382,10 @@ def save_profile(pid: str, power: str, camera: str, output: str, mic: str,
         raise ValueError("bad camera value")
     if len(output) > 200 or len(mic) > 200:
         raise ValueError("text too long")
+    if isinstance(brightness, bool) or not isinstance(brightness, int) or not 0 <= brightness <= 100:
+        raise ValueError("bad brightness")
+    if isinstance(refresh, bool) or not isinstance(refresh, int) or not (refresh == 0 or 24 <= refresh <= 360):
+        raise ValueError("bad refresh rate")
     path = path or config_path()
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -372,6 +397,8 @@ def save_profile(pid: str, power: str, camera: str, output: str, mic: str,
     body["camera"] = KEEP if camera == KEEP else camera == "on"
     body["output"] = output.strip()
     body["input"] = mic.strip()
+    body["brightness"] = brightness if brightness else KEEP     # 0 = do not touch
+    body["refresh"] = refresh if refresh else KEEP
     section[pid] = body
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
@@ -487,3 +514,45 @@ def save_scenario(value: str, path: Path | None = None) -> None:
         path.write_text(value + "\n", encoding="utf-8")
     except OSError:
         pass  # remembering the choice is a convenience, never an error
+
+
+def create_profile(name: str, path: Path | None = None) -> str:
+    """Add an empty profile with this name; returns its new id (custom1, custom2, ...)."""
+    name = name.strip()
+    if not 1 <= len(name) <= 30:
+        raise ValueError("bad name")
+    path = path or config_path()
+    profiles, _ = load(path)
+    n = 1
+    while f"custom{n}" in profiles:
+        n += 1
+    pid = f"custom{n}"
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    data.setdefault("profiles", {})[pid] = {"name": name}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(".tmp")
+    temp.write_text(_dump(data), encoding="utf-8")
+    temp.replace(path)
+    return pid
+
+
+def delete_profile(pid: str, path: Path | None = None) -> None:
+    """Remove a profile the user created (built-in ones cannot be deleted) and its rules."""
+    if pid in DEFAULT_PROFILES or not _safe_id(pid):
+        raise ValueError("this profile cannot be deleted")
+    path = path or config_path()
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    _, current = load(path)
+    data.get("profiles", {}).pop(pid, None)
+    data["rules"] = [rule_to_dict(r) for r in current if r.profile != pid]
+    if data.get("fallback") == pid:
+        data["fallback"] = KEEP
+    temp = path.with_suffix(".tmp")
+    temp.write_text(_dump(data), encoding="utf-8")
+    temp.replace(path)

@@ -68,6 +68,7 @@ class Dispatcher:
             "ping": lambda req: {"pong": True},
             "set_power_profile": lambda req: actions.set_power_profile(req.get("value")),
             "set_camera": lambda req: actions.set_camera(req.get("value")),
+            "set_brightness": lambda req: actions.set_brightness(req.get("value")),
         }
 
     def handle(self, raw: bytes, pid: int, uid: int) -> dict:
