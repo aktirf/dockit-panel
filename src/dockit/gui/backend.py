@@ -19,6 +19,7 @@ from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from ..core import audio, processes, profiles, sysfs
 from ..core import idle
+from ..core import tuning
 from ..core.cpu import CpuMonitor
 from ..core.scanner import scan
 from ..daemon import client
@@ -51,6 +52,9 @@ class Backend(QObject):
         self._journal: deque = deque(maxlen=30)
         self._warn_at = 0.0
         self._tray_available = False
+        self._top = processes.TopCpu()
+        self._bat_hist = self._load_bat_hist()
+        self._bat_at = 0.0
         self._scenario = profiles.load_scenario()
         self._idle = idle.IdleWatcher()
         self._auto_last: str | None = None
@@ -198,6 +202,74 @@ class Backend(QObject):
         self.settingsChanged.emit()
         self.refresh()
 
+    def _tuning(self) -> dict:
+        now = time.monotonic()
+        if now - getattr(self, "_tuning_at", 0) > 10 or not hasattr(self, "_tuning_cache"):
+            self._tuning_at = now
+            data = {"boost": tuning.read_boost(), "epp": tuning.read_epp(), "eppChoices": tuning.epp_choices()}
+            if now - getattr(self, "_gpu_lim_at", -999) > 60:
+                self._gpu_lim_at = now
+                self._gpu_lim = tuning.gpu_power_limits()
+            data["gpuLimit"] = self._gpu_lim
+            self._tuning_cache = data
+        return dict(self._tuning_cache)
+
+    @staticmethod
+    def _bat_path() -> str:
+        base = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+        return os.path.join(base, "dockit", "battery.json")
+
+    def _load_bat_hist(self) -> list:
+        try:
+            with open(self._bat_path(), encoding="utf-8") as f:
+                data = json.load(f)
+            cutoff = time.time() - 24 * 3600
+            return [[t, p] for t, p in data if isinstance(t, (int, float)) and isinstance(p, int) and t >= cutoff]
+        except (OSError, ValueError, TypeError):
+            return []
+
+    def _battery_history(self, percent) -> list:
+        """Charge level every 5 minutes for the last 24 hours (kept in ~/.local/state/dockit)."""
+        now = time.time()
+        if percent is not None and now - self._bat_at >= 300:
+            self._bat_at = now
+            self._bat_hist = [e for e in self._bat_hist if e[0] >= now - 24 * 3600] + [[now, int(percent)]]
+            try:
+                os.makedirs(os.path.dirname(self._bat_path()), exist_ok=True)
+                with open(self._bat_path(), "w", encoding="utf-8") as f:
+                    json.dump(self._bat_hist, f)
+            except OSError:
+                pass
+        return [p for _, p in self._bat_hist]
+
+    @Slot(bool)
+    def setBoost(self, value: bool) -> None:
+        def work() -> str:
+            result, error = client.ask({"action": "set_boost", "value": bool(value)})
+            self._tuning_at = 0
+            return "Turbo Boost " + ("включён" if value else "выключен") if result is not None else error
+
+        self._run(work)
+
+    @Slot(str)
+    def setEpp(self, value: str) -> None:
+        def work() -> str:
+            result, error = client.ask({"action": "set_epp", "value": value})
+            self._tuning_at = 0
+            return f"Энергопотребление процессора: {value}" if result is not None else error
+
+        self._run(work)
+
+    @Slot(int)
+    def setGpuLimit(self, watts: int) -> None:
+        def work() -> str:
+            result, error = client.ask({"action": "set_gpu_power_limit", "value": watts})
+            self._tuning_at = 0
+            self._gpu_lim_at = -999
+            return f"Лимит видеокарты: {watts} Вт" if result is not None else error
+
+        self._run(work)
+
     def _display(self) -> dict:
         from ..core import display
         now = time.monotonic()
@@ -341,6 +413,11 @@ class Backend(QObject):
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                                     muted, scenarios, self._scenario)
             state["display"] = self._display()
+            if fresh:
+                self._top_cache = self._top.sample()
+            state["top"] = getattr(self, "_top_cache", [])
+            state["tuning"] = self._tuning()
+            state["batteryHistory"] = self._battery_history(state["battery"].get("percent"))
             state["cooling"] = cooling
             state["journal"] = list(reversed(self._journal))[:6]
             state["settings"] = self._settings_view()

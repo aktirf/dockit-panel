@@ -69,6 +69,9 @@ class Dispatcher:
             "set_power_profile": lambda req: actions.set_power_profile(req.get("value")),
             "set_camera": lambda req: actions.set_camera(req.get("value")),
             "set_brightness": lambda req: actions.set_brightness(req.get("value")),
+            "set_boost": lambda req: actions.set_boost(req.get("value")),
+            "set_epp": lambda req: actions.set_epp(req.get("value")),
+            "set_gpu_power_limit": lambda req: actions.set_gpu_power_limit(req.get("value")),
         }
 
     def handle(self, raw: bytes, pid: int, uid: int) -> dict:

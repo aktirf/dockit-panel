@@ -217,3 +217,31 @@ def test_display_helpers(tmp_path):
     import pytest
     with pytest.raises(actions.ActionError):
         actions.set_brightness(0, str(d))
+
+
+def test_tuning_and_battery_estimate(tmp_path):
+    from dockit.core import tuning
+    from dockit.daemon import actions
+    from dockit.modules.battery import minutes_left, read_batteries
+    base = tmp_path / "cpu"
+    (base / "cpufreq").mkdir(parents=True)
+    (base / "cpufreq" / "boost").write_text("1")
+    (base / "cpu0" / "cpufreq").mkdir(parents=True)
+    (base / "cpu0" / "cpufreq" / "energy_performance_available_preferences").write_text("performance balance_power power")
+    (base / "cpu0" / "cpufreq" / "energy_performance_preference").write_text("balance_power")
+    assert tuning.read_boost(str(base)) is True
+    actions.set_boost(False, str(base))
+    assert (base / "cpufreq" / "boost").read_text() == "0"
+    actions.set_epp("power", str(base))
+    assert tuning.read_epp(str(base)) == "power"
+    import pytest
+    with pytest.raises(actions.ActionError):
+        actions.set_epp("turbo-everything", str(base))
+    ps = tmp_path / "ps" / "BAT0"
+    ps.mkdir(parents=True)
+    for name, val in {"capacity": 50, "status": "Discharging", "energy_now": 40_000_000,
+                      "energy_full": 80_000_000, "energy_full_design": 90_000_000, "power_now": 20_000_000}.items():
+        (ps / name).write_text(str(val))
+    b = read_batteries(str(tmp_path / "ps"))[0]
+    assert b["power_w"] == 20.0 and b["energy_wh"] == 40.0
+    assert minutes_left(b) == 120

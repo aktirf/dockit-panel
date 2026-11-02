@@ -9,6 +9,7 @@ from __future__ import annotations
 import shutil
 
 from ..core.profiles import DEFAULT_PROFILES
+from ..modules.battery import minutes_left
 from ..core.scanner import ScanResult, display_name
 from ..core.status import LABELS_RU, Status
 from ..peripherals.scan import KIND_RU
@@ -69,6 +70,15 @@ CHIP_RU = {
 }
 
 
+def _left_text(b: dict) -> str:
+    minutes = minutes_left(b)
+    if minutes is None:
+        return ""
+    h, m = divmod(minutes, 60)
+    text = (f"{h} ч " if h else "") + f"{m} мин"
+    return f"≈ {text} до разрядки" if b.get("status") == "Discharging" else f"≈ {text} до полной зарядки"
+
+
 def chip_temps(sensors_state: dict | None) -> dict[str, float]:
     """The hottest reading of every chip, by a plain name."""
     best: dict[str, float] = {}
@@ -97,7 +107,7 @@ def empty() -> dict:
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [], "temps": [], "fans": [],
             "peripherals": [], "backlight": [], "system": {},
-            "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
+            "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
             "fallback": ""}
 
@@ -140,6 +150,8 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "source": "От сети" if ac else ("От батареи" if ac is False else ""),
         "health": num(b.get("health_pct"), 0) if b.get("health_pct") is not None else "—",
         "cycles": b.get("cycles"),
+        "power": num(b.get("power_w"), 1) if b.get("power_w") else "—",
+        "left": _left_text(b),
         "status": STATUS_KEY[bat_item.status] if bat_item else "no",
         "statusText": LABELS_RU[bat_item.status] if bat_item else "",
     }

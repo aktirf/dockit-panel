@@ -21,6 +21,16 @@ PageFrame {
         Row2 { label: "Питание"; value: d.battery && d.battery.source ? d.battery.source : "—" }
         Row2 { label: "Износ (остаток ёмкости)"; value: d.battery ? d.battery.health + " %" : "—" }
         Row2 { label: "Циклов зарядки"; value: d.battery && d.battery.cycles !== null ? d.battery.cycles : "—" }
+        Row2 { label: "Потребление сейчас"; value: d.battery && d.battery.power !== "—" ? d.battery.power + " Вт" : "—" }
+        Txt {
+            visible: d.battery && d.battery.left !== undefined && d.battery.left !== ""
+            text: d.battery ? d.battery.left : ""
+            color: Theme.accent
+            font.pixelSize: 15
+            font.weight: Font.DemiBold
+        }
+        Txt { text: "Заряд за последние сутки"; color: Theme.muted; font.pixelSize: 12 }
+        Spark { Layout.fillWidth: true; Layout.preferredHeight: 40; implicitHeight: 40; values: d.batteryHistory ? d.batteryHistory : []; lineColor: Theme.ok }
     }
 
     Card {
