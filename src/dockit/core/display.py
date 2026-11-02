@@ -60,13 +60,50 @@ def _internal(outputs: dict):
     return None, None
 
 
-def refresh_info(outputs: dict | None = None) -> dict:
+def _hypr_monitors() -> list:
+    tool = shutil.which("hyprctl")
+    if tool is None:
+        return []
+    try:
+        proc = subprocess.run([tool, "monitors", "-j"], capture_output=True, text=True, timeout=4)
+        data = json.loads(proc.stdout) if proc.returncode == 0 else []
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _hypr_internal(monitors: list):
+    for m in monitors:
+        if isinstance(m, dict) and str(m.get("name", "")).startswith(("eDP", "LVDS", "DSI")):
+            return m
+    return next((m for m in monitors if isinstance(m, dict)), None)
+
+
+def _hypr_rates(mon: dict) -> list[int]:
+    """Refresh rates (Hz) offered at the current resolution; modes look like "2560x1600@165.00Hz"."""
+    size = f"{mon.get('width')}x{mon.get('height')}"
+    rates = set()
+    for mode in mon.get("availableModes") or []:
+        text = str(mode)
+        if text.startswith(size + "@") and text.endswith("Hz"):
+            try:
+                rates.add(round(float(text[len(size) + 1:-2])))
+            except ValueError:
+                pass
+    return sorted(rates)
+
+
+def refresh_info(outputs: dict | None = None, monitors: list | None = None) -> dict:
     """{"output", "current", "rates": [Hz...]} for the built-in screen; rates are at the current resolution."""
     outputs = _niri_outputs() if outputs is None else outputs
     name, info = _internal(outputs)
     modes = (info or {}).get("modes") or []
     idx = (info or {}).get("current_mode")
     if not modes or not isinstance(idx, int) or not 0 <= idx < len(modes):
+        mon = _hypr_internal(_hypr_monitors() if monitors is None else monitors)     # Hyprland
+        if mon and mon.get("refreshRate"):
+            return {"output": mon.get("name"), "current": round(float(mon["refreshRate"])),
+                    "rates": _hypr_rates(mon)}
         return {"output": None, "current": None, "rates": []}
     cur = modes[idx]
     same = sorted({round(m["refresh_rate"] / 1000) for m in modes
@@ -74,14 +111,26 @@ def refresh_info(outputs: dict | None = None) -> dict:
     return {"output": name, "current": round(cur["refresh_rate"] / 1000), "rates": same}
 
 
-def set_refresh(hz: int, outputs: dict | None = None) -> str | None:
+def set_refresh(hz: int, outputs: dict | None = None, monitors: list | None = None) -> str | None:
     """Change the built-in screen to about `hz`. Returns an error text, or None if it worked."""
     outputs = _niri_outputs() if outputs is None else outputs
     name, info = _internal(outputs)
     modes = (info or {}).get("modes") or []
     idx = (info or {}).get("current_mode")
     if not modes or not isinstance(idx, int) or not 0 <= idx < len(modes):
-        return "Частота экрана: поддерживается только в niri"
+        mon = _hypr_internal(_hypr_monitors() if monitors is None else monitors)     # Hyprland
+        rates = _hypr_rates(mon) if mon else []
+        if not rates:
+            return "Частота экрана: поддерживается только в niri и Hyprland"
+        best = min(rates, key=lambda r: abs(r - hz))
+        spec = (f"{mon['name']},{mon['width']}x{mon['height']}@{best},"
+                f"{mon.get('x', 0)}x{mon.get('y', 0)},{mon.get('scale', 1)}")
+        try:
+            proc = subprocess.run(["hyprctl", "keyword", "monitor", spec],
+                                  capture_output=True, text=True, timeout=6)
+        except (OSError, subprocess.TimeoutExpired):
+            return "Частота экрана: не удалось"
+        return None if proc.returncode == 0 and "ok" in proc.stdout.lower() else "Частота экрана: не удалось"
     cur = modes[idx]
     same = [m for m in modes if m.get("width") == cur.get("width") and m.get("height") == cur.get("height")]
     best = min(same, key=lambda m: abs(m["refresh_rate"] / 1000 - hz))

@@ -195,8 +195,8 @@ class Backend(QObject):
                 with open(path, "w", encoding="utf-8") as f:
                     f.write("[Desktop Entry]\nType=Application\nName=DOCKIT\nExec=dockit gui\n"
                             "Icon=dockit\nX-GNOME-Autostart-enabled=true\n")
-                self._say("Автозапуск включён. Если окно не появится при входе, добавьте в конфиг niri: "
-                          "spawn-at-startup \"dockit\" \"gui\"")
+                self._say("Автозапуск включён. Если окно не появится при входе, добавьте в конфиг: "
+                          "в Hyprland строку exec-once = dockit gui, в niri spawn-at-startup \"dockit\" \"gui\"")
             elif os.path.exists(path):
                 os.remove(path)
                 self._say("Автозапуск выключен")

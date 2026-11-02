@@ -299,7 +299,7 @@ Flickable {
                         visible: !page.d.display || !page.d.display.rates || page.d.display.rates.length === 0
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Список частот не найден: смена частоты экрана работает только в niri."
+                        text: "Список частот не найден: смена частоты экрана работает в niri и Hyprland."
                         color: Theme.muted
                         font.pixelSize: 12
                     }

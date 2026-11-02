@@ -123,7 +123,7 @@ PageFrame {
             wrapMode: Text.WordWrap
             color: Theme.muted
             font.pixelSize: 12
-            text: "Смена частоты экрана работает только в niri."
+            text: "Смена частоты экрана работает в niri и Hyprland."
         }
     }
 }

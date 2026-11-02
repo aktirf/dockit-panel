@@ -252,3 +252,10 @@ def test_bluetooth_info_parse():
     text = "Device AA:BB:CC:DD:EE:FF (public)\n\tName: EPOS H3PRO\n\tIcon: audio-headset\n\tBattery Percentage: 0x55 (85)\n"
     assert parse_info(text) == {"name": "EPOS H3PRO", "battery": 85, "icon": "audio-headset"}
     assert parse_info("Name: Mouse\n")["battery"] is None
+
+
+def test_hyprland_refresh():
+    from dockit.core import display
+    mon = {"name": "eDP-1", "width": 2560, "height": 1600, "refreshRate": 165.0, "x": 0, "y": 0, "scale": 1.0,
+           "availableModes": ["2560x1600@165.00Hz", "2560x1600@60.00Hz", "1920x1200@120.00Hz"]}
+    assert display.refresh_info({}, [mon]) == {"output": "eDP-1", "current": 165, "rates": [60, 165]}
