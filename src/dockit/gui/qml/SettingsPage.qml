@@ -67,7 +67,7 @@ PageFrame {
         ToggleCard {
             Layout.fillWidth: true
             label: "Запускать при входе в систему"
-            tip: "Окно DOCKIT откроется само после входа. В niri может понадобиться строка spawn-at-startup в конфиге."
+            tip: "Окно DOCKIT откроется само после входа. В Hyprland может понадобиться строка exec-once = dockit gui, в niri spawn-at-startup."
             on: d.settings ? d.settings.autostart === true : false
             onToggled: backend.setAutostart(!on)
         }
