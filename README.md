@@ -137,3 +137,20 @@ scripts/install.sh
 ```
 
 Installs the packages DOCKIT needs, the service and an app-menu entry (Arch/EndeavourOS). Undo: `sudo scripts/uninstall-dev.sh`.
+
+## Desktops and window managers
+
+Most of DOCKIT does not care which desktop you use: modes, profiles, temperatures, battery, sound, Bluetooth and notifications talk to the kernel and system services directly. Only a few parts depend on the desktop:
+
+| Desktop | Screen refresh rate | Idle detection (AFK rule) | Autostart line |
+|---|---|---|---|
+| KDE Plasma (Wayland) | `kscreen-doctor` | `swayidle` | automatic (`~/.config/autostart`) |
+| Hyprland | `hyprctl` | `swayidle` | `exec-once = dockit gui` |
+| niri | `niri msg` | `swayidle` | `spawn-at-startup "dockit" "gui"` |
+| Sway / wlroots | `swaymsg` | `swayidle` | `exec dockit gui` |
+| X11 (i3, etc.) | `xrandr` | not yet | `exec --no-startup-id dockit gui` |
+| GNOME | not yet | not yet | automatic (`~/.config/autostart`) |
+
+Tiling window managers should open the DOCKIT window floating, for example in Hyprland: `windowrule = float, class:^(dockit)$`; in Sway/i3: `for_window [app_id="dockit"] floating enable`; in niri: `window-rule { match app-id="dockit"; open-floating true }`.
+
+Only niri was tested by the author so far; for the others the commands follow their documentation. Please report what works for you.
