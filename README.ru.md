@@ -121,3 +121,20 @@ scripts/install.sh
 ```
 
 Ставит нужные пакеты, службу и ярлык в меню приложений (Arch/EndeavourOS). Удалить: `sudo scripts/uninstall-dev.sh`.
+
+## Рабочие окружения и оконные менеджеры
+
+Почти всё в DOCKIT не зависит от окружения: режимы, профили, температуры, батарея, звук, Bluetooth и уведомления работают с ядром и системными службами напрямую. От окружения зависят только несколько вещей:
+
+| Окружение | Частота экрана | Определение простоя (правило AFK) | Автозапуск |
+|---|---|---|---|
+| KDE Plasma (Wayland) | `kscreen-doctor` | `swayidle` | автоматически (`~/.config/autostart`) |
+| Hyprland | `hyprctl` | `swayidle` | `exec-once = dockit gui` |
+| niri | `niri msg` | `swayidle` | `spawn-at-startup "dockit" "gui"` |
+| Sway / wlroots | `swaymsg` | `swayidle` | `exec dockit gui` |
+| X11 (i3 и др.) | `xrandr` | пока нет | `exec --no-startup-id dockit gui` |
+| GNOME | пока нет | пока нет | автоматически (`~/.config/autostart`) |
+
+Тайловые менеджеры лучше настроить так, чтобы окно DOCKIT открывалось плавающим. Hyprland: `windowrule = float, class:^(dockit)$`; Sway и i3: `for_window [app_id="dockit"] floating enable`; niri: `window-rule { match app-id="dockit"; open-floating true }`.
+
+Пока проверен только niri; для остальных команды написаны по их документации. Сообщайте, что у вас работает.
