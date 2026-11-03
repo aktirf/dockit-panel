@@ -16,14 +16,14 @@ PageFrame {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: Theme.muted
-            visible: d.backlight && d.backlight.length > 0
+            visible: !!(d.backlight && d.backlight.length > 0)
             text: "Система видит подсветку (" + (d.backlight ? d.backlight.join(", ") : "") + "). Управление из DOCKIT появится позже."
         }
         Txt {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: Theme.muted
-            visible: !d.backlight || d.backlight.length === 0
+            visible: !!(!d.backlight || d.backlight.length === 0)
             text: "Подсветка этой клавиатуры не видна через стандартный интерфейс ядра, поэтому DOCKIT пока не может её менять. Она включается и меняется клавишами ноутбука (Fn + стрелки или Fn + пробел)."
         }
         Txt {

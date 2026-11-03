@@ -23,7 +23,7 @@ PageFrame {
         Row2 { label: "Циклов зарядки"; value: d.battery && d.battery.cycles !== null ? d.battery.cycles : "—" }
         Row2 { label: "Потребление сейчас"; value: d.battery && d.battery.power !== "—" ? d.battery.power + " Вт" : "—" }
         Txt {
-            visible: d.battery && d.battery.left !== undefined && d.battery.left !== ""
+            visible: !!(d.battery && d.battery.left !== undefined && d.battery.left !== "")
             text: d.battery ? d.battery.left : ""
             color: Theme.accent
             font.pixelSize: 15
@@ -49,14 +49,14 @@ PageFrame {
         Txt {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            visible: d.limit && d.limit.hint !== undefined && d.limit.hint !== ""
+            visible: !!(d.limit && d.limit.hint !== undefined && d.limit.hint !== "")
             color: Theme.warn
             text: "Как исправить: " + (d.limit ? d.limit.hint : "")
         }
         Txt {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            visible: d.limit && d.limit.status !== "ok"
+            visible: !!(d.limit && d.limit.status !== "ok")
             color: Theme.muted
             text: "Пока ядро не показывает лимит для этой модели, DOCKIT его не меняет. Лимит можно поставить в BIOS или в GiMATE на Windows."
         }
@@ -89,14 +89,14 @@ PageFrame {
                 model: [20, 40, 60, 80, 100]
                 delegate: Pill {
                     text: modelData + " %"
-                    sel: d.display && d.display.brightness !== null && Math.abs(d.display.brightness - modelData) < 10
+                    sel: !!(d.display && d.display.brightness !== null && Math.abs(d.display.brightness - modelData) < 10)
                     tip: "Меньше яркость — дольше работа от батареи."
                     onClicked: backend.setBrightness(modelData)
                 }
             }
         }
         Txt {
-            visible: !d.display || d.display.brightness === null || d.display.brightness === undefined
+            visible: !!(!d.display || d.display.brightness === null || d.display.brightness === undefined)
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: Theme.muted
@@ -111,14 +111,14 @@ PageFrame {
                 model: d.display && d.display.rates ? d.display.rates : []
                 delegate: Pill {
                     text: modelData + " Гц"
-                    sel: d.display && d.display.refresh === modelData
+                    sel: !!(d.display && d.display.refresh === modelData)
                     tip: "Меньшая частота экономит заряд, большая даёт более плавную картинку."
                     onClicked: backend.setRefresh(modelData)
                 }
             }
         }
         Txt {
-            visible: !d.display || !d.display.rates || d.display.rates.length === 0
+            visible: !!(!d.display || !d.display.rates || d.display.rates.length === 0)
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: Theme.muted

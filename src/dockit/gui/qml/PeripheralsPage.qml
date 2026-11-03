@@ -6,7 +6,7 @@ PageFrame {
     subtitle: "Подключённые устройства и что DOCKIT умеет с ними делать"
 
     Txt {
-        visible: !d.peripherals || d.peripherals.length === 0
+        visible: !!(!d.peripherals || d.peripherals.length === 0)
         text: "USB-устройства не найдены."
         color: Theme.muted
     }
@@ -80,7 +80,7 @@ PageFrame {
                 model: outModel
                 delegate: Pill {
                     text: model.text
-                    sel: d.audio && d.audio.outputDefault === model.text
+                    sel: !!(d.audio && d.audio.outputDefault === model.text)
                     onClicked: backend.setAudio("output", model.text)
                 }
             }
@@ -93,7 +93,7 @@ PageFrame {
                 model: inModel
                 delegate: Pill {
                     text: model.text
-                    sel: d.audio && d.audio.inputDefault === model.text
+                    sel: !!(d.audio && d.audio.inputDefault === model.text)
                     onClicked: backend.setAudio("input", model.text)
                 }
             }

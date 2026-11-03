@@ -114,7 +114,12 @@ def _item(result: ScanResult, item_id: str):
 def empty() -> dict:
     return {"ready": False, "model": "", "service": False, "okCount": 0, "total": 0,
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
-            "cpu": {}, "gpu": {}, "battery": {}, "limit": {}, "toggles": [], "temps": [], "fans": [],
+            "cpu": {"name": "", "freq": "—", "load": None, "temp": "—", "fan": "нет данных", "fanUnit": ""},
+            "gpu": {"name": "", "clock": "—", "util": None, "temp": "—", "memUsed": "—", "memTotal": "—",
+                    "memPct": 0, "power": "—", "status": "no", "statusText": ""},
+            "battery": {"percent": None, "text": "—", "source": "", "health": "—", "cycles": None,
+                        "power": "—", "left": "", "status": "no", "statusText": ""},
+            "limit": {"status": "no", "statusText": ""}, "toggles": [], "temps": [], "fans": [],
             "peripherals": [], "backlight": [], "system": {},
             "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "bluetooth": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,

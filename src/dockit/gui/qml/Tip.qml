@@ -16,7 +16,7 @@ Item {
         text: root.text
         delay: 450
         timeout: 8000
-        visible: root.text !== "" && hover.hovered
+        visible: !!(root.text !== "" && hover.hovered)
         contentItem: Text {
             text: root.text
             wrapMode: Text.Wrap

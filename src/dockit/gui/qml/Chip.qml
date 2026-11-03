@@ -22,7 +22,7 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 6
         Rectangle {
-            visible: root.big && root.kind !== "neutral"
+            visible: !!(root.big && root.kind !== "neutral")
             width: 8
             height: 8
             radius: 4

@@ -7,6 +7,8 @@ Flickable {
     property var d: ({})
     property string selId: ""
     property bool showRunning: false
+    readonly property var curEdit: cur ? cur.edit : ({ power: "keep", camera: "keep", output: "", input: "", brightness: 0, refresh: 0 })
+    readonly property var curRule: cur ? cur.rule : ({ processes: [], when: "", idle: 0, temp: 0, hours: "" })
     readonly property var list: d.profiles ? d.profiles : []
     readonly property var cur: {
         for (var i = 0; i < list.length; i++)
@@ -164,19 +166,19 @@ Flickable {
                             Txt { text: page.cur ? page.cur.sub : ""; color: Theme.muted; font.pixelSize: 13 }
                         }
                         Chip {
-                            visible: page.cur !== null && page.d.scenario === page.cur.id
+                            visible: !!(page.cur !== null && page.d.scenario === page.cur.id)
                             kind: "ok"
                             icon: "check"
                             text: "Сейчас применён"
                         }
                         Btn {
-                            visible: page.cur !== null && page.d.scenario !== page.cur.id
+                            visible: !!(page.cur !== null && page.d.scenario !== page.cur.id)
                             primary: true
                             text: "Применить сейчас"
                             onClicked: backend.setScenario(page.cur.id)
                         }
                         Btn {
-                            visible: page.cur !== null && page.cur.custom === true
+                            visible: !!(page.cur !== null && page.cur.custom === true)
                             text: "Удалить"
                             tip: "Удалить этот профиль и его правила. Встроенные профили удалить нельзя."
                             onClicked: backend.deleteProfile(page.cur.id)
@@ -195,12 +197,12 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не менять"; tip: "Профиль не трогает режим производительности — остаётся тот, что был."; sel: page.cur.edit.power === "keep"; onClicked: page.save("power", "keep") }
+                        Pill { text: "Не менять"; tip: "Профиль не трогает режим производительности — остаётся тот, что был."; sel: page.curEdit.power === "keep"; onClicked: page.save("power", "keep") }
                         Repeater {
                             model: page.d.modes ? page.d.modes : []
                             delegate: Pill {
                                 text: modelData.name
-                                sel: page.cur.edit.power === modelData.id
+                                sel: page.curEdit.power === modelData.id
                                 onClicked: page.save("power", modelData.id)
                             }
                         }
@@ -210,30 +212,30 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не менять"; sel: page.cur.edit.camera === "keep"; onClicked: page.save("camera", "keep") }
-                        Pill { text: "Включить"; sel: page.cur.edit.camera === "on"; onClicked: page.save("camera", "on") }
-                        Pill { text: "Выключить"; sel: page.cur.edit.camera === "off"; onClicked: page.save("camera", "off") }
+                        Pill { text: "Не менять"; sel: page.curEdit.camera === "keep"; onClicked: page.save("camera", "keep") }
+                        Pill { text: "Включить"; sel: page.curEdit.camera === "on"; onClicked: page.save("camera", "on") }
+                        Pill { text: "Выключить"; sel: page.curEdit.camera === "off"; onClicked: page.save("camera", "off") }
                     }
 
                     Txt { text: "Звук (вывод)"; color: Theme.soft }
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не менять"; sel: page.cur.edit.output === ""; onClicked: page.save("output", "") }
+                        Pill { text: "Не менять"; sel: page.curEdit.output === ""; onClicked: page.save("output", "") }
                         Repeater {
                             model: page.d.audio ? page.d.audio.outputs : []
                             delegate: Pill {
                                 text: modelData
-                                sel: page.matches(modelData, page.cur.edit.output)
+                                sel: page.matches(modelData, page.curEdit.output)
                                 onClicked: page.save("output", modelData)
                             }
                         }
                     }
                     Txt {
-                        visible: page.cur.edit.output !== "" && !page.anyMatch(page.d.audio ? page.d.audio.outputs : [], page.cur.edit.output)
+                        visible: !!(page.curEdit.output !== "" && !page.anyMatch(page.d.audio ? page.d.audio.outputs : [], page.curEdit.output))
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Выбрано: «" + page.cur.edit.output + "». Сейчас такое устройство не подключено, при включении профиля звук останется как есть."
+                        text: "Выбрано: «" + page.curEdit.output + "». Сейчас такое устройство не подключено, при включении профиля звук останется как есть."
                         color: Theme.warn
                         font.pixelSize: 12
                     }
@@ -242,21 +244,21 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не менять"; sel: page.cur.edit.input === ""; onClicked: page.save("input", "") }
+                        Pill { text: "Не менять"; sel: page.curEdit.input === ""; onClicked: page.save("input", "") }
                         Repeater {
                             model: page.d.audio ? page.d.audio.inputs : []
                             delegate: Pill {
                                 text: modelData
-                                sel: page.matches(modelData, page.cur.edit.input)
+                                sel: page.matches(modelData, page.curEdit.input)
                                 onClicked: page.save("input", modelData)
                             }
                         }
                     }
                     Txt {
-                        visible: page.cur.edit.input !== "" && !page.anyMatch(page.d.audio ? page.d.audio.inputs : [], page.cur.edit.input)
+                        visible: !!(page.curEdit.input !== "" && !page.anyMatch(page.d.audio ? page.d.audio.inputs : [], page.curEdit.input))
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Выбрано: «" + page.cur.edit.input + "». Сейчас такое устройство не подключено, при включении профиля микрофон останется как есть."
+                        text: "Выбрано: «" + page.curEdit.input + "». Сейчас такое устройство не подключено, при включении профиля микрофон останется как есть."
                         color: Theme.warn
                         font.pixelSize: 12
                     }
@@ -270,12 +272,12 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не менять"; sel: page.cur.edit.brightness === 0; onClicked: page.save("brightness", 0) }
+                        Pill { text: "Не менять"; sel: page.curEdit.brightness === 0; onClicked: page.save("brightness", 0) }
                         Repeater {
                             model: [20, 40, 60, 80, 100]
                             delegate: Pill {
                                 text: modelData + " %"
-                                sel: page.cur.edit.brightness === modelData
+                                sel: page.curEdit.brightness === modelData
                                 onClicked: page.save("brightness", modelData)
                             }
                         }
@@ -284,19 +286,19 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не менять"; sel: page.cur.edit.refresh === 0; onClicked: page.save("refresh", 0) }
+                        Pill { text: "Не менять"; sel: page.curEdit.refresh === 0; onClicked: page.save("refresh", 0) }
                         Repeater {
                             model: page.d.display && page.d.display.rates ? page.d.display.rates : []
                             delegate: Pill {
                                 text: modelData + " Гц"
                                 tip: "Меньшая частота экономит заряд, большая даёт более плавную картинку."
-                                sel: page.cur.edit.refresh === modelData
+                                sel: page.curEdit.refresh === modelData
                                 onClicked: page.save("refresh", modelData)
                             }
                         }
                     }
                     Txt {
-                        visible: !page.d.display || !page.d.display.rates || page.d.display.rates.length === 0
+                        visible: !!(!page.d.display || !page.d.display.rates || page.d.display.rates.length === 0)
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         text: "Список частот не найден: смена частоты экрана работает в niri и Hyprland."
@@ -321,9 +323,9 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        visible: page.cur.rule.processes.length > 0
+                        visible: page.curRule.processes.length > 0
                         Repeater {
-                            model: page.cur.rule.processes
+                            model: page.curRule.processes
                             delegate: Pill {
                                 text: modelData + "  ✕"
                                 tip: backend.describeProgram(modelData) + "\nНажмите, чтобы убрать из списка."
@@ -333,7 +335,7 @@ Flickable {
                         }
                     }
                     Txt {
-                        visible: page.cur.rule.processes.length === 0
+                        visible: page.curRule.processes.length === 0
                         text: "Программы не выбраны"
                         color: Theme.muted
                         font.pixelSize: 13
@@ -376,7 +378,7 @@ Flickable {
                         onClicked: page.showRunning = !page.showRunning
                     }
                     Txt {
-                        visible: page.showRunning && suggestions.count > 0
+                        visible: !!(page.showRunning && suggestions.count > 0)
                         text: "Нажмите на программу, чтобы добавить её в правило:"
                         color: Theme.muted
                         font.pixelSize: 12
@@ -390,7 +392,7 @@ Flickable {
                         Repeater {
                             id: suggestions
                             model: (page.d.apps ? page.d.apps : []).filter(function (a) {
-                                return page.cur.rule.processes.indexOf(a) < 0
+                                return page.curRule.processes.indexOf(a) < 0
                             })
                             delegate: Pill {
                                 height: 30
@@ -405,22 +407,22 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не важно"; sel: page.cur.rule.when === ""; onClicked: page.saveRule(page.cur.rule.processes, "", page.cur.rule.idle) }
-                        Pill { text: "Работа от батареи"; tip: "Правило сработает, когда ноутбук отключён от зарядки."; sel: page.cur.rule.when === "battery"; onClicked: page.saveRule(page.cur.rule.processes, "battery", page.cur.rule.idle) }
-                        Pill { text: "Подключена зарядка"; tip: "Правило сработает, когда ноутбук подключён к розетке."; sel: page.cur.rule.when === "ac"; onClicked: page.saveRule(page.cur.rule.processes, "ac", page.cur.rule.idle) }
+                        Pill { text: "Не важно"; sel: page.curRule.when === ""; onClicked: page.saveRule(page.curRule.processes, "", page.curRule.idle) }
+                        Pill { text: "Работа от батареи"; tip: "Правило сработает, когда ноутбук отключён от зарядки."; sel: page.curRule.when === "battery"; onClicked: page.saveRule(page.curRule.processes, "battery", page.curRule.idle) }
+                        Pill { text: "Подключена зарядка"; tip: "Правило сработает, когда ноутбук подключён к розетке."; sel: page.curRule.when === "ac"; onClicked: page.saveRule(page.curRule.processes, "ac", page.curRule.idle) }
                     }
 
                     Txt { text: "Нет действий с клавиатурой и мышью"; color: Theme.soft }
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не важно"; sel: page.cur.rule.idle === 0; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, 0) }
+                        Pill { text: "Не важно"; sel: page.curRule.idle === 0; onClicked: page.saveRule(page.curRule.processes, page.curRule.when, 0) }
                         Repeater {
                             model: [5, 10, 15, 30, 60]
                             delegate: Pill {
                                 text: modelData + " мин"
-                                sel: page.cur.rule.idle === modelData
-                                onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, modelData)
+                                sel: page.curRule.idle === modelData
+                                onClicked: page.saveRule(page.curRule.processes, page.curRule.when, modelData)
                             }
                         }
                     }
@@ -437,14 +439,14 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не важно"; tip: "Температура не учитывается."; sel: page.cur.rule.temp === 0; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, 0) }
+                        Pill { text: "Не важно"; tip: "Температура не учитывается."; sel: page.curRule.temp === 0; onClicked: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, 0) }
                         Repeater {
                             model: [80, 85, 90, 95]
                             delegate: Pill {
                                 text: modelData + " °C"
                                 tip: "Защита от перегрева: правило сработает, когда процессор достигнет этой температуры. Оно проверяется раньше остальных. Обычно ему назначают профиль «Ночь» (тихий режим)."
-                                sel: page.cur.rule.temp === modelData
-                                onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, modelData)
+                                sel: page.curRule.temp === modelData
+                                onClicked: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, modelData)
                             }
                         }
                     }
@@ -453,14 +455,14 @@ Flickable {
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        Pill { text: "Не важно"; sel: page.cur.rule.hours === ""; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, "") }
+                        Pill { text: "Не важно"; sel: page.curRule.hours === ""; onClicked: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, "") }
                         Repeater {
                             model: ["22:00-07:00", "09:00-18:00", "18:00-23:00"]
                             delegate: Pill {
                                 text: modelData.replace("-", " – ")
                                 tip: "Правило сработает только в это время суток."
-                                sel: page.cur.rule.hours === modelData
-                                onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, modelData)
+                                sel: page.curRule.hours === modelData
+                                onClicked: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, modelData)
                             }
                         }
                     }
@@ -481,9 +483,9 @@ Flickable {
                             ToolTip.visible: hovered
                             ToolTip.delay: 450
                             background: Rectangle { radius: 10; color: Theme.cardInner; border.width: 1; border.color: hoursField.activeFocus ? Theme.accent : Theme.border2 }
-                            onAccepted: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, text)
+                            onAccepted: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, text)
                         }
-                        Btn { text: "Задать время"; implicitHeight: 40; onClicked: page.saveRule(page.cur.rule.processes, page.cur.rule.when, page.cur.rule.idle, undefined, hoursField.text) }
+                        Btn { text: "Задать время"; implicitHeight: 40; onClicked: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, hoursField.text) }
                     }
                 }
 
