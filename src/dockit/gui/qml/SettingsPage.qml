@@ -46,7 +46,7 @@ PageFrame {
                 model: [0, 80, 85, 90, 95]
                 delegate: Pill {
                     text: modelData === 0 ? "Не предупреждать" : modelData + " °C"
-                    sel: d.settings && d.settings.warn_temp === modelData
+                    sel: !!(d.settings && d.settings.warn_temp === modelData)
                     onClicked: backend.setWarnTemp(modelData)
                 }
             }
