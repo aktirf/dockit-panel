@@ -259,3 +259,23 @@ def test_hyprland_refresh():
     mon = {"name": "eDP-1", "width": 2560, "height": 1600, "refreshRate": 165.0, "x": 0, "y": 0, "scale": 1.0,
            "availableModes": ["2560x1600@165.00Hz", "2560x1600@60.00Hz", "1920x1200@120.00Hz"]}
     assert display.refresh_info({}, [mon]) == {"output": "eDP-1", "current": 165, "rates": [60, 165]}
+
+
+def test_display_parsers_for_sway_kde_x11():
+    import json
+    from dockit.core import display
+    sway = json.dumps([{"name": "eDP-1", "active": True,
+                        "current_mode": {"width": 2560, "height": 1600, "refresh": 165000},
+                        "modes": [{"width": 2560, "height": 1600, "refresh": 165000},
+                                  {"width": 2560, "height": 1600, "refresh": 60000}]}])
+    assert display.parse_sway(sway)["rates"] == [60, 165]
+    kde = json.dumps({"outputs": [{"name": "eDP-1", "enabled": True, "currentModeId": "1",
+                                   "modes": [{"id": "1", "size": {"width": 2560, "height": 1600}, "refreshRate": 165.0},
+                                             {"id": "2", "size": {"width": 2560, "height": 1600}, "refreshRate": 60.0},
+                                             {"id": "3", "size": {"width": 1920, "height": 1200}, "refreshRate": 120.0}]}]})
+    parsed = display.parse_kscreen(kde)
+    assert parsed["rates"] == [60, 165] and parsed["modes"][60] == "2" and parsed["current"] == 165
+    x = ("Screen 0: minimum 16 x 16\neDP-1 connected primary 2560x1600+0+0 (normal) 340mm x 210mm\n"
+         "   2560x1600    165.00*+  60.00 \n   1920x1200    120.00 \nHDMI-1 disconnected (normal)\n")
+    px = display.parse_xrandr(x)
+    assert px["output"] == "eDP-1" and px["current"] == 165 and px["rates"] == [60, 165] and px["size"] == "2560x1600"
