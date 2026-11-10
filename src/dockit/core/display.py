@@ -113,6 +113,50 @@ def _niri_hypr_info(outputs: dict | None = None, monitors: list | None = None) -
     return {"output": name, "current": round(cur["refresh_rate"] / 1000), "rates": same}
 
 
+def _hypr_mode_text(mon: dict, hz: int) -> str:
+    """Exact mode string such as "1920x1200@165.01" for the rate closest to `hz` at the current size."""
+    size = f"{mon.get('width')}x{mon.get('height')}"
+    best, best_diff = None, None
+    for mode in mon.get("availableModes") or []:
+        text = str(mode)
+        if text.startswith(size + "@") and text.endswith("Hz"):
+            try:
+                rate = float(text[len(size) + 1:-2])
+            except ValueError:
+                continue
+            diff = abs(rate - hz)
+            if best_diff is None or diff < best_diff:
+                best, best_diff = text[:-2], diff
+    return best or f"{size}@{hz}"
+
+
+def hypr_lua_command(mon: dict, hz: int) -> str:
+    """Lua snippet for `hyprctl eval` (Hyprland 0.55+ with a Lua config)."""
+    return ('hl.monitor({output="%s", mode="%s", position="%sx%s", scale=%s})'
+            % (mon["name"], _hypr_mode_text(mon, hz), mon.get("x", 0), mon.get("y", 0), mon.get("scale", 1)))
+
+
+def _hypr_apply(mon: dict, hz: int) -> str | None:
+    """Apply the refresh rate in Hyprland. Lua configs need `eval`; old .conf ones use `keyword`."""
+    fail = "Частота экрана: не удалось"
+    tool = shutil.which("hyprctl")
+    if tool is None:
+        return fail
+    try:
+        probe = subprocess.run([tool, "eval", "return 1"], capture_output=True, text=True, timeout=4)
+        if probe.returncode == 0 and probe.stdout.strip().lower() == "ok":      # Lua parser
+            proc = subprocess.run([tool, "eval", hypr_lua_command(mon, hz)],
+                                  capture_output=True, text=True, timeout=6)
+        else:                                                                    # old .conf parser
+            spec = (f"{mon['name']},{_hypr_mode_text(mon, hz)},"
+                    f"{mon.get('x', 0)}x{mon.get('y', 0)},{mon.get('scale', 1)}")
+            proc = subprocess.run([tool, "keyword", "monitor", spec],
+                                  capture_output=True, text=True, timeout=6)
+    except (OSError, subprocess.TimeoutExpired):
+        return fail
+    return None if proc.returncode == 0 and proc.stdout.strip().lower() == "ok" else fail
+
+
 def _niri_hypr_set(hz: int, outputs: dict | None = None, monitors: list | None = None) -> str | None:
     """Change the built-in screen to about `hz`. Returns an error text, or None if it worked."""
     outputs = _niri_outputs() if outputs is None else outputs
@@ -125,14 +169,7 @@ def _niri_hypr_set(hz: int, outputs: dict | None = None, monitors: list | None =
         if not rates:
             return UNSUPPORTED
         best = min(rates, key=lambda r: abs(r - hz))
-        spec = (f"{mon['name']},{mon['width']}x{mon['height']}@{best},"
-                f"{mon.get('x', 0)}x{mon.get('y', 0)},{mon.get('scale', 1)}")
-        try:
-            proc = subprocess.run(["hyprctl", "keyword", "monitor", spec],
-                                  capture_output=True, text=True, timeout=6)
-        except (OSError, subprocess.TimeoutExpired):
-            return "Частота экрана: не удалось"
-        return None if proc.returncode == 0 and "ok" in proc.stdout.lower() else "Частота экрана: не удалось"
+        return _hypr_apply(mon, best)
     cur = modes[idx]
     same = [m for m in modes if m.get("width") == cur.get("width") and m.get("height") == cur.get("height")]
     best = min(same, key=lambda m: abs(m["refresh_rate"] / 1000 - hz))

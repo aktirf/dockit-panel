@@ -13,14 +13,14 @@ PageFrame {
             Chip { kind: d.battery && d.battery.percent !== null && d.battery.percent !== undefined ? "ok" : "no"; text: d.battery && d.battery.percent !== null && d.battery.percent !== undefined ? "Работает" : "Нет данных" }
         }
         RowLayout {
-            Txt { text: d.battery && d.battery.percent !== null ? d.battery.percent : "—"; font.pixelSize: 44; font.family: Theme.mono }
+            Txt { text: (d.battery && d.battery.percent !== null && d.battery.percent !== undefined) ? String(d.battery.percent) : "—"; font.pixelSize: 44; font.family: Theme.mono }
             Txt { text: "%"; color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 10 }
         }
         Bar { Layout.fillWidth: true; value: d.battery && d.battery.percent ? d.battery.percent : 0; fill: Theme.ok }
         Row2 { label: "Состояние"; value: d.battery ? d.battery.text : "—" }
         Row2 { label: "Питание"; value: d.battery && d.battery.source ? d.battery.source : "—" }
         Row2 { label: "Износ (остаток ёмкости)"; value: d.battery ? d.battery.health + " %" : "—" }
-        Row2 { label: "Циклов зарядки"; value: d.battery && d.battery.cycles !== null ? d.battery.cycles : "—" }
+        Row2 { label: "Циклов зарядки"; value: (d.battery && d.battery.cycles !== null && d.battery.cycles !== undefined) ? String(d.battery.cycles) : "—" }
         Row2 { label: "Потребление сейчас"; value: d.battery && d.battery.power !== "—" ? d.battery.power + " Вт" : "—" }
         Txt {
             visible: !!(d.battery && d.battery.left !== undefined && d.battery.left !== "")

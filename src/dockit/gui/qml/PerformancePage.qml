@@ -97,7 +97,7 @@ Flickable {
                     Txt { text: page.d.cpu ? page.d.cpu.freq : "—"; font.pixelSize: 24; font.family: Theme.mono }
                     Txt { text: "ГГц"; color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 6 }
                 }
-                Bar { Layout.fillWidth: true; value: page.d.cpu && page.d.cpu.load !== null ? page.d.cpu.load : 0 }
+                Bar { Layout.fillWidth: true; value: (page.d.cpu && page.d.cpu.load) ? Number(page.d.cpu.load) : 0 }
                 RowLayout {
                     Txt { Layout.fillWidth: true; text: "Загрузка"; color: Theme.muted }
                     Txt { text: page.d.cpu && page.d.cpu.load !== null ? page.d.cpu.load + " %" : "—"; font.family: Theme.mono }
