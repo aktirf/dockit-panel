@@ -13,8 +13,8 @@ python -m pytest -q          # should pass without any special hardware
 dockit scan                  # read-only scan of your laptop
 ```
 Fork the repo (or ask for write access), create a branch, open a pull request into `main`.
-Please read [CLAUDE.md](CLAUDE.md): it describes the code layout and the rules (they apply
-to humans too).
+Please read [AGENTS.md](AGENTS.md): it describes the code layout and our guidelines (they are
+useful for humans too). If your AI tool does not load it automatically, ask it to read that file first.
 
 ## Good first contributions
 - Add your device to the database in `devices/` (one small text file, see `devices/README.md`).
@@ -36,7 +36,7 @@ to humans too).
 1. Сделай форк репозитория или попроси доступ на запись.
 2. Создай ветку, внеси правки, запусти `python -m pytest -q` (все тесты должны проходить).
 3. Открой pull request в ветку `main` и опиши, что изменил и на каком ноутбуке и окружении проверил.
-4. Если используешь Claude или другого ИИ-помощника, пусть он сначала прочитает `CLAUDE.md`.
+4. Если используешь Claude или другого ИИ-помощника, пусть он сначала прочитает `AGENTS.md` (если инструмент не подхватывает его сам, попроси прочитать его явно).
 
 Хорошие первые задачи: добавить своё устройство в `devices/`, поддержку ещё одного окружения
 рабочего стола, английский язык интерфейса, настройки раскладки клавиатуры, тесты.
