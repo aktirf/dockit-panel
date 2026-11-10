@@ -8,8 +8,9 @@ Hyprland, niri, Sway, KDE Plasma, X11 (GNOME partially).
 ## About the owner
 - GitHub `aktirf` (AkTirF). A beginner / "vibecoder": explain steps plainly, give exact
   commands, never assume terminal experience. Writes Russian: answer in Russian unless asked.
-- Tests on a real laptop (CachyOS + Hyprland 0.57, Lua config + end-4 dots). Do not edit
-  the user's own Hyprland files; use `~/.config/hypr/custom/*.lua` only when asked.
+- Tests on a real laptop with CachyOS. The desktop changes over time (Hyprland 0.57 with end-4
+  dots, now KDE Plasma): ask which one is running before giving desktop-specific steps.
+  Do not edit the user's own desktop config files unless asked.
 - If you cannot run the GUI (no PySide6 / no display), say so. Never claim a QML change was
   visually verified; the owner tests and sends logs or screenshots.
 
