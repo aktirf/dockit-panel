@@ -328,7 +328,7 @@ Flickable {
                             model: page.curRule.processes
                             delegate: Pill {
                                 text: modelData + "  ✕"
-                                tip: backend.describeProgram(modelData) + "\nНажмите, чтобы убрать из списка."
+                                tip: (backend ? backend.describeProgram(modelData) : "") + "\nНажмите, чтобы убрать из списка."
                                 sel: true
                                 onClicked: page.removeProgram(modelData)
                             }
@@ -397,7 +397,7 @@ Flickable {
                             delegate: Pill {
                                 height: 30
                                 text: modelData
-                                tip: backend.describeProgram(modelData) + "\nНажмите, чтобы добавить в правило."
+                                tip: (backend ? backend.describeProgram(modelData) : "") + "\nНажмите, чтобы добавить в правило."
                                 onClicked: page.addProgram(modelData)
                             }
                         }

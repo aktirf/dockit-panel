@@ -279,3 +279,64 @@ def test_display_parsers_for_sway_kde_x11():
          "   2560x1600    165.00*+  60.00 \n   1920x1200    120.00 \nHDMI-1 disconnected (normal)\n")
     px = display.parse_xrandr(x)
     assert px["output"] == "eDP-1" and px["current"] == 165 and px["rates"] == [60, 165] and px["size"] == "2560x1600"
+
+
+# ---------- Hyprland refresh rate (Lua config) ----------
+
+HYPR_MON = {"name": "eDP-2", "width": 1920, "height": 1200, "x": 0, "y": 0, "scale": 1.0,
+            "refreshRate": 60.022,
+            "availableModes": ["1920x1200@60.02Hz", "1920x1200@165.01Hz", "640x480@59.94Hz"]}
+
+
+def test_hypr_lua_command_uses_exact_mode():
+    from dockit.core import display
+    cmd = display.hypr_lua_command(HYPR_MON, 165)
+    assert cmd == 'hl.monitor({output="eDP-2", mode="1920x1200@165.01", position="0x0", scale=1.0})'
+
+
+def test_hypr_apply_uses_eval_on_lua(monkeypatch):
+    from dockit.core import display
+    import subprocess
+    calls = []
+
+    class R:
+        def __init__(self, out): self.returncode, self.stdout = 0, out
+
+    def fake_run(args, **kw):
+        calls.append(args)
+        return R("ok")
+
+    monkeypatch.setattr(display.shutil, "which", lambda n: "/usr/bin/hyprctl")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert display._hypr_apply(HYPR_MON, 165) is None
+    assert calls[1][1] == "eval" and "hl.monitor" in calls[1][2]
+
+
+def test_hypr_apply_uses_keyword_on_old_config(monkeypatch):
+    from dockit.core import display
+    import subprocess
+    calls = []
+
+    class R:
+        def __init__(self, out): self.returncode, self.stdout = 0, out
+
+    def fake_run(args, **kw):
+        calls.append(args)
+        return R("unknown request" if args[1] == "eval" else "ok")
+
+    monkeypatch.setattr(display.shutil, "which", lambda n: "/usr/bin/hyprctl")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert display._hypr_apply(HYPR_MON, 60) is None
+    assert calls[1][1:3] == ["keyword", "monitor"]
+
+
+def test_hypr_apply_reports_failure(monkeypatch):
+    from dockit.core import display
+    import subprocess
+
+    class R:
+        returncode, stdout = 0, "keyword can't work with non-legacy parsers. Use eval."
+
+    monkeypatch.setattr(display.shutil, "which", lambda n: "/usr/bin/hyprctl")
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: R())
+    assert display._hypr_apply(HYPR_MON, 60) is not None
