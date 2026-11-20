@@ -308,11 +308,18 @@ def match_rule(rules: list[Rule], processes: set[str], on_ac: bool | None,
     return None
 
 
-def apply(profile: Profile, ask: Callable[[dict], dict | None], set_brightness=None) -> list[str]:
+def apply(
+    profile: Profile,
+    ask: Callable[[dict], dict | None],
+    set_brightness=None,
+    errors: list[str] | None = None,
+) -> list[str]:
     """Send the profile's settings to the service. Returns lines for the user.
 
     set_brightness(percent) -> error or None changes brightness without the service
     (logind); defaults to display.set_brightness_user. The service is the fallback.
+    If `errors` list is given, non-daemon errors (display refresh, audio) are also
+    appended to it so the GUI can notify the user instead of claiming full success.
     """
     lines = []
     if profile.power:
@@ -329,6 +336,8 @@ def apply(profile: Profile, ask: Callable[[dict], dict | None], set_brightness=N
     if profile.refresh is not None:
         from . import display  # needs the compositor, so loaded only when a profile asks for it
         error = display.set_refresh(profile.refresh)
+        if error and errors is not None:
+            errors.append(error)
         lines.append(error or f"Частота экрана: {profile.refresh} Гц")
     if profile.camera is not None:
         result = ask({"action": "set_camera", "value": profile.camera})
@@ -344,6 +353,8 @@ def apply(profile: Profile, ask: Callable[[dict], dict | None], set_brightness=N
             device = audio.set_default(kind, query)
             lines.append(f"{label}: {device.description}")
         except audio.AudioError as exc:
+            if errors is not None:
+                errors.append(f"{label}: {exc}")
             lines.append(f"{label}: {exc}")
     return lines
 

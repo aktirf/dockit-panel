@@ -12,17 +12,37 @@ class Audio(Module):
     name = "Звук"
     source = "pactl"
 
+    def __init__(self) -> None:
+        self._devices: list[audio.AudioDevice] | None = None
+
     def detect(self) -> Detection:
         try:
             devices = audio.list_devices()
         except audio.AudioError as exc:
+            self._devices = None
             return Detection(Status.UNAVAILABLE, str(exc))
+        self._devices = devices
         outputs = [d for d in devices if d.kind == "output"]
         inputs = [d for d in devices if d.kind == "input"]
         if not outputs:
             return Detection(Status.UNAVAILABLE, "Устройства вывода звука не найдены.")
         current = next((d.description for d in outputs if d.default), outputs[0].description)
         return Detection(Status.OK, f"Выводов: {len(outputs)}, микрофонов: {len(inputs)}. Сейчас звук идёт на: {current}.")
+
+    def get_state(self):
+        if self._devices is None:
+            return None
+        return [
+            {
+                "kind": d.kind,
+                "name": d.name,
+                "description": d.description,
+                "volume": d.volume,
+                "muted": d.muted,
+                "default": d.default,
+            }
+            for d in self._devices
+        ]
 
     def fix_hint(self) -> str:
         return "Установите PipeWire и libpulse: sudo pacman -S pipewire pipewire-pulse libpulse"

@@ -180,7 +180,9 @@ def cmd_auto(args: argparse.Namespace) -> int:
 
     from ..core import profiles as pf
     from ..core.idle import IdleWatcher
+    from ..gui.viewmodel import cpu_temperature
     from ..modules.battery import ac_online
+    from ..modules.sensors import Sensors
 
     watcher = IdleWatcher()
     current = None
@@ -188,7 +190,8 @@ def cmd_auto(args: argparse.Namespace) -> int:
         while True:
             available, rules = pf.load()  # re-read so edits to the file take effect
             watcher.set_minutes([r.idle for r in rules if r.idle])
-            wanted = pf.choose(rules, pf.running_processes(), ac_online(), watcher.reached())
+            temp = cpu_temperature(Sensors().get_state())
+            wanted = pf.choose(rules, pf.running_processes(), ac_online(), watcher.reached(), temp)
             if wanted is None:
                 fallback = pf.load_fallback()
                 wanted = fallback if fallback in available else None

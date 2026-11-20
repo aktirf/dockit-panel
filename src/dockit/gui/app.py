@@ -9,11 +9,16 @@ from pathlib import Path
 QML_DIR = Path(__file__).parent / "qml"
 
 
+def instance_socket_name() -> str:
+    """Per-user local socket name so only one DOCKIT window process runs at a time."""
+    return f"dockit-gui-{os.getuid()}"
+
+
 def run(argv: list[str] | None = None) -> int:
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     try:
         from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtNetwork import QLocalServer, QLocalSocket
         from PySide6.QtWidgets import QApplication, QSystemTrayIcon
         from PySide6.QtQml import QQmlApplicationEngine
     except ImportError:
@@ -28,15 +33,52 @@ def run(argv: list[str] | None = None) -> int:
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("DOCKIT")
     app.setDesktopFileName("dockit")
+
+    # Single-instance check: if another DOCKIT is already running (e.g. hidden in tray),
+    # ask it to bring its window to the front and exit instead of creating a second process.
+    socket_name = instance_socket_name()
+    probe = QLocalSocket()
+    probe.connectToServer(socket_name)
+    if probe.waitForConnected(300):
+        probe.write(b"show\n")
+        probe.flush()
+        probe.waitForBytesWritten(300)
+        probe.disconnectFromServer()
+        return 0
+    probe.abort()
+
+    QLocalServer.removeServer(socket_name)  # remove stale socket left by a crash
+    server = QLocalServer(app)
+    server.listen(socket_name)
+
     engine = QQmlApplicationEngine()
     backend = Backend()
     app.aboutToQuit.connect(backend.shutdown)
+    app.aboutToQuit.connect(server.close)
     engine.rootContext().setContextProperty("backend", backend)
     engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))
     if not engine.rootObjects():
         print("Не удалось загрузить окно (смотрите сообщения выше).")
         return 1
     window = engine.rootObjects()[0]
+
+    def show_window() -> None:
+        window.show()
+        window.raise_()
+        window.requestActivate()
+
+    def _on_second_instance() -> None:
+        while server.hasPendingConnections():
+            conn = server.nextPendingConnection()
+            if conn is not None:
+                conn.waitForReadyRead(200)
+                conn.close()
+                conn.deleteLater()
+        show_window()
+
+    server.newConnection.connect(_on_second_instance)
+    window.visibleChanged.connect(lambda: backend.setWindowVisible(bool(window.isVisible())))
+
     tray = None
     if QSystemTrayIcon.isSystemTrayAvailable():
         from .tray import Tray
