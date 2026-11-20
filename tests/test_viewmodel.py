@@ -58,13 +58,21 @@ def test_overview_data():
     assert d["limit"]["status"] == "no"
 
 
-def test_toggles_camera_needs_service_and_wireless_is_view_only():
+def test_toggles_camera_needs_service_and_wireless_needs_tools(monkeypatch):
+    # Without nmcli / bluetoothctl the Wi-Fi and Bluetooth switches are view-only.
+    monkeypatch.setattr(vm.shutil, "which", lambda name: None)
     toggles = {t["id"]: t for t in _build()["toggles"]}
     assert toggles["camera"]["can"] and toggles["camera"]["on"]
     assert toggles["mic"]["can"] and toggles["mic"]["on"]
     assert not toggles["wifi"]["can"] and toggles["wifi"]["on"]
-    assert not toggles["bluetooth"]["on"]
+    assert not toggles["bluetooth"]["can"] and not toggles["bluetooth"]["on"]
     assert not {t["id"]: t for t in _build(mic_muted=None)["toggles"]}["mic"]["can"]
+
+
+def test_wireless_toggles_can_switch_when_tools_exist(monkeypatch):
+    monkeypatch.setattr(vm.shutil, "which", lambda name: f"/usr/bin/{name}")
+    toggles = {t["id"]: t for t in _build()["toggles"]}
+    assert toggles["wifi"]["can"] and toggles["bluetooth"]["can"]
 
 
 def test_problem_features_come_first_and_counts_exist():
