@@ -194,7 +194,9 @@ def cmd_auto(args: argparse.Namespace) -> int:
                 wanted = fallback if fallback in available else None
             if wanted and wanted != current:
                 print(f"Профиль: {available[wanted].name}", flush=True)
-                for line in pf.apply(available[wanted], _ask_service):
+                # runs in the background: never pop up a password dialog
+                quiet = lambda payload: _ask_service(dict(payload, interactive=False))  # noqa: E731
+                for line in pf.apply(available[wanted], quiet):
                     print("  " + line, flush=True)
                 current = wanted
             if args.once:

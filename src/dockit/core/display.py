@@ -1,8 +1,9 @@
 """Screen brightness and refresh rate.
 
-Brightness is read from /sys/class/backlight (changing it is done by the root service).
-Refresh rate is read and changed through the niri compositor (`niri msg`); other
-compositors are not supported yet and simply report "unavailable".
+Brightness is read from /sys/class/backlight and changed through systemd-logind
+(no password); the root service is the fallback when logind refuses.
+Refresh rate is read and changed through the compositor (niri, Hyprland, Sway,
+KDE, X11); unsupported setups simply report "unavailable".
 """
 
 from __future__ import annotations
@@ -37,6 +38,39 @@ def brightness_percent(base: str = BACKLIGHT) -> int | None:
     if not (cur and top and cur.isdigit() and top.isdigit() and int(top) > 0):
         return None
     return round(100 * int(cur) / int(top))
+
+
+def logind_brightness_command(name: str, top: int, percent: int) -> list[str]:
+    """busctl call that asks systemd-logind to set the backlight.
+
+    logind lets the user of the active session do this without root or a password
+    (KDE, GNOME and brightnessctl use the same call).
+    """
+    value = max(1, round(top * percent / 100))
+    return ["busctl", "call", "org.freedesktop.login1", "/org/freedesktop/login1/session/auto",
+            "org.freedesktop.login1.Session", "SetBrightness", "ssu", "backlight", name, str(value)]
+
+
+def set_brightness_user(percent: int, base: str = BACKLIGHT) -> str | None:
+    """Change brightness without the root service. Returns None on success or the reason
+    it did not work (then the caller falls back to the service)."""
+    if isinstance(percent, bool) or not isinstance(percent, int) or not 1 <= percent <= 100:
+        return "Яркость должна быть числом от 1 до 100."
+    dev = backlight_device(base)
+    if dev is None:
+        return "Управление яркостью экрана не найдено."
+    top = sysfs.read_text(f"{dev}/max_brightness")
+    if not (top and top.isdigit() and int(top) > 0):
+        return "Не удалось узнать максимальную яркость."
+    if shutil.which("busctl") is None:
+        return "Нет busctl (systemd)."
+    name = dev.rstrip("/").rsplit("/", 1)[-1]
+    try:
+        proc = subprocess.run(logind_brightness_command(name, int(top), percent),
+                              capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return "logind не ответил."
+    return None if proc.returncode == 0 else "logind отказал в смене яркости."
 
 
 def _niri_outputs() -> dict:

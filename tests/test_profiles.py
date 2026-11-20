@@ -80,6 +80,23 @@ def test_apply_reports_failure():
     assert "не удалось" in lines[0]
 
 
+def test_brightness_uses_logind_first_without_the_service():
+    sent = []
+    lines = pf.apply(pf.Profile("a", "A", brightness=40), lambda r: sent.append(r) or {},
+                     set_brightness=lambda p: None)
+    assert sent == [] and lines == ["Яркость: 40 %"]
+
+
+def test_brightness_falls_back_to_the_service():
+    sent = []
+    lines = pf.apply(pf.Profile("a", "A", brightness=40), lambda r: sent.append(r) or {"brightness": 40},
+                     set_brightness=lambda p: "logind отказал")
+    assert sent == [{"action": "set_brightness", "value": 40}] and lines == ["Яркость: 40 %"]
+    lines = pf.apply(pf.Profile("a", "A", brightness=40), lambda r: None,
+                     set_brightness=lambda p: "logind отказал")
+    assert lines == ["Яркость: не удалось"]
+
+
 def test_keep_and_empty_mean_do_not_touch(tmp_path):
     f = tmp_path / "p.toml"
     f.write_text('[profiles.games]\npower = "keep"\ncamera = "keep"\noutput = ""\ninput = ""\n')

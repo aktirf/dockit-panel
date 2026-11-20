@@ -22,8 +22,10 @@ from typing import Callable
 from . import actions
 from .protocol import MAX_MESSAGE, POLKIT_IDS, SOCKET_PATH
 
-# authorizer(polkit_action_id, pid, uid) -> (allowed, message)
-Authorizer = Callable[[str, int, int], "tuple[bool, str]"]
+# authorizer(polkit_action_id, pid, uid, interactive) -> (allowed, message)
+Authorizer = Callable[[str, int, int, bool], "tuple[bool, str]"]
+
+QUIET_REFUSED = "Нужно подтверждение паролем: примените профиль вручную."
 
 
 def process_start_time(pid: int) -> str | None:
@@ -39,23 +41,25 @@ def process_start_time(pid: int) -> str | None:
     return rest[19] if len(rest) > 19 else None
 
 
-def polkit_authorizer(action_id: str, pid: int, uid: int) -> tuple[bool, str]:
+def polkit_authorizer(action_id: str, pid: int, uid: int, interactive: bool = True) -> tuple[bool, str]:
+    """Ask polkit. interactive=False never shows a password dialog: background
+    requests (automatic profile switching) are either allowed outright by the
+    policy or refused quietly."""
     start = process_start_time(pid)
     if start is None:
         return False, "Не удалось определить процесс, который отправил запрос."
+    command = ["pkcheck", "--action-id", action_id, "--process", f"{pid},{start},{uid}"]
+    if interactive:
+        command.append("--allow-user-interaction")
     try:
-        proc = subprocess.run(
-            ["pkcheck", "--action-id", action_id,
-             "--process", f"{pid},{start},{uid}", "--allow-user-interaction"],
-            capture_output=True, text=True, timeout=130,
-        )
+        proc = subprocess.run(command, capture_output=True, text=True, timeout=130)
     except FileNotFoundError:
         return False, "В системе нет pkcheck (пакет polkit)."
     except subprocess.TimeoutExpired:
         return False, "Время подтверждения истекло."
     if proc.returncode == 0:
         return True, ""
-    return False, "Действие не подтверждено."
+    return False, "Действие не подтверждено." if interactive else QUIET_REFUSED
 
 
 class Dispatcher:
@@ -89,8 +93,11 @@ class Dispatcher:
             return {"ok": False, "error": "Неизвестное действие."}
 
         polkit_id = POLKIT_IDS[action]
+        interactive = request.get("interactive", True)
+        if not isinstance(interactive, bool):
+            return {"ok": False, "error": "Поле interactive должно быть true или false."}
         if polkit_id is not None and uid != 0:
-            allowed, message = self.authorizer(polkit_id, pid, uid)
+            allowed, message = self.authorizer(polkit_id, pid, uid, interactive)
             if not allowed:
                 self.log(f"refused: action={action} uid={uid} pid={pid}")
                 return {"ok": False, "error": message or "Нет разрешения."}

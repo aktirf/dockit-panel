@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import tempfile
 import threading
 from pathlib import Path
@@ -92,9 +93,11 @@ class Recorder:
     def __init__(self, allow=True):
         self.allow = allow
         self.calls = []
+        self.interactive = []
 
-    def __call__(self, action_id, pid, uid):
+    def __call__(self, action_id, pid, uid, interactive=True):
         self.calls.append((action_id, pid, uid))
+        self.interactive.append(interactive)
         return (self.allow, "" if self.allow else "Действие не подтверждено.")
 
 
@@ -139,6 +142,57 @@ def test_root_caller_skips_polkit(fake_actions):
     d = server.Dispatcher(auth, log=lambda t: None)
     assert _send(d, {"action": "set_camera", "value": True}, uid=0)["ok"] is True
     assert auth.calls == []
+
+
+def test_requests_are_interactive_by_default(fake_actions):
+    auth = Recorder()
+    d = server.Dispatcher(auth, log=lambda t: None)
+    _send(d, {"action": "set_power_profile", "value": "performance"})
+    assert auth.interactive == [True]
+
+
+def test_background_request_is_passed_as_quiet(fake_actions):
+    auth = Recorder()
+    d = server.Dispatcher(auth, log=lambda t: None)
+    _send(d, {"action": "set_camera", "value": False, "interactive": False})
+    assert auth.interactive == [False]
+
+
+@pytest.mark.parametrize("bad", ["no", 0, None, [], {}])
+def test_interactive_must_be_bool(fake_actions, bad):
+    auth = Recorder()
+    d = server.Dispatcher(auth, log=lambda t: None)
+    r = _send(d, {"action": "set_camera", "value": False, "interactive": bad})
+    assert r["ok"] is False and auth.calls == [] and fake_actions == []
+
+
+class _Proc:
+    def __init__(self, returncode):
+        self.returncode = returncode
+
+
+def test_quiet_pkcheck_never_allows_user_interaction(monkeypatch):
+    seen = []
+
+    def run(cmd, **kw):
+        seen.append(cmd)
+        return _Proc(2)  # polkit: authentication would be needed
+
+    monkeypatch.setattr(server.subprocess, "run", run)
+    allowed, message = server.polkit_authorizer("org.dockit.set-camera", os.getpid(), os.getuid(), False)
+    assert allowed is False and message == server.QUIET_REFUSED
+    assert "--allow-user-interaction" not in seen[0]
+    server.polkit_authorizer("org.dockit.set-camera", os.getpid(), os.getuid(), True)
+    assert "--allow-user-interaction" in seen[1]
+
+
+def test_power_profile_needs_no_password_but_camera_does():
+    policy = (Path(__file__).resolve().parents[1] / "data/polkit/org.dockit.policy").read_text()
+    blocks = dict(re.findall(r'<action id="([^"]+)">(.*?)</action>', policy, re.S))
+    assert "<allow_active>yes</allow_active>" in blocks["org.dockit.set-power-profile"]
+    for action_id in ("org.dockit.set-camera", "org.dockit.set-cpu", "org.dockit.set-gpu-limit"):
+        assert "<allow_active>auth_self_keep</allow_active>" in blocks[action_id]
+        assert "<allow_any>no</allow_any>" in blocks[action_id]
 
 
 @pytest.mark.parametrize("payload", [

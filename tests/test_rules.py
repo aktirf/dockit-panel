@@ -219,6 +219,35 @@ def test_display_helpers(tmp_path):
         actions.set_brightness(0, str(d))
 
 
+def test_logind_brightness_command():
+    from dockit.core import display
+    cmd = display.logind_brightness_command("amdgpu_bl1", 255, 20)
+    assert cmd[:3] == ["busctl", "call", "org.freedesktop.login1"]
+    assert cmd[-5:] == ["SetBrightness", "ssu", "backlight", "amdgpu_bl1", "51"]
+    assert display.logind_brightness_command("x", 255, 0)[-1] == "1"  # never fully black
+
+
+def test_set_brightness_user(tmp_path, monkeypatch):
+    from dockit.core import display
+    d = tmp_path / "bl"
+    (d / "amdgpu_bl1").mkdir(parents=True)
+    (d / "amdgpu_bl1" / "max_brightness").write_text("255")
+    seen = []
+
+    class Proc:
+        returncode = 0
+
+    monkeypatch.setattr(display.shutil, "which", lambda n: "/usr/bin/busctl")
+    monkeypatch.setattr(display.subprocess, "run", lambda cmd, **kw: seen.append(cmd) or Proc())
+    assert display.set_brightness_user(50, str(d)) is None
+    assert seen[0][-2:] == ["amdgpu_bl1", "128"]
+    assert display.set_brightness_user(0, str(d)) is not None and len(seen) == 1
+    assert display.set_brightness_user(True, str(d)) is not None
+    Proc.returncode = 1
+    assert display.set_brightness_user(50, str(d)) is not None  # caller then asks the service
+    assert display.set_brightness_user(50, str(tmp_path / "none")) is not None
+
+
 def test_tuning_and_battery_estimate(tmp_path):
     from dockit.core import tuning
     from dockit.daemon import actions
