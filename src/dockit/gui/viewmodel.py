@@ -375,7 +375,7 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "fans": [{"name": k.split("/", 1)[0], "rpm": v} for k, v in
                  ((sensors.state or {}).get("fans_rpm", {}) if sensors else {}).items()],
         "peripherals": [
-            {"name": p.name, "kind": KIND_RU.get(p.kind, p.kind), "usbId": p.usb_id, "known": p.known,
+            {"name": p.name, "kind": kind_label(p.kind, lang), "usbId": p.usb_id, "known": p.known,
              "notes": p.notes or "", "status": p.status}
             for p in result.peripherals
         ],
@@ -391,6 +391,67 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
 
 MODE_BY_ID = {m["id"]: m["name"] for m in MODES}
 
+_KIND_KEYS = {
+    "mouse": "kind_mouse",
+    "keyboard": "kind_keyboard",
+    "headset": "kind_headset",
+    "camera": "kind_camera",
+    "bluetooth": "kind_bluetooth",
+    "laptop": "kind_laptop",
+}
+
+_BUILTIN_PROFILE_NAMES = {
+    "games": {"игры", "games", "ігри", ""},
+    "work": {"работа", "work", "робота", ""},
+    "night": {"ночь", "night", "ніч", ""},
+}
+
+_COMMON_PROFILE_NAMES = {
+    "игры": "prof_name_games", "games": "prof_name_games", "ігри": "prof_name_games",
+    "работа": "prof_name_work", "work": "prof_name_work", "робота": "prof_name_work",
+    "ночь": "prof_name_night", "night": "prof_name_night", "ніч": "prof_name_night",
+    "кино": "prof_name_movie", "фильм": "prof_name_movie", "фильмы": "prof_name_movie",
+    "movie": "prof_name_movie", "movies": "prof_name_movie", "cinema": "prof_name_movie",
+    "кіно": "prof_name_movie", "фільм": "prof_name_movie", "фільми": "prof_name_movie",
+    "учёба": "prof_name_study", "учеба": "prof_name_study", "study": "prof_name_study", "навчання": "prof_name_study",
+    "музыка": "prof_name_music", "music": "prof_name_music", "музика": "prof_name_music",
+    "стрим": "prof_name_stream", "stream": "prof_name_stream", "стрім": "prof_name_stream",
+    "тишина": "prof_name_quiet", "тихий": "prof_name_quiet", "quiet": "prof_name_quiet",
+    "silent": "prof_name_quiet", "тиша": "prof_name_quiet",
+    "баланс": "prof_name_balanced", "balanced": "prof_name_balanced",
+    "производительность": "prof_name_performance", "performance": "prof_name_performance",
+    "продуктивність": "prof_name_performance",
+    "батарея": "prof_name_power_saver", "энергосбережение": "prof_name_power_saver",
+    "battery": "prof_name_power_saver", "power saver": "prof_name_power_saver",
+    "power saving": "prof_name_power_saver", "економія": "prof_name_power_saver",
+    "енергозбереження": "prof_name_power_saver",
+    "офис": "prof_name_office", "office": "prof_name_office", "офіс": "prof_name_office",
+    "кодинг": "prof_name_coding", "код": "prof_name_coding", "программирование": "prof_name_coding",
+    "coding": "prof_name_coding", "programming": "prof_name_coding", "програмування": "prof_name_coding",
+    "сон": "prof_name_sleep", "sleep": "prof_name_sleep",
+    "дорога": "prof_name_travel", "travel": "prof_name_travel", "подорож": "prof_name_travel",
+    "видео": "prof_name_video", "video": "prof_name_video", "відео": "prof_name_video",
+    "монтаж": "prof_name_editing", "editing": "prof_name_editing",
+}
+
+
+def kind_label(kind: str, lang: str = "ru") -> str:
+    key = _KIND_KEYS.get(kind)
+    return i18n.tr(key, lang) if key else KIND_RU.get(kind, kind)
+
+
+def profile_display_name(profile, lang: str = "ru") -> str:
+    """Translate built-in and common custom profile names into the selected UI language."""
+    pid = getattr(profile, "id", "")
+    raw = str(getattr(profile, "name", "") or "").strip()
+    low = raw.lower()
+    if pid in _BUILTIN_PROFILE_NAMES and low in _BUILTIN_PROFILE_NAMES[pid]:
+        return i18n.tr(f"prof_name_{pid}", lang)
+    key = _COMMON_PROFILE_NAMES.get(low)
+    if key:
+        return i18n.tr(key, lang)
+    return raw or pid
+
 
 def _rule_edit(rule) -> dict:
     if rule is None:
@@ -399,15 +460,15 @@ def _rule_edit(rule) -> dict:
             "temp": rule.temp, "hours": rule.hours}
 
 
-def _rule_text(rule) -> str:
+def _rule_text(rule, lang: str = "ru") -> str:
     parts = []
     if rule.processes:
-        parts.append("Запущена программа: " + ", ".join(rule.processes))
+        parts.append(i18n.tr("rule_running", lang, procs=", ".join(rule.processes)))
     if rule.when == "battery":
-        parts.append("Ноутбук работает от батареи")
+        parts.append(i18n.tr("rule_on_battery", lang))
     elif rule.when == "ac":
-        parts.append("Ноутбук подключён к зарядке")
-    return " и ".join(parts)
+        parts.append(i18n.tr("rule_on_ac", lang))
+    return i18n.tr("rule_and", lang).join(parts)
 
 
 def _plural_ru(n: int, one: str, few: str, many: str) -> str:
@@ -442,15 +503,26 @@ def profile_cards(profiles: dict, rules: list, fallback: str | None = None, lang
     unchanged = i18n.tr("unchanged", lang)
     cards = []
     for p in profiles.values():
-        camera = "Не меняется" if p.camera is None else ("Включена" if p.camera else "Выключена")
-        rows = [
-            {"label": "Режим мощности", "value": mode_by_id.get(p.power or "", "Не меняется")},
-            {"label": "Камера", "value": camera},
-            {"label": "Звук (вывод)", "value": f"«{p.output}»" if p.output else "Не меняется"},
-            {"label": "Микрофон", "value": f"«{p.input}»" if p.input else "Не меняется"},
-            {"label": "Яркость", "value": f"{p.brightness} %" if p.brightness else "Не меняется"},
-            {"label": "Частота экрана", "value": f"{p.refresh} Гц" if p.refresh else "Не меняется"},
-        ]
+        if lang == "ru":
+            camera = "Не меняется" if p.camera is None else ("Включена" if p.camera else "Выключена")
+            rows = [
+                {"label": "Режим мощности", "value": mode_by_id.get(p.power or "", "Не меняется")},
+                {"label": "Камера", "value": camera},
+                {"label": "Звук (вывод)", "value": f"«{p.output}»" if p.output else "Не меняется"},
+                {"label": "Микрофон", "value": f"«{p.input}»" if p.input else "Не меняется"},
+                {"label": "Яркость", "value": f"{p.brightness} %" if p.brightness else "Не меняется"},
+                {"label": "Частота экрана", "value": f"{p.refresh} Гц" if p.refresh else "Не меняется"},
+            ]
+        else:
+            camera = unchanged if p.camera is None else i18n.tr("cam_on" if p.camera else "cam_off", lang)
+            rows = [
+                {"label": i18n.tr("power_mode", lang), "value": mode_by_id.get(p.power or "", unchanged)},
+                {"label": i18n.tr("camera", lang), "value": camera},
+                {"label": i18n.tr("sound_output", lang), "value": f"«{p.output}»" if p.output else unchanged},
+                {"label": i18n.tr("microphone", lang), "value": f"«{p.input}»" if p.input else unchanged},
+                {"label": i18n.tr("screen_brightness", lang), "value": f"{p.brightness} %" if p.brightness else unchanged},
+                {"label": i18n.tr("screen_refresh", lang), "value": f"{p.refresh} {i18n.tr('unit_hz', lang)}" if p.refresh else unchanged},
+            ]
         rule_obj = next((r for r in rules if r.profile == p.id), None)
         rule_edit = _rule_edit(rule_obj)
         settings_count = sum([
@@ -477,14 +549,14 @@ def profile_cards(profiles: dict, rules: list, fallback: str | None = None, lang
         mode_name = mode_by_id.get(p.power or "", i18n.tr("prof_no_changes", lang))
         cards.append({
             "id": p.id,
-            "name": p.name,
+            "name": profile_display_name(p, lang),
             "custom": p.id not in DEFAULT_PROFILES,
             "sub": i18n.tr("prof_sub_mode", lang, mode=mode_name),
             "summary": summary,
             "settingsCount": settings_count,
             "rulesCount": rules_count,
             "rows": rows,
-            "rules": [_rule_text(r) for r in rules if r.profile == p.id and _rule_text(r)],
+            "rules": [_rule_text(r, lang) for r in rules if r.profile == p.id and _rule_text(r, lang)],
             "rule": rule_edit,
             "edit": {
                 "power": p.power or "keep",
