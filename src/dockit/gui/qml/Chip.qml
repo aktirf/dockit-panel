@@ -22,11 +22,11 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 6
         Rectangle {
-            visible: !!(root.big && root.kind !== "neutral")
+            visible: !!(root.big && root.kind !== "neutral" && root.icon === "")
             width: 8
             height: 8
             radius: 4
-            color: root.kind === "ok" ? Theme.ok : Theme.err
+            color: Theme.statusColor(root.kind)
             anchors.verticalCenter: parent.verticalCenter
         }
         Icon {

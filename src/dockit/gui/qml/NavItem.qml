@@ -14,24 +14,33 @@ Rectangle {
     Layout.fillWidth: true
     implicitHeight: 44
     radius: 10
-    color: active ? Theme.navActive : (mouse.containsMouse ? "#161E26" : "transparent")
+    color: active ? Theme.navActive : (navHover.hovered ? "#161E26" : "transparent")
     Behavior on color { ColorAnimation { duration: 160 } }
     opacity: ready ? 1 : 0.55
 
+    HoverHandler { id: navHover }
+
+    // Dead-center icon in compact rail mode (never stretched by RowLayout)
+    Icon {
+        visible: root.compact
+        anchors.centerIn: parent
+        name: root.icon
+        size: 20
+        color: root.active ? Theme.accent : Theme.navText
+    }
+
     RowLayout {
+        visible: !root.compact
         anchors.fill: parent
-        anchors.leftMargin: root.compact ? 0 : 12
-        anchors.rightMargin: root.compact ? 0 : 12
-        spacing: root.compact ? 0 : 12
+        anchors.leftMargin: 12
+        anchors.rightMargin: 12
+        spacing: 12
         Icon {
-            Layout.alignment: Qt.AlignCenter
-            Layout.fillWidth: root.compact
             name: root.icon
             size: 20
             color: root.active ? Theme.accent : Theme.navText
         }
         Txt {
-            visible: !root.compact
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             elide: Text.ElideRight
@@ -40,7 +49,7 @@ Rectangle {
             font.weight: Font.Medium
         }
         Rectangle {
-            visible: !root.compact && root.badge > 0
+            visible: root.badge > 0
             implicitWidth: Math.max(20, badgeText.implicitWidth + 12)
             implicitHeight: 20
             radius: 10
@@ -70,7 +79,6 @@ Rectangle {
     MouseArea {
         id: mouse
         anchors.fill: parent
-        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: root.clicked()
     }
