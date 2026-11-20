@@ -52,4 +52,12 @@ QtObject {
         if (p < 40) return warn
         return ok
     }
+    function tempColor(temp) {
+        if (temp === null || temp === undefined || temp === "" || temp === "—") return accent
+        var t = Number(String(temp).replace(",", "."))
+        if (isNaN(t)) return accent
+        if (t >= 82) return err
+        if (t >= 65) return warn
+        return accent
+    }
 }

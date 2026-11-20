@@ -4,10 +4,13 @@ Canvas {
     id: c
     property var values: []
     property color lineColor: Theme.accent
+    property bool showBounds: false
+    property string unit: ""
 
     implicitHeight: 40
     onValuesChanged: requestPaint()
     onLineColorChanged: requestPaint()
+    onShowBoundsChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
 
@@ -16,21 +19,36 @@ Canvas {
         ctx.clearRect(0, 0, width, height)
         var v = values
         if (!v || v.length < 2 || width < 8 || height < 8) return
-        var mn = Math.min.apply(null, v)
-        var mx = Math.max.apply(null, v)
+        var rawMin = Math.min.apply(null, v)
+        var rawMax = Math.max.apply(null, v)
+        var mn = rawMin
+        var mx = rawMax
         if (mx - mn < 4) {
             var mid = (mx + mn) / 2
             mn = mid - 2
             mx = mid + 2
         }
-        var padX = 4
-        var padTop = 5
-        var padBot = 4
+        var padLeft = showBounds ? 34 : 4
+        var padRight = 6
+        var padTop = 6
+        var padBot = 6
+        var plotW = Math.max(4, width - padLeft - padRight)
         var pts = []
         for (var i = 0; i < v.length; i++) {
-            var x = padX + i * (width - padX * 2) / (v.length - 1)
+            var x = padLeft + i * plotW / (v.length - 1)
             var y = height - padBot - (v[i] - mn) / (mx - mn) * (height - padTop - padBot)
             pts.push({ x: x, y: y })
+        }
+
+        // Subtle horizontal bounds labels when requested
+        if (showBounds) {
+            ctx.fillStyle = Theme.muted
+            ctx.font = "10px 'IBM Plex Mono', monospace"
+            ctx.textAlign = "left"
+            ctx.textBaseline = "top"
+            ctx.fillText(Math.round(rawMax) + unit, 0, 2)
+            ctx.textBaseline = "bottom"
+            ctx.fillText(Math.round(rawMin) + unit, 0, height - 2)
         }
 
         // Soft vertical gradient fill under the curve
