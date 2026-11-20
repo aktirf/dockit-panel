@@ -464,7 +464,7 @@ class Backend(QObject):
                 if wanted and wanted != self._auto_last:
                     first = self._auto_last is None
                     self._auto_last = wanted
-                    note = self._apply_profile(available[wanted])
+                    note = self._apply_profile(available[wanted], interactive=False)
                     self._log(f"Авто: «{available[wanted].name}» ({reason})")
                     if not first:
                         self._notify("DOCKIT", f"Включён профиль «{available[wanted].name}»: {reason}")
@@ -527,10 +527,13 @@ class Backend(QObject):
 
         threading.Thread(target=target, daemon=True).start()
 
-    def _apply_profile(self, profile: profiles.Profile) -> str:
+    def _apply_profile(self, profile: profiles.Profile, interactive: bool = True) -> str:
+        """interactive=False (automatic switching) never pops up a password dialog."""
         errors: list[str] = []
 
         def ask(payload: dict):
+            if not interactive:
+                payload = dict(payload, interactive=False)
             result, error = client.ask(payload)
             if result is None:
                 errors.append(error)
@@ -612,8 +615,11 @@ class Backend(QObject):
     @Slot(int)
     def setBrightness(self, percent: int) -> None:
         def work() -> str:
-            result, error = client.ask({"action": "set_brightness", "value": percent})
+            from ..core import display
             self._display_at = 0
+            if display.set_brightness_user(percent) is None:  # logind, no password
+                return f"Яркость: {percent} %"
+            result, error = client.ask({"action": "set_brightness", "value": percent})
             return f"Яркость: {percent} %" if result is not None else error
 
         self._run(work)

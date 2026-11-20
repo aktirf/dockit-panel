@@ -10,10 +10,12 @@
     <description xml:lang="ru">Сменить режим производительности ноутбука</description>
     <message>Authentication is required to change the laptop performance mode</message>
     <message xml:lang="ru">Для смены режима производительности нужно подтверждение</message>
+    <!-- Same as power-profiles-daemon: the person sitting at the laptop may switch the
+         performance mode without a password (needed for automatic profiles). -->
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>
-      <allow_active>auth_self_keep</allow_active>
+      <allow_active>yes</allow_active>
     </defaults>
   </action>
 

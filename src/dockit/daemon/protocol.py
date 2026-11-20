@@ -3,6 +3,10 @@
 Messages are one line of JSON in each direction:
     request:  {"action": "set_power_profile", "value": "performance"}
     response: {"ok": true, "result": {...}}   or   {"ok": false, "error": "text"}
+
+Optional request field "interactive" (bool, default true): false means "never show a
+password dialog" and is sent by automatic profile switching. Actions that the polkit
+policy allows without a password still work; the rest are refused quietly.
 """
 
 SOCKET_PATH = "/run/dockit/dockit.sock"

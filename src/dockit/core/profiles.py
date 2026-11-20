@@ -308,15 +308,24 @@ def match_rule(rules: list[Rule], processes: set[str], on_ac: bool | None,
     return None
 
 
-def apply(profile: Profile, ask: Callable[[dict], dict | None]) -> list[str]:
-    """Send the profile's settings to the service. Returns lines for the user."""
+def apply(profile: Profile, ask: Callable[[dict], dict | None], set_brightness=None) -> list[str]:
+    """Send the profile's settings to the service. Returns lines for the user.
+
+    set_brightness(percent) -> error or None changes brightness without the service
+    (logind); defaults to display.set_brightness_user. The service is the fallback.
+    """
     lines = []
     if profile.power:
         result = ask({"action": "set_power_profile", "value": profile.power})
         lines.append(f"Режим мощности: {result['profile']}" if result else "Режим мощности: не удалось")
     if profile.brightness is not None:
-        result = ask({"action": "set_brightness", "value": profile.brightness})
-        lines.append(f"Яркость: {profile.brightness} %" if result else "Яркость: не удалось")
+        if set_brightness is None:
+            from . import display
+            set_brightness = display.set_brightness_user
+        ok = set_brightness(profile.brightness) is None
+        if not ok:
+            ok = ask({"action": "set_brightness", "value": profile.brightness}) is not None
+        lines.append(f"Яркость: {profile.brightness} %" if ok else "Яркость: не удалось")
     if profile.refresh is not None:
         from . import display  # needs the compositor, so loaded only when a profile asks for it
         error = display.set_refresh(profile.refresh)
