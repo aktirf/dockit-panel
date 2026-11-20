@@ -22,3 +22,6 @@ BacklightPage 1.0 BacklightPage.qml
 PeripheralsPage 1.0 PeripheralsPage.qml
 DiagnosticsPage 1.0 DiagnosticsPage.qml
 SettingsPage 1.0 SettingsPage.qml
+SettingRow 1.0 SettingRow.qml
+SegmentBar 1.0 SegmentBar.qml
+SelectBox 1.0 SelectBox.qml

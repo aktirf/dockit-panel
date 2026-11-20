@@ -294,6 +294,18 @@ def _rule_text(rule) -> str:
     return " и ".join(parts)
 
 
+def _plural_ru(n: int, one: str, few: str, many: str) -> str:
+    n100 = abs(n) % 100
+    n10 = n100 % 10
+    if 11 <= n100 <= 14:
+        return f"{n} {many}"
+    if n10 == 1:
+        return f"{n} {one}"
+    if 2 <= n10 <= 4:
+        return f"{n} {few}"
+    return f"{n} {many}"
+
+
 def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> list[dict]:
     """One dict per profile: what it applies and which rules switch to it."""
     cards = []
@@ -307,14 +319,40 @@ def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> l
             {"label": "Яркость", "value": f"{p.brightness} %" if p.brightness else "Не меняется"},
             {"label": "Частота экрана", "value": f"{p.refresh} Гц" if p.refresh else "Не меняется"},
         ]
+        rule_obj = next((r for r in rules if r.profile == p.id), None)
+        rule_edit = _rule_edit(rule_obj)
+        settings_count = sum([
+            bool(p.power),
+            p.camera is not None,
+            bool(p.output),
+            bool(p.input),
+            bool(p.brightness),
+            bool(p.refresh),
+        ])
+        rules_count = sum([
+            bool(rule_edit["processes"]),
+            bool(rule_edit["when"]),
+            bool(rule_edit["idle"]),
+            bool(rule_edit["temp"]),
+            bool(rule_edit["hours"]),
+        ])
+        summary_parts = []
+        if settings_count:
+            summary_parts.append(_plural_ru(settings_count, "настройка", "настройки", "настроек"))
+        if rules_count:
+            summary_parts.append(_plural_ru(rules_count, "правило", "правила", "правил"))
+        summary = " · ".join(summary_parts) if summary_parts else "Не настроен"
         cards.append({
             "id": p.id,
             "name": p.name,
             "custom": p.id not in DEFAULT_PROFILES,
             "sub": "Режим: " + MODE_BY_ID.get(p.power or "", "без изменений"),
+            "summary": summary,
+            "settingsCount": settings_count,
+            "rulesCount": rules_count,
             "rows": rows,
             "rules": [_rule_text(r) for r in rules if r.profile == p.id and _rule_text(r)],
-            "rule": _rule_edit(next((r for r in rules if r.profile == p.id), None)),
+            "rule": rule_edit,
             "edit": {
                 "power": p.power or "keep",
                 "camera": "keep" if p.camera is None else ("on" if p.camera else "off"),

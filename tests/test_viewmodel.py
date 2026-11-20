@@ -120,5 +120,9 @@ def test_profile_cards_show_what_is_applied_and_rules():
     assert values["Камера"] == "Выключена" and values["Звук (вывод)"] == "«epos»"
     assert values["Микрофон"] == "Не меняется"
     assert games["rules"] == ["Запущена программа: steam_app_*"]
+    assert games["settingsCount"] == 3 and games["rulesCount"] == 1
+    assert games["summary"] == "3 настройки · 1 правило"
     assert cards[1]["rules"] == ["Ноутбук работает от батареи"]
+    assert cards[1]["settingsCount"] == 1 and cards[1]["rulesCount"] == 1
+    assert cards[1]["summary"] == "1 настройка · 1 правило"
     assert vm.empty()["profiles"] == []
