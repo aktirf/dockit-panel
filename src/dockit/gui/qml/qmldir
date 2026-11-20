@@ -25,3 +25,4 @@ SettingsPage 1.0 SettingsPage.qml
 SettingRow 1.0 SettingRow.qml
 SegmentBar 1.0 SegmentBar.qml
 SelectBox 1.0 SelectBox.qml
+SmoothSlider 1.0 SmoothSlider.qml
