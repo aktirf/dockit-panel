@@ -77,3 +77,49 @@ def test_viewmodel_and_tray_localize_en_and_uk():
     assert tip_en == "DOCKIT · Balanced · CPU 45 °C · GPU asleep"
     tip_uk = tray.format_tooltip(uk, {m["id"]: m["name"] for m in uk["modes"]}, lang="uk")
     assert tip_uk == "DOCKIT · Баланс · CPU 45 °C · GPU спить"
+
+
+def test_diagnostics_and_report_localize_across_all_languages():
+    from dockit.core.scanner import format_report
+
+    res = ScanResult(
+        system={"vendor": "GIGABYTE", "model": "GIGABYTE GAMING A16 3VH", "kernel": "7.3.5"},
+        items=[
+            ScanItem("service", "Фоновая служба DOCKIT", "dockit.service", Status.OK, "ok"),
+            ScanItem("battery_limit", "Лимит заряда батареи", "power_supply", Status.UNAVAILABLE,
+                     "no", hint="Обновите ядро"),
+            ScanItem("gpu_nvidia", "Видеокарта NVIDIA", "nvidia-smi", Status.OK, "ok",
+                     state={"name": "NVIDIA RTX 5060", "asleep": False}),
+            ScanItem("battery", "Батарея", "power_supply", Status.OK, "ok",
+                     state={"batteries": [{"percent": 96, "status": "Not charging"}]}),
+            ScanItem("audio", "Звук", "pactl", Status.OK, "ok",
+                     state=[{"kind": "output", "description": "EPOS H3PRO", "default": True},
+                            {"kind": "input", "description": "Mic", "default": True}]),
+            ScanItem("kbd_backlight", "Подсветка клавиатуры", "hid", Status.OK, "ok",
+                     state={"devices": [{"name": "GIGABYTE Keyboard", "rgb": True}]}),
+        ],
+    )
+
+    rep_en = format_report(res, lang="en")
+    assert "[Unavailable] Battery charge limit" in rep_en
+    assert "How to fix: Update the kernel" in rep_en
+    assert "[Working] NVIDIA GPU" in rep_en and "NVIDIA RTX 5060: data available." in rep_en
+    assert "Charge 96%, not charging." in rep_en
+    assert "Outputs: 1, microphones: 1. Current output: EPOS H3PRO." in rep_en
+    assert "GIGABYTE Keyboard (HID LampArray RGB)." in rep_en
+    assert "Как исправить" not in rep_en
+
+    rep_uk = format_report(res, lang="uk")
+    assert "[Недоступно] Ліміт заряду батареї" in rep_uk
+    assert "Як виправити:" in rep_uk
+    assert "[Працює] Відеокарта NVIDIA" in rep_uk
+
+    rep_ru = format_report(res, lang="ru")
+    assert "[Недоступно] Лимит заряда батареи" in rep_ru
+    assert "Как исправить:" in rep_ru
+
+    built_en = vm.build(res, "balanced", {"load_pct": 5, "freq_mhz": 3000}, "Ryzen", [], [], False, [], "", lang="en")
+    feat_by_id = {f["id"]: f for f in built_en["features"]}
+    assert feat_by_id["battery_limit"]["name"] == "Battery charge limit"
+    assert "Update the kernel" in feat_by_id["battery_limit"]["hint"]
+    assert feat_by_id["kbd_backlight"]["name"] == "Keyboard backlight"

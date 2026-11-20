@@ -360,5 +360,73 @@
   "chip_eth": "Мережева карта",
   "prof_sub_mode": "Режим: {mode}",
   "prof_no_changes": "без змін",
-  "prof_not_configured": "Не налаштовано"
+  "prof_not_configured": "Не налаштовано",
+
+  "report_fix": "Як виправити",
+  "report_usb": "Пристрої USB",
+  "report_not_in_db": "немає в базі",
+  "report_total": "Разом",
+  "report_copied": "Звіт скопійовано. Його можна вставити в повідомлення про помилку.",
+  "report_laptop_db": "Ноутбук у базі",
+  "report_yes": "так",
+  "report_no": "ні",
+
+  "mod_service_name": "Фонова служба DOCKIT",
+  "mod_service_ok": "Служба запущена, зміна налаштувань доступна.",
+  "mod_service_setup": "Служба не запущена: налаштування можна дивитися, але не змінювати.",
+  "mod_service_hint": "Встановіть службу: sudo scripts/install-dev.sh (із папки проєкту).",
+
+  "mod_power_profile_name": "Режим продуктивності",
+  "mod_power_profile_ok": "Режим можна змінювати через службу DOCKIT.",
+  "mod_power_profile_setup": "Режим можна читати, але змінювати без служби DOCKIT не можна.",
+  "mod_power_profile_no": "Ядро не показує режими продуктивності для цієї моделі.",
+  "mod_power_profile_hint_no": "Спробуйте новіше ядро. Запасний варіант: power-profiles-daemon і ryzenadj.",
+  "mod_power_profile_hint_setup": "Встановіть і запустіть службу DOCKIT: sudo scripts/install-dev.sh.",
+
+  "mod_sensors_name": "Температури та вентилятори",
+  "mod_sensors_ok_fans": "Температури та оберти вентиляторів доступні.",
+  "mod_sensors_ok_nofans": "Температури доступні. Оберти вентиляторів ядро не показує.",
+  "mod_sensors_no": "Датчики температури не знайдено.",
+  "mod_sensors_hint": "Встановіть пакет lm_sensors і запустіть sensors-detect.",
+
+  "mod_gpu_nvidia_name": "Відеокарта NVIDIA",
+  "mod_gpu_nvidia_ok_asleep": "Відеокарта спить і не витрачає батарею.",
+  "mod_gpu_nvidia_ok_name": "{name}: дані доступні.",
+  "mod_gpu_nvidia_setup": "Відеокарта NVIDIA є, але nvidia-smi відсутній або драйвер не завантажено.",
+  "mod_gpu_nvidia_no": "Відеокарту NVIDIA не знайдено.",
+  "mod_gpu_nvidia_hint": "Встановіть драйвер NVIDIA (пакети nvidia-open і nvidia-utils) і перезавантажтеся.",
+
+  "mod_battery_name": "Батарея",
+  "mod_battery_ok": "Заряд {pct} %, {status}.",
+  "mod_battery_no": "Батарею не знайдено або заряд не читається.",
+
+  "mod_battery_limit_name": "Ліміт заряду батареї",
+  "mod_battery_limit_ok": "Ліміт можна читати й змінювати.",
+  "mod_battery_limit_setup": "Ліміт видно, але немає прав на запис. Потрібне правило udev.",
+  "mod_battery_limit_no": "Ядро не показує ліміт заряду для цієї моделі.",
+  "mod_battery_limit_hint_no": "Оновіть ядро або перевірте, чи підтримує драйвер вашу модель.",
+  "mod_battery_limit_hint_setup": "Додайте правило udev, яке дозволяє запис у charge_control_end_threshold.",
+
+  "mod_camera_name": "Вебкамера (увімкнення та вимкнення)",
+  "mod_camera_ok": "Камеру можна вмикати та вимикати.",
+  "mod_camera_setup": "Камера знайдена, але для перемикання потрібна служба DOCKIT.",
+  "mod_camera_no": "Камеру не знайдено серед відомих пристроїв (база devices/).",
+  "mod_camera_hint": "Встановіть і запустіть службу DOCKIT: sudo scripts/install-dev.sh.",
+
+  "mod_wireless_name": "Wi-Fi та Bluetooth",
+  "mod_wireless_ok": "Модулі знайдено: {mods}",
+  "mod_wireless_no": "Перемикачі Wi-Fi та Bluetooth не знайдено.",
+  "mod_wireless_hint": "Перевірте, що драйвери Wi-Fi та Bluetooth завантажені (команда: rfkill list).",
+
+  "mod_audio_name": "Звук",
+  "mod_audio_ok": "Виводів: {outs}, мікрофонів: {ins}. Зараз звук іде на: {cur}.",
+  "mod_audio_no": "Пристрої виводу звуку не знайдено.",
+  "mod_audio_hint": "Встановіть PipeWire і libpulse: sudo pacman -S pipewire pipewire-pulse libpulse",
+
+  "mod_kbd_backlight_name": "Підсвітка клавіатури",
+  "mod_kbd_backlight_ok": "{names} ({mode}).",
+  "mod_kbd_backlight_setup": "Знайдено підсвітку ({names}, {mode}), але для керування потрібна служба DOCKIT.",
+  "mod_kbd_backlight_no": "Підсвітка не видна через HID LampArray або /sys/class/leds.",
+  "mod_kbd_backlight_hint_setup": "Встановіть і запустіть службу DOCKIT: sudo scripts/install-dev.sh.",
+  "mod_kbd_backlight_hint_no": "Керується вбудованою прошивкою клавіатури."
 }
