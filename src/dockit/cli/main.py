@@ -291,6 +291,43 @@ def cmd_audio(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_backlight(args: argparse.Namespace) -> int:
+    from ..core import kbd_backlight
+
+    devices = kbd_backlight.discover()
+    if args.action == "status" and args.color is None and args.brightness is None:
+        if not devices:
+            print("Подсветка клавиатуры не найдена (нет HID LampArray и нет /sys/class/leds/*kbd_backlight*).")
+            return 1
+        for d in devices:
+            kind = "HID LampArray (RGB)" if d["backend"] == "lamparray" else "LED"
+            extra = f", яркость {d['brightness']}%" if d["brightness"] is not None else ""
+            print(f"  {d['name']}  [{kind}{extra}]")
+        return 0
+
+    if args.action == "auto":
+        payload = {"on": True, "brightness": 100, "color": "#5AB0FF", "autonomous": True}
+    elif args.action == "off":
+        payload = {"on": False, "brightness": 0, "color": "#000000", "autonomous": False}
+    else:
+        color = args.color or "#5AB0FF"
+        brightness = 100 if args.brightness is None else args.brightness
+        payload = {"on": brightness > 0, "brightness": brightness, "color": color, "autonomous": False}
+
+    result = _ask_service({"action": "set_kbd_backlight", "value": payload})
+    if result is None:
+        return 1
+    if result.get("autonomous"):
+        print(f"Подсветка ({result.get('device', '')}): автономный режим клавиатуры (Fn).")
+    elif not result.get("on"):
+        print(f"Подсветка ({result.get('device', '')}): выключена.")
+    elif result.get("rgb"):
+        print(f"Подсветка ({result.get('device', '')}): {result.get('color')} · {result.get('brightness')}%")
+    else:
+        print(f"Подсветка ({result.get('device', '')}): {result.get('brightness')}%")
+    return 0
+
+
 def cmd_gui(_: argparse.Namespace) -> int:
     from ..gui.app import run
 
@@ -341,6 +378,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p_gpu = sub.add_parser("gpu", help="is the NVIDIA card asleep and which programs keep it awake")
     p_gpu.set_defaults(func=cmd_gpu)
+
+    p_bl = sub.add_parser("backlight", help="keyboard backlight: status, on, off, auto, or --color / --brightness")
+    p_bl.add_argument("action", nargs="?", default="status", choices=["status", "on", "off", "auto", "set"])
+    p_bl.add_argument("--color", help="RGB color in #RRGGBB format (e.g. #5AB0FF)")
+    p_bl.add_argument("--brightness", type=int, help="brightness 0..100")
+    p_bl.set_defaults(func=cmd_backlight)
 
     p_gui = sub.add_parser("gui", help="open the window")
     p_gui.set_defaults(func=cmd_gui)

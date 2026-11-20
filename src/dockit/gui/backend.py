@@ -17,7 +17,7 @@ from collections import deque
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from ..core import audio, i18n, processes, profiles, sysfs
+from ..core import audio, i18n, kbd_backlight, processes, profiles, sysfs
 from ..core import idle
 from ..core import bluetooth, gpu_power, tuning
 from ..core.cpu import CpuMonitor
@@ -68,6 +68,8 @@ class Backend(QObject):
         self._periph_cache: tuple[list, object] = ([], None)
         self._pending_bright: tuple[float, int] | None = None
         self._pending_vol: tuple[float, int] | None = None
+        self._pending_kbd: tuple[float, dict] | None = None
+        self._kbd_saved = self._load_kbd_saved()
         self._hist_at = 0.0
         self._snapshot.connect(self._apply)
         self._finished.connect(self._done)
@@ -124,6 +126,38 @@ class Backend(QObject):
     def _autostart_path() -> str:
         base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
         return os.path.join(base, "autostart", "dockit.desktop")
+
+    @staticmethod
+    def _kbd_path() -> str:
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+        return os.path.join(base, "dockit", "kbd_backlight.json")
+
+    def _load_kbd_saved(self) -> dict:
+        data = {"on": True, "brightness": 100, "color": "#5AB0FF", "autonomous": False}
+        try:
+            with open(self._kbd_path(), encoding="utf-8") as f:
+                loaded = json.load(f)
+            if isinstance(loaded.get("on"), bool):
+                data["on"] = loaded["on"]
+            if isinstance(loaded.get("autonomous"), bool):
+                data["autonomous"] = loaded["autonomous"]
+            b = loaded.get("brightness")
+            if isinstance(b, int) and not isinstance(b, bool) and 0 <= b <= 100:
+                data["brightness"] = b
+            c = loaded.get("color")
+            if isinstance(c, str):
+                data["color"] = kbd_backlight.normalize_hex_color(c)
+        except (OSError, ValueError, AttributeError):
+            pass
+        return data
+
+    def _save_kbd_saved(self) -> None:
+        try:
+            os.makedirs(os.path.dirname(self._kbd_path()), exist_ok=True)
+            with open(self._kbd_path(), "w", encoding="utf-8") as f:
+                json.dump(self._kbd_saved, f)
+        except OSError:
+            pass
 
     def _load_settings(self) -> dict:
         data = dict(self.DEFAULTS)
@@ -602,7 +636,7 @@ class Backend(QObject):
             else:
                 self._idle.stop()
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
-                                    muted, scenarios, self._scenario, lang=lang)
+                                    muted, scenarios, self._scenario, lang=lang, kbd_saved=dict(self._kbd_saved))
             state["bluetooth"] = self._bluetooth()
             state["display"] = self._display()
             if fresh:
@@ -656,6 +690,13 @@ class Backend(QObject):
                     self._pending_vol = None
                 elif cur is not None and cur >= 0:
                     state["audio"] = dict(aud, outputVolume=target)
+            if self._pending_kbd is not None:
+                until, target = self._pending_kbd
+                kbd = state.get("kbdBacklight") or {}
+                if now >= until:
+                    self._pending_kbd = None
+                elif kbd.get("available"):
+                    state["kbdBacklight"] = dict(kbd, **target)
             self._state = state
             self.stateChanged.emit()
 
@@ -816,6 +857,43 @@ class Backend(QObject):
             from ..core import display
             self._display_at = 0
             return display.set_refresh(hz) or f"Частота экрана: {hz} Гц"
+
+        self._run(work)
+
+    @Slot(bool, int, str, bool)
+    def setKbdBacklight(self, on: bool, brightness: int, color: str, autonomous: bool) -> None:
+        brightness = max(0, min(100, int(brightness)))
+        try:
+            norm_color = kbd_backlight.normalize_hex_color(color)
+        except ValueError:
+            norm_color = self._kbd_saved.get("color", "#5AB0FF")
+        payload = {
+            "on": bool(on),
+            "brightness": brightness,
+            "color": norm_color,
+            "autonomous": bool(autonomous),
+        }
+        self._kbd_saved = dict(payload)
+        self._save_kbd_saved()
+        self._pending_kbd = (time.monotonic() + 2.0, dict(payload))
+        kbd = dict(self._state.get("kbdBacklight") or {})
+        kbd.update(payload)
+        self._state = dict(self._state, kbdBacklight=kbd)
+        self.stateChanged.emit()
+
+        lang = self._lang()
+
+        def work() -> str:
+            result, error = client.ask({"action": "set_kbd_backlight", "value": payload})
+            if result is None:
+                return error
+            if result.get("autonomous"):
+                return i18n.tr("kbd_toast_auto", lang)
+            if not result.get("on"):
+                return i18n.tr("kbd_toast_off", lang)
+            if result.get("rgb"):
+                return i18n.tr("kbd_toast_rgb", lang, color=result.get("color", norm_color), pct=result.get("brightness", brightness))
+            return i18n.tr("kbd_toast_led", lang, pct=result.get("brightness", brightness))
 
         self._run(work)
 

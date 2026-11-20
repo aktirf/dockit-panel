@@ -76,6 +76,7 @@ class Dispatcher:
             "set_boost": lambda req: actions.set_boost(req.get("value")),
             "set_epp": lambda req: actions.set_epp(req.get("value")),
             "set_gpu_power_limit": lambda req: actions.set_gpu_power_limit(req.get("value")),
+            "set_kbd_backlight": lambda req: actions.set_kbd_backlight(req.get("value")),
         }
 
     def handle(self, raw: bytes, pid: int, uid: int) -> dict:
