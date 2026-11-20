@@ -3,8 +3,8 @@ import QtQuick.Layouts
 
 PageFrame {
     id: diagPage
-    title: "Диагностика"
-    subtitle: "Что работает на этом ноутбуке, что нет и как это исправить"
+    title: Theme.tr("diag_title")
+    subtitle: Theme.tr("diag_sub")
 
     property string filter: "all"   // "all" | "issues" | "ok"
 
@@ -31,7 +31,6 @@ PageFrame {
     Connections { target: backend; function onStateChanged() { syncAll() } }
     Component.onCompleted: syncAll()
 
-    // Filter bar + copy report button
     GridLayout {
         Layout.fillWidth: true
         columns: diagPage.width >= 660 ? 2 : 1
@@ -42,51 +41,48 @@ PageFrame {
             id: diagFilterBar
             current: diagPage.filter
             options: [
-                { id: "all", label: "Все (" + diagPage.totalCount + ")", tip: "" },
-                { id: "issues", label: "Проблемы (" + diagPage.issueCount + ")", tip: "" },
-                { id: "ok", label: "Работают (" + diagPage.okCount + ")", tip: "" }
+                { id: "all", label: Theme.tr("filter_all").replace("{n}", String(diagPage.totalCount)), tip: "" },
+                { id: "issues", label: Theme.tr("filter_issues").replace("{n}", String(diagPage.issueCount)), tip: "" },
+                { id: "ok", label: Theme.tr("filter_ok").replace("{n}", String(diagPage.okCount)), tip: "" }
             ]
             onPicked: function (val) { diagPage.filter = val }
         }
         Btn {
             Layout.alignment: diagPage.width >= 660 ? Qt.AlignRight : Qt.AlignLeft
-            text: "Скопировать отчёт"
+            text: Theme.tr("copy_report")
             implicitHeight: 42
-            tip: "Копирует список функций и данные о системе, чтобы вставить в сообщение об ошибке."
+            tip: Theme.tr("copy_report_tip")
             onClicked: backend.copyReport()
         }
     }
 
-    // System info card in 2-column grid
     Card {
         Layout.fillWidth: true
         pad: 16
-        Txt { text: "Система"; font.pixelSize: 15; font.weight: Font.DemiBold }
+        Txt { text: Theme.tr("system_card"); font.pixelSize: 15; font.weight: Font.DemiBold }
         GridLayout {
             Layout.fillWidth: true
             columns: diagPage.width >= 620 ? 2 : 1
             columnSpacing: 20
             rowSpacing: 6
-            Row2 { label: "Модель"; value: d.model ? d.model : "—" }
-            Row2 { label: "Система"; value: d.system && d.system.distro ? d.system.distro : "—" }
-            Row2 { label: "Ядро"; value: d.system && d.system.kernel ? d.system.kernel : "—" }
-            Row2 { label: "BIOS"; value: d.system && d.system.bios ? d.system.bios : "—" }
+            Row2 { label: Theme.tr("sys_model"); value: d.model ? d.model : "—" }
+            Row2 { label: Theme.tr("sys_os"); value: d.system && d.system.distro ? d.system.distro : "—" }
+            Row2 { label: Theme.tr("sys_kernel"); value: d.system && d.system.kernel ? d.system.kernel : "—" }
+            Row2 { label: Theme.tr("sys_bios"); value: d.system && d.system.bios ? d.system.bios : "—" }
         }
     }
 
-    // Empty state for "Проблемы" when everything works
     Card {
         visible: featuresModel.count === 0 && diagPage.filter === "issues"
         Layout.fillWidth: true
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
-            Chip { kind: "ok"; icon: "check"; text: "Всё отлично" }
-            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Проблемных функций не найдено — всё, что поддерживает этот ноутбук, работает."; color: Theme.muted }
+            Chip { kind: "ok"; icon: "check"; text: Theme.tr("diag_all_good_chip") }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("diag_all_good_text"); color: Theme.muted }
         }
     }
 
-    // Feature list
     Repeater {
         model: featuresModel
         delegate: Rectangle {
@@ -126,7 +122,7 @@ PageFrame {
                         Txt {
                             Layout.fillWidth: true
                             visible: model.hint !== ""
-                            text: "Как исправить: " + model.hint
+                            text: Theme.tr("how_to_fix") + model.hint
                             wrapMode: Text.WordWrap
                             font.pixelSize: 13
                             color: Theme.warn
@@ -138,9 +134,9 @@ PageFrame {
                     spacing: 8
                     Btn {
                         visible: model.fix !== ""
-                        text: "Установить"
+                        text: Theme.tr("install")
                         implicitHeight: 34
-                        tip: "Установит пакеты: " + model.fix + ". Попросит пароль."
+                        tip: Theme.tr("install_tip").replace("{pkgs}", model.fix)
                         onClicked: backend.installFix(model.id)
                     }
                     Chip { kind: model.status; text: model.statusText }
@@ -149,7 +145,6 @@ PageFrame {
         }
     }
 
-    // Service log viewer in dark console box
     Card {
         Layout.fillWidth: true
         GridLayout {
@@ -157,21 +152,21 @@ PageFrame {
             columns: diagPage.width >= 600 ? 2 : 1
             columnSpacing: 12
             rowSpacing: 8
-            Txt { Layout.fillWidth: true; text: "Журнал фоновой службы"; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; text: Theme.tr("service_log"); font.pixelSize: 16; font.weight: Font.DemiBold }
             Flow {
                 Layout.alignment: diagPage.width >= 600 ? Qt.AlignRight : Qt.AlignLeft
                 spacing: 8
                 Btn {
-                    text: backend.logText !== "" ? "Обновить" : "Показать"
+                    text: backend.logText !== "" ? Theme.tr("refresh_btn") : Theme.tr("show_btn")
                     implicitHeight: 34
-                    tip: "Загрузить последние 40 строк журнала службы DOCKIT."
+                    tip: Theme.tr("load_log_tip")
                     onClicked: backend.loadLog()
                 }
                 Btn {
                     visible: backend.logText !== ""
-                    text: "Скопировать"
+                    text: Theme.tr("copy_btn")
                     implicitHeight: 34
-                    tip: "Скопировать журнал в буфер обмена."
+                    tip: Theme.tr("copy_log_tip")
                     onClicked: backend.copyLog()
                 }
             }

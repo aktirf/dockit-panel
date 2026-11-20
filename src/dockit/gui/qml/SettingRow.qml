@@ -7,7 +7,7 @@ Rectangle {
     property string icon: ""
     property string title: ""
     property string valueText: ""
-    property string offText: "Не меняется"
+    property string offText: Theme.tr("unchanged")
     property string tip: ""
     property bool checked: false
     property bool enabledSwitch: true
@@ -75,7 +75,7 @@ Rectangle {
                     Txt {
                         Layout.fillWidth: true
                         elide: Text.ElideRight
-                        text: root.checked ? (root.valueText !== "" ? root.valueText : "Включено") : root.offText
+                        text: root.checked ? (root.valueText !== "" ? root.valueText : Theme.tr("enabled_word")) : root.offText
                         font.pixelSize: 12
                         color: root.checked ? Theme.accent : Theme.muted
                     }

@@ -3,8 +3,8 @@ import QtQuick.Layouts
 
 PageFrame {
     id: root
-    title: "Охлаждение"
-    subtitle: "Температуры, перегрев, графики и вентиляторы"
+    title: Theme.tr("cool_title")
+    subtitle: Theme.tr("cool_sub")
 
     SyncModel { id: tempsModel }
     SyncModel { id: fansModel }
@@ -26,15 +26,15 @@ PageFrame {
             columns: root.width >= 620 ? 3 : 1
             columnSpacing: 12
             rowSpacing: 10
-            Chip { kind: "setup"; text: "Горячо" }
+            Chip { kind: "setup"; text: Theme.tr("cool_hot_chip") }
             Txt {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 wrapMode: Text.WordWrap
                 color: Theme.warn
-                text: "Температура выше " + cool.warn + " °C. Включите режим «Баланс» или «Тишина» и проверьте вентиляцию."
+                text: Theme.tr("cool_hot_msg").replace("{t}", String(cool.warn || 90))
             }
-            Btn { text: "Сменить режим"; onClicked: goto("performance") }
+            Btn { text: Theme.tr("change_mode"); onClicked: goto("performance") }
         }
     }
 
@@ -47,9 +47,9 @@ PageFrame {
 
         Repeater {
             model: [
-                { key: "cpu", icon: "cpu", name: "Процессор", note: "Частота снижается из-за жары" },
-                { key: "gpu", icon: "monitor", name: "Видеокарта", note: "Видеокарта сбрасывает скорость из-за жары" },
-                { key: "ssd", icon: "layers", name: "SSD", note: "" }
+                { key: "cpu", icon: "cpu", titleKey: "cpu", noteKey: "throttling_cpu_tip" },
+                { key: "gpu", icon: "monitor", titleKey: "gpu", noteKey: "throttling_gpu_tip" },
+                { key: "ssd", icon: "layers", titleKey: "chip_nvme", noteKey: "" }
             ]
             delegate: Card {
                 pad: 16
@@ -62,19 +62,19 @@ PageFrame {
                     Layout.fillWidth: true
                     spacing: 8
                     Icon { name: modelData.icon; size: 15; color: tColor }
-                    Txt { Layout.fillWidth: true; text: modelData.name; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    Txt { Layout.fillWidth: true; text: Theme.tr(modelData.titleKey); font.pixelSize: 15; font.weight: Font.DemiBold }
                     Chip {
                         visible: part.throttled === true
                         kind: "setup"
-                        text: "Троттлинг"
-                        tip: modelData.note
+                        text: Theme.tr("throttling")
+                        tip: modelData.noteKey !== "" ? Theme.tr(modelData.noteKey) : ""
                     }
                 }
                 RowLayout {
                     Txt { text: part.now ? part.now : "—"; font.pixelSize: 30; font.family: Theme.mono; color: tColor }
                     Txt { text: "°C"; color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 6 }
                 }
-                Row2 { label: "Максимум за сессию"; value: (part.max ? part.max : "—") + " °C" }
+                Row2 { label: Theme.tr("max_session"); value: (part.max ? part.max : "—") + " °C" }
                 Spark {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46
@@ -86,7 +86,7 @@ PageFrame {
                 }
                 Txt {
                     visible: part.has === false
-                    text: "Датчик не найден"
+                    text: Theme.tr("sensor_missing")
                     color: Theme.muted
                     font.pixelSize: 12
                 }
@@ -97,13 +97,13 @@ PageFrame {
     // All hwmon sensors in a crisp 2-column mini-tile grid
     Card {
         Layout.fillWidth: true
-        Txt { text: "Все датчики температуры"; font.pixelSize: 16; font.weight: Font.DemiBold }
+        Txt { text: Theme.tr("all_sensors"); font.pixelSize: 16; font.weight: Font.DemiBold }
         Txt {
             visible: tempsModel.count === 0
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: Theme.muted
-            text: "Датчики температуры не найдены. Установите lm_sensors и запустите sensors-detect."
+            text: Theme.tr("sensors_missing")
         }
         GridLayout {
             visible: tempsModel.count > 0
@@ -138,7 +138,7 @@ PageFrame {
         }
     }
 
-    // Compact fan strip (expands cleanly when fan RPM sensors exist)
+    // Compact fan strip
     Card {
         Layout.fillWidth: true
         pad: 16
@@ -146,12 +146,12 @@ PageFrame {
             Layout.fillWidth: true
             spacing: 10
             Icon { name: "fan"; size: 16; color: Theme.muted }
-            Txt { Layout.fillWidth: true; text: "Вентиляторы"; font.pixelSize: 15; font.weight: Font.DemiBold }
-            Chip { kind: fansModel.count > 0 ? "ok" : "no"; text: fansModel.count > 0 ? "Видны" : "Нет данных" }
+            Txt { Layout.fillWidth: true; text: Theme.tr("fans"); font.pixelSize: 15; font.weight: Font.DemiBold }
+            Chip { kind: fansModel.count > 0 ? "ok" : "no"; text: fansModel.count > 0 ? Theme.tr("fans_visible") : Theme.tr("no_data") }
         }
         Repeater {
             model: fansModel
-            delegate: Row2 { label: model.name; value: model.rpm + " об/мин" }
+            delegate: Row2 { label: model.name; value: model.rpm + " " + Theme.tr("unit_rpm") }
         }
         Txt {
             visible: fansModel.count === 0
@@ -159,7 +159,7 @@ PageFrame {
             wrapMode: Text.WordWrap
             color: Theme.muted
             font.pixelSize: 12
-            text: "Ядро не показывает обороты вентиляторов этого ноутбука. Скорость охлаждения зависит от режима мощности («Тишина» / «Баланс» / «Производительность»)."
+            text: Theme.tr("fans_missing")
         }
     }
 }

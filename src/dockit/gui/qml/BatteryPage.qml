@@ -4,13 +4,13 @@ import QtQuick.Controls
 
 PageFrame {
     id: batPage
-    title: "Питание и экран"
-    subtitle: "Заряд, состояние батареи, яркость и частота экрана"
+    title: Theme.tr("bat_title")
+    subtitle: Theme.tr("bat_sub")
 
     function rateOptions() {
         var rates = d.display && d.display.rates ? d.display.rates : []
         return rates.map(function (r) {
-            return { id: String(r), label: String(r) + " Гц", tip: "Меньше Гц — дольше батарея, больше — плавнее картинка." }
+            return { id: String(r), label: String(r) + " " + Theme.tr("unit_hz"), tip: Theme.tr("refresh_tip") }
         })
     }
 
@@ -28,10 +28,10 @@ PageFrame {
             RowLayout {
                 Layout.fillWidth: true
                 Icon { name: "battery"; size: 17; color: Theme.batteryColor(d.battery ? d.battery.percent : 100) }
-                Txt { Layout.fillWidth: true; text: "Батарея"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                Txt { Layout.fillWidth: true; text: Theme.tr("battery"); font.pixelSize: 16; font.weight: Font.DemiBold }
                 Chip {
                     kind: d.battery && d.battery.percent !== null && d.battery.percent !== undefined ? "ok" : "no"
-                    text: d.battery && d.battery.source ? String(d.battery.source) : "Нет данных"
+                    text: d.battery && d.battery.source ? String(d.battery.source) : Theme.tr("no_data")
                 }
             }
             RowLayout {
@@ -57,7 +57,7 @@ PageFrame {
             Bar { Layout.fillWidth: true; value: d.battery && d.battery.percent ? d.battery.percent : 0; fill: Theme.batteryColor(d.battery ? d.battery.percent : 100) }
             Txt { text: d.battery ? String(d.battery.text || "") : "—"; color: Theme.muted; font.pixelSize: 13 }
 
-            // 3 compact stat tiles
+            // 3 compact stat tiles with cursor-anchored hover tips
             GridLayout {
                 Layout.fillWidth: true
                 columns: 3
@@ -67,25 +67,28 @@ PageFrame {
                     Layout.fillWidth: true; Layout.minimumWidth: 0; implicitHeight: 54; radius: 10; color: Theme.cardInner
                     ColumnLayout {
                         anchors.fill: parent; anchors.margins: 8; spacing: 2
-                        Txt { text: "Ёмкость"; color: Theme.muted; font.pixelSize: 11 }
+                        Txt { text: Theme.tr("bat_capacity"); color: Theme.muted; font.pixelSize: 11 }
                         Txt { text: d.battery ? String(d.battery.health || "—") + " %" : "—"; font.family: Theme.mono; font.pixelSize: 14; font.weight: Font.DemiBold }
                     }
+                    Tip { text: Theme.tr("tip_bat_health") }
                 }
                 Rectangle {
                     Layout.fillWidth: true; Layout.minimumWidth: 0; implicitHeight: 54; radius: 10; color: Theme.cardInner
                     ColumnLayout {
                         anchors.fill: parent; anchors.margins: 8; spacing: 2
-                        Txt { text: "Циклы"; color: Theme.muted; font.pixelSize: 11 }
+                        Txt { text: Theme.tr("bat_cycles"); color: Theme.muted; font.pixelSize: 11 }
                         Txt { text: (d.battery && d.battery.cycles !== null && d.battery.cycles !== undefined) ? String(d.battery.cycles) : "—"; font.family: Theme.mono; font.pixelSize: 14; font.weight: Font.DemiBold }
                     }
+                    Tip { text: Theme.tr("tip_bat_cycles") }
                 }
                 Rectangle {
                     Layout.fillWidth: true; Layout.minimumWidth: 0; implicitHeight: 54; radius: 10; color: Theme.cardInner
                     ColumnLayout {
                         anchors.fill: parent; anchors.margins: 8; spacing: 2
-                        Txt { text: "Мощность"; color: Theme.muted; font.pixelSize: 11 }
-                        Txt { text: d.battery && d.battery.power !== "—" ? String(d.battery.power) + " Вт" : "—"; font.family: Theme.mono; font.pixelSize: 14; font.weight: Font.DemiBold }
+                        Txt { text: Theme.tr("bat_power"); color: Theme.muted; font.pixelSize: 11 }
+                        Txt { text: d.battery && d.battery.power !== "—" ? String(d.battery.power) + " " + Theme.tr("unit_w") : "—"; font.family: Theme.mono; font.pixelSize: 14; font.weight: Font.DemiBold }
                     }
+                    Tip { text: Theme.tr("tip_bat_power") }
                 }
             }
         }
@@ -97,11 +100,11 @@ PageFrame {
             RowLayout {
                 Layout.fillWidth: true
                 Icon { name: "monitor"; size: 17; color: Theme.accent }
-                Txt { Layout.fillWidth: true; text: "Экран"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                Txt { Layout.fillWidth: true; text: Theme.tr("screen_title"); font.pixelSize: 16; font.weight: Font.DemiBold }
             }
 
             Row2 {
-                label: "Яркость"
+                label: Theme.tr("brightness")
                 value: (d.display && d.display.brightness !== null && d.display.brightness !== undefined)
                        ? (brightnessSlider.displayValue + " %") : "—"
             }
@@ -130,12 +133,12 @@ PageFrame {
                 wrapMode: Text.WordWrap
                 color: Theme.muted
                 font.pixelSize: 12
-                text: "Яркость экрана не найдена в системе. Её можно менять клавишами Fn."
+                text: Theme.tr("brightness_missing")
             }
 
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
-            Row2 { label: "Частота обновления"; value: d.display && d.display.refresh ? d.display.refresh + " Гц" : "—" }
+            Row2 { label: Theme.tr("refresh_rate"); value: d.display && d.display.refresh ? d.display.refresh + " " + Theme.tr("unit_hz") : "—" }
             SegmentBar {
                 visible: !!(d.display && d.display.rates && d.display.rates.length > 0)
                 options: batPage.rateOptions()
@@ -148,7 +151,7 @@ PageFrame {
                 wrapMode: Text.WordWrap
                 color: Theme.muted
                 font.pixelSize: 12
-                text: "Смена частоты экрана работает в niri, Hyprland, Sway, KDE Plasma и X11."
+                text: Theme.tr("refresh_missing")
             }
         }
     }
@@ -158,8 +161,8 @@ PageFrame {
         Layout.fillWidth: true
         RowLayout {
             Layout.fillWidth: true
-            Txt { Layout.fillWidth: true; text: "Заряд за последние 24 часа"; font.pixelSize: 15; font.weight: Font.DemiBold }
-            Txt { text: "шаг 5 мин"; color: Theme.muted; font.pixelSize: 12 }
+            Txt { Layout.fillWidth: true; text: Theme.tr("bat_history_title"); font.pixelSize: 15; font.weight: Font.DemiBold }
+            Txt { text: Theme.tr("bat_history_step"); color: Theme.muted; font.pixelSize: 12 }
         }
         Spark {
             Layout.fillWidth: true
@@ -176,11 +179,17 @@ PageFrame {
     Card {
         Layout.fillWidth: true
         pad: 16
-        RowLayout {
+        Item {
             Layout.fillWidth: true
-            spacing: 12
-            Txt { Layout.fillWidth: true; text: "Лимит заряда (например, 80 %)"; font.pixelSize: 15; font.weight: Font.DemiBold }
-            Chip { kind: d.limit ? d.limit.status : "no"; text: d.limit ? d.limit.statusText : "" }
+            implicitHeight: limHdrRow.implicitHeight
+            RowLayout {
+                id: limHdrRow
+                anchors.fill: parent
+                spacing: 12
+                Txt { Layout.fillWidth: true; text: Theme.tr("charge_limit_example"); font.pixelSize: 15; font.weight: Font.DemiBold }
+                Chip { kind: d.limit ? d.limit.status : "no"; text: d.limit ? d.limit.statusText : "" }
+            }
+            Tip { text: Theme.tr("tip_charge_limit") }
         }
         Txt {
             Layout.fillWidth: true
@@ -188,7 +197,7 @@ PageFrame {
             visible: !!(d.limit && d.limit.status !== "ok")
             color: Theme.muted
             font.pixelSize: 12
-            text: "Ядро пока не показывает лимит заряда для этой модели — его можно задать в BIOS или GiMATE (Windows)."
+            text: Theme.tr("charge_limit_unavail")
         }
         Txt {
             Layout.fillWidth: true
@@ -196,7 +205,7 @@ PageFrame {
             visible: !!(d.limit && d.limit.hint !== undefined && d.limit.hint !== "")
             color: Theme.warn
             font.pixelSize: 12
-            text: "Подсказка: " + (d.limit ? d.limit.hint : "")
+            text: Theme.tr("hint_prefix") + (d.limit ? d.limit.hint : "")
         }
     }
 }

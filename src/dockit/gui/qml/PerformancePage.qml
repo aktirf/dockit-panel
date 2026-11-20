@@ -5,11 +5,6 @@ import QtQuick.Controls
 Flickable {
     id: page
     property var d: ({})
-    readonly property var details: ({
-        "low-power": "Тихо и экономно: меньше шума и нагрева, дольше от батареи.",
-        "balanced": "Золотая середина для повседневной работы и умеренного шума.",
-        "performance": "Максимум мощности для игр и тяжёлых задач."
-    })
     readonly property var modeIcons: ({
         "low-power": "fan",
         "balanced": "gauge",
@@ -18,20 +13,33 @@ Flickable {
 
     SyncModel { id: modesModel }
     SyncModel { id: topModel }
-    readonly property var eppNames: ({
-        "performance": "Максимум", "balance_performance": "Быстрее", "default": "По умолчанию",
-        "balance_power": "Экономнее", "power": "Экономия"
-    })
+
+    function modeDesc(id, fallback) {
+        if (id === "low-power") return Theme.tr("mode_low_power_desc")
+        if (id === "balanced") return Theme.tr("mode_balanced_desc")
+        if (id === "performance") return Theme.tr("mode_performance_desc")
+        return String(fallback || "")
+    }
+    function eppLabel(key) {
+        var map = {
+            "performance": "epp_performance",
+            "balance_performance": "epp_balance_performance",
+            "default": "epp_default",
+            "balance_power": "epp_balance_power",
+            "power": "epp_power"
+        }
+        return map[key] ? Theme.tr(map[key]) : String(key)
+    }
     function modeOptions() {
         var arr = page.d.modes ? page.d.modes : []
         return arr.map(function (m) {
-            return { id: String(m.id), label: String(m.name), tip: page.details[m.id] ? page.details[m.id] : String(m.hint || "") }
+            return { id: String(m.id), label: String(m.name), tip: page.modeDesc(m.id, m.hint) }
         })
     }
     function eppOptions() {
         var arr = page.d.tuning && page.d.tuning.eppChoices ? page.d.tuning.eppChoices : []
         return arr.map(function (c) {
-            return { id: String(c), label: page.eppNames[c] ? page.eppNames[c] : String(c), tip: "Баланс скорости и энергопотребления CPU." }
+            return { id: String(c), label: page.eppLabel(c), tip: Theme.tr("epp_tip") }
         })
     }
     function gpuLimitOptions() {
@@ -40,7 +48,7 @@ Flickable {
         var hi = page.d.tuning.gpuLimit.max
         var mid = Math.round((lo + hi) / 2)
         return [lo, mid, hi].map(function (w) {
-            return { id: String(w), label: String(w) + " Вт", tip: "Меньше ватт — тише и холоднее." }
+            return { id: String(w), label: String(w) + " " + Theme.tr("unit_w"), tip: Theme.tr("gpu_limit_tip") }
         })
     }
 
@@ -64,14 +72,14 @@ Flickable {
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 4
-            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Производительность"; font.pixelSize: page.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
-            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Режим работы ноутбука, тонкая настройка и нагрузка прямо сейчас"; color: Theme.muted }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("perf_title"); font.pixelSize: page.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("perf_sub"); color: Theme.muted }
         }
 
         // Compact 3-in-a-row mode cards (switches to SegmentBar on narrow windows)
         Card {
             Layout.fillWidth: true
-            Txt { text: "Режим мощности"; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Txt { text: Theme.tr("power_mode"); font.pixelSize: 16; font.weight: Font.DemiBold }
 
             SegmentBar {
                 visible: col.width < 580
@@ -136,7 +144,7 @@ Flickable {
                             Txt {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: page.details[model.id] ? page.details[model.id] : model.hint
+                                text: page.modeDesc(model.id, model.hint)
                                 font.pixelSize: 12
                                 color: modeTile.sel ? Theme.soft : Theme.muted
                             }
@@ -162,20 +170,26 @@ Flickable {
                 pad: 16
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                RowLayout {
+                Item {
                     Layout.fillWidth: true
-                    Icon { name: "cpu"; size: 16; color: Theme.accent }
-                    Txt { Layout.fillWidth: true; text: "Процессор"; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    implicitHeight: cpuHdrRow.implicitHeight
+                    RowLayout {
+                        id: cpuHdrRow
+                        anchors.fill: parent
+                        Icon { name: "cpu"; size: 16; color: Theme.accent }
+                        Txt { Layout.fillWidth: true; text: Theme.tr("cpu"); font.pixelSize: 15; font.weight: Font.DemiBold }
+                    }
+                    Tip { text: Theme.tr("tip_cpu_card") }
                 }
                 Txt { Layout.fillWidth: true; text: page.d.cpu ? page.d.cpu.name : ""; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
                 RowLayout {
                     Txt { text: page.d.cpu ? page.d.cpu.freq : "—"; font.pixelSize: 26; font.family: Theme.mono }
-                    Txt { text: "ГГц"; color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 6 }
+                    Txt { text: Theme.tr("unit_ghz"); color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 6 }
                 }
                 Bar { Layout.fillWidth: true; value: (page.d.cpu && page.d.cpu.load) ? Number(page.d.cpu.load) : 0 }
-                Row2 { label: "Загрузка"; value: page.d.cpu && page.d.cpu.load !== null ? page.d.cpu.load + " %" : "—" }
+                Row2 { label: Theme.tr("load"); value: page.d.cpu && page.d.cpu.load !== null ? page.d.cpu.load + " %" : "—" }
                 Row2 {
-                    label: "Температура"
+                    label: Theme.tr("temp")
                     value: page.d.cpu ? page.d.cpu.temp + " °C" : "—"
                     valueColor: Theme.tempColor(page.d.cpu ? page.d.cpu.temp : null)
                 }
@@ -195,10 +209,10 @@ Flickable {
                 RowLayout {
                     Layout.fillWidth: true
                     Icon { name: "monitor"; size: 16; color: Theme.accent }
-                    Txt { Layout.fillWidth: true; text: "Видеокарта"; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    Txt { Layout.fillWidth: true; text: Theme.tr("gpu"); font.pixelSize: 15; font.weight: Font.DemiBold }
                     Chip {
                         visible: !!(page.d.gpu && page.d.gpu.sleepText && page.d.gpu.sleepText !== "—")
-                        kind: !!(page.d.gpu && page.d.gpu.asleep) ? "ok" : ((page.d.gpu && page.d.gpu.sleepText === "не засыпает") ? "setup" : "info")
+                        kind: !!(page.d.gpu && page.d.gpu.asleep) ? "ok" : ((page.d.gpu && page.d.gpu.sleepText === Theme.tr("gpu_sleep_never")) ? "setup" : "info")
                         text: page.d.gpu ? String(page.d.gpu.sleepText || "") : ""
                         tip: page.d.gpu ? String(page.d.gpu.sleepTip || "") : ""
                     }
@@ -206,32 +220,32 @@ Flickable {
                 Txt { Layout.fillWidth: true; text: page.d.gpu ? page.d.gpu.name : ""; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
                 RowLayout {
                     Txt {
-                        text: !!(page.d.gpu && page.d.gpu.asleep) ? "Спит" : (page.d.gpu ? page.d.gpu.clock : "—")
+                        text: !!(page.d.gpu && page.d.gpu.asleep) ? Theme.tr("gpu_sleeping") : (page.d.gpu ? page.d.gpu.clock : "—")
                         color: !!(page.d.gpu && page.d.gpu.asleep) ? Theme.okText : Theme.text
                         font.pixelSize: 26
                         font.family: Theme.mono
                     }
                     Txt {
                         visible: !!(page.d.gpu && !page.d.gpu.asleep)
-                        text: "МГц"
+                        text: Theme.tr("unit_mhz")
                         color: Theme.muted
                         Layout.alignment: Qt.AlignBottom
                         bottomPadding: 6
                     }
                 }
                 Bar { Layout.fillWidth: true; value: page.d.gpu && page.d.gpu.util !== null && page.d.gpu.util !== undefined ? page.d.gpu.util : 0 }
-                Row2 { label: "Загрузка"; value: page.d.gpu && page.d.gpu.util !== null && page.d.gpu.util !== undefined ? page.d.gpu.util + " %" : "—" }
+                Row2 { label: Theme.tr("load"); value: page.d.gpu && page.d.gpu.util !== null && page.d.gpu.util !== undefined ? page.d.gpu.util + " %" : "—" }
                 Row2 {
-                    label: "Температура"
+                    label: Theme.tr("temp")
                     value: page.d.gpu ? page.d.gpu.temp + " °C" : "—"
                     valueColor: Theme.tempColor(page.d.gpu ? page.d.gpu.temp : null)
                 }
-                Row2 { label: "Потребление"; value: page.d.gpu ? page.d.gpu.power + " Вт" : "—" }
+                Row2 { label: Theme.tr("power_draw"); value: page.d.gpu ? page.d.gpu.power + " " + Theme.tr("unit_w") : "—" }
                 Txt {
                     id: gpuHoldersText
                     Layout.fillWidth: true
                     visible: !!(page.d.gpu && page.d.gpu.holders && page.d.gpu.holders.length > 0)
-                    text: visible ? "Держат: " + page.d.gpu.holders.join(", ") : ""
+                    text: visible ? Theme.tr("holders_prefix") + page.d.gpu.holders.join(", ") : ""
                     color: Theme.warn
                     font.pixelSize: 12
                     elide: Text.ElideRight
@@ -246,16 +260,16 @@ Flickable {
             }
         }
 
-        // Fine tuning (unified with Profiles style)
+        // Fine tuning
         Card {
             Layout.fillWidth: true
-            Txt { text: "Тонкая настройка"; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Txt { text: Theme.tr("fine_tuning"); font.pixelSize: 16; font.weight: Font.DemiBold }
 
             ToggleCard {
                 Layout.fillWidth: true
                 icon: "zap"
-                label: "Turbo Boost процессора"
-                tip: "Когда включён, процессор разгоняется выше базовой частоты. Выключите, чтобы стало тише, холоднее и дольше от батареи."
+                label: Theme.tr("turbo_boost")
+                tip: Theme.tr("tip_turbo_boost")
                 on: !!(page.d.tuning && page.d.tuning.boost === true)
                 can: !!(page.d.tuning && page.d.tuning.boost !== null && page.d.tuning.boost !== undefined)
                 onToggled: backend.setBoost(!on)
@@ -264,7 +278,7 @@ Flickable {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 6
-                Txt { text: "Энергопотребление процессора (EPP)"; color: Theme.soft; font.pixelSize: 13 }
+                Txt { text: Theme.tr("epp_title"); color: Theme.soft; font.pixelSize: 13 }
                 SegmentBar {
                     visible: !!(page.d.tuning && page.d.tuning.eppChoices && page.d.tuning.eppChoices.length > 0)
                     options: page.eppOptions()
@@ -277,14 +291,14 @@ Flickable {
                     wrapMode: Text.WordWrap
                     color: Theme.muted
                     font.pixelSize: 12
-                    text: "Эта настройка процессора недоступна на этом ноутбуке."
+                    text: Theme.tr("epp_unavailable")
                 }
             }
 
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 6
-                Txt { text: "Лимит мощности видеокарты"; color: Theme.soft; font.pixelSize: 13 }
+                Txt { text: Theme.tr("gpu_limit_title"); color: Theme.soft; font.pixelSize: 13 }
                 SegmentBar {
                     visible: !!(page.d.tuning && page.d.tuning.gpuLimit)
                     options: page.gpuLimitOptions()
@@ -297,22 +311,22 @@ Flickable {
                     wrapMode: Text.WordWrap
                     color: Theme.muted
                     font.pixelSize: 12
-                    text: "Видеокарта этого ноутбука не позволяет менять лимит мощности (зафиксирован производителем)."
+                    text: Theme.tr("gpu_limit_unavailable")
                 }
             }
         }
 
-        // Top CPU consumers with visual load bars
+        // Top CPU consumers
         Card {
             Layout.fillWidth: true
-            Txt { text: "Что нагружает процессор"; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Txt { text: Theme.tr("top_cpu_title"); font.pixelSize: 16; font.weight: Font.DemiBold }
             Txt {
                 visible: topModel.count === 0
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Theme.muted
                 font.pixelSize: 13
-                text: "Сейчас ничто не нагружает процессор заметно."
+                text: Theme.tr("top_cpu_empty")
             }
             Repeater {
                 model: topModel
@@ -323,7 +337,7 @@ Flickable {
                     Bar { Layout.fillWidth: true; implicitHeight: 4; value: Math.min(100, Number(model.cpu || 0)) }
                 }
             }
-            Txt { text: "100 % равно одному ядру процессора."; color: Theme.muted; font.pixelSize: 12 }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("top_cpu_note"); color: Theme.muted; font.pixelSize: 12 }
         }
     }
 }

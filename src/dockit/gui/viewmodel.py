@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import shutil
 
+from ..core import i18n
 from ..core.profiles import DEFAULT_PROFILES
 from ..modules.battery import minutes_left
 from ..core.scanner import ScanResult, display_name
@@ -33,6 +34,32 @@ BATTERY_TEXT = {
     "Discharging": "Разряжается",
     "Not charging": "Не заряжается",
 }
+
+_BAT_KEYS = {
+    "Full": "bat_full",
+    "Charging": "bat_charging",
+    "Discharging": "bat_discharging",
+    "Not charging": "bat_not_charging",
+}
+
+_CHIP_KEYS = {
+    "k10temp": "chip_cpu", "zenpower": "chip_cpu", "coretemp": "chip_cpu",
+    "nvme": "chip_nvme", "amdgpu": "chip_igpu", "nouveau": "chip_gpu",
+    "nvidia": "chip_gpu", "acpitz": "chip_mb", "BAT0": "chip_bat", "BAT1": "chip_bat",
+    "spd5118": "chip_ram", "iwlwifi_1": "chip_wifi", "mt7921_phy0": "chip_wifi", "r8169_0_300:00": "chip_eth",
+}
+
+
+def status_label(status: Status, lang: str = "ru") -> str:
+    return i18n.tr(f"status_{STATUS_KEY[status]}", lang)
+
+
+def modes_for_lang(lang: str = "ru") -> list[dict]:
+    return [
+        {"id": "low-power", "name": i18n.tr("mode_low_power", lang), "hint": i18n.tr("mode_low_power_hint", lang)},
+        {"id": "balanced", "name": i18n.tr("mode_balanced", lang), "hint": i18n.tr("mode_balanced_hint", lang)},
+        {"id": "performance", "name": i18n.tr("mode_performance", lang), "hint": i18n.tr("mode_performance_hint", lang)},
+    ]
 
 
 def num(value: float | int | None, digits: int = 0) -> str:
@@ -70,13 +97,15 @@ CHIP_RU = {
 }
 
 
-def _left_text(b: dict) -> str:
+def _left_text(b: dict, lang: str = "ru") -> str:
     minutes = minutes_left(b)
     if minutes is None:
         return ""
     h, m = divmod(minutes, 60)
-    text = (f"{h} ч " if h else "") + f"{m} мин"
-    return f"≈ {text} до разрядки" if b.get("status") == "Discharging" else f"≈ {text} до полной зарядки"
+    uh, um = i18n.tr("unit_h", lang), i18n.tr("unit_min", lang)
+    text = (f"{h} {uh} " if h else "") + f"{m} {um}"
+    key = "bat_left_empty" if b.get("status") == "Discharging" else "bat_left_full"
+    return i18n.tr(key, lang, t=text)
 
 
 # packages DOCKIT may offer to install for a feature (nothing else is ever installed)
@@ -88,18 +117,19 @@ FIX_PACKAGES = {
 }
 
 
-def chip_temps(sensors_state: dict | None) -> dict[str, float]:
-    """The hottest reading of every chip, by a plain name."""
+def chip_temps(sensors_state: dict | None, lang: str = "ru") -> dict[str, float]:
+    """The hottest reading of every chip, by a plain localized name."""
     best: dict[str, float] = {}
     for key, value in ((sensors_state or {}).get("temps_c") or {}).items():
         chip = key.split("/", 1)[0]
-        name = CHIP_RU.get(chip, chip)
+        name = i18n.tr(_CHIP_KEYS[chip], lang) if chip in _CHIP_KEYS else CHIP_RU.get(chip, chip)
         best[name] = max(best.get(name, value), value)
     return best
 
 
-def temperatures(sensors_state: dict | None) -> list[dict]:
-    return [{"name": n, "value": f"{v:.0f}", "hot": v >= 85} for n, v in sorted(chip_temps(sensors_state).items())]
+def temperatures(sensors_state: dict | None, lang: str = "ru") -> list[dict]:
+    return [{"name": n, "value": f"{v:.0f}", "hot": v >= 85}
+            for n, v in sorted(chip_temps(sensors_state, lang).items())]
 
 
 def _keyboard_leds() -> list[str]:
@@ -114,8 +144,8 @@ def _item(result: ScanResult, item_id: str):
 GPU_SLEEP_EMPTY = {"asleep": False, "sleepText": "—", "holders": [], "sleepTip": ""}
 
 
-def gpu_sleep_view(gpu_state: dict | None) -> dict:
-    """Is the NVIDIA card asleep and who keeps it awake, as text for the window."""
+def gpu_sleep_view(gpu_state: dict | None, lang: str = "ru") -> dict:
+    """Is the NVIDIA card asleep and who keeps it awake, as localized text for the window."""
     g = gpu_state or {}
     s = g.get("sleep") or {}
     if not s:
@@ -126,19 +156,15 @@ def gpu_sleep_view(gpu_state: dict | None) -> dict:
             holders.append(str(u.get("name")))
     holders = holders[:5]
     if s.get("asleep"):
-        text, tip = "спит", "Видеокарта спит и не тратит батарею."
+        text, tip = i18n.tr("gpu_sleep_asleep", lang), i18n.tr("gpu_sleep_asleep_tip", lang)
     elif s.get("control") == "on":
-        text = "не засыпает"
-        tip = ("Система держит видеокарту всегда включённой (power/control = on), поэтому она "
-               "тратит батарею даже без нагрузки. Как разрешить ей засыпать: ArchWiki, "
-               "статья «PRIME», раздел «PCI-Express Runtime D3 (RTD3) Power Management».")
+        text, tip = i18n.tr("gpu_sleep_never", lang), i18n.tr("gpu_sleep_never_tip", lang)
     elif holders:
-        text = "работает"
-        tip = ("Видеокарту держат: " + ", ".join(holders) + ". Если они сейчас не нужны, "
-               "закройте их: видеокарта уснёт, и батарея проживёт дольше.")
+        text = i18n.tr("gpu_sleep_active", lang)
+        tip = i18n.tr("gpu_sleep_held_tip", lang, holders=", ".join(holders))
     else:
-        text = "работает" if s.get("runtime") == "active" else "—"
-        tip = "Видеокарта работает. Когда её никто не использует, она засыпает сама."
+        text = i18n.tr("gpu_sleep_active", lang) if s.get("runtime") == "active" else "—"
+        tip = i18n.tr("gpu_sleep_free_tip", lang)
     return {"asleep": bool(s.get("asleep")), "sleepText": text, "holders": holders, "sleepTip": tip}
 
 
@@ -159,7 +185,7 @@ def empty() -> dict:
 
 def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str,
           cpu_history: list, gpu_history: list, mic_muted: bool | None,
-          scenarios: list[dict], scenario: str) -> dict:
+          scenarios: list[dict], scenario: str, lang: str = "ru") -> dict:
     service = _item(result, "service")
     sensors = _item(result, "sensors")
     gpu_item = _item(result, "gpu_nvidia")
@@ -183,43 +209,46 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "memPct": round(100 * g["mem_used_mb"] / g["mem_total_mb"]) if g.get("mem_used_mb") is not None and g.get("mem_total_mb") else 0,
         "power": num(g.get("power_w"), 0),
         "status": STATUS_KEY[gpu_item.status] if gpu_item else "no",
-        "statusText": LABELS_RU[gpu_item.status] if gpu_item else "",
+        "statusText": status_label(gpu_item.status, lang) if gpu_item else "",
     }
-    gpu.update(gpu_sleep_view(g))
+    gpu.update(gpu_sleep_view(g, lang))
 
     bats = ((bat_item.state if bat_item else None) or {}).get("batteries", [])
     ac = ((bat_item.state if bat_item else None) or {}).get("ac_online")
     b = bats[0] if bats else {}
+    bat_status = b.get("status") or ""
+    bat_text = i18n.tr(_BAT_KEYS[bat_status], lang) if bat_status in _BAT_KEYS else (bat_status or i18n.tr("no_data", lang))
     battery = {
         "percent": b.get("percent"),
-        "text": BATTERY_TEXT.get(b.get("status") or "", b.get("status") or "Нет данных"),
-        "source": "От сети" if ac else ("От батареи" if ac is False else ""),
+        "text": bat_text,
+        "source": i18n.tr("bat_ac", lang) if ac else (i18n.tr("bat_on_battery", lang) if ac is False else ""),
         "health": num(b.get("health_pct"), 0) if b.get("health_pct") is not None else "—",
         "cycles": b.get("cycles"),
         "power": num(b.get("power_w"), 1) if b.get("power_w") else "—",
-        "left": _left_text(b),
+        "left": _left_text(b, lang),
         "status": STATUS_KEY[bat_item.status] if bat_item else "no",
-        "statusText": LABELS_RU[bat_item.status] if bat_item else "",
+        "statusText": status_label(bat_item.status, lang) if bat_item else "",
     }
     limit = {
         "status": STATUS_KEY[limit_item.status] if limit_item else "no",
-        "statusText": LABELS_RU[limit_item.status] if limit_item else "",
+        "statusText": status_label(limit_item.status, lang) if limit_item else "",
+        "hint": limit_item.hint if limit_item else "",
     }
 
     cam_state = cam_item.state if cam_item and cam_item.state else None
     wireless = (wifi_item.state if wifi_item and wifi_item.state else {}) or {}
     toggles = [
-        {"id": "camera", "label": "Веб-камера", "on": bool(cam_state and cam_state.get("enabled")),
+        {"id": "camera", "label": i18n.tr("toggle_camera", lang), "on": bool(cam_state and cam_state.get("enabled")),
          "can": bool(cam_state is not None and service and service.status is Status.OK)},
-        {"id": "mic", "label": "Микрофон", "on": mic_muted is False, "can": mic_muted is not None},
-        {"id": "wifi", "label": "Wi-Fi", "on": bool(wireless.get("wlan")), "can": shutil.which("nmcli") is not None
-         and "wlan" in wireless},
-        {"id": "bluetooth", "label": "Bluetooth", "on": bool(wireless.get("bluetooth")),
+        {"id": "mic", "label": i18n.tr("toggle_mic", lang), "on": mic_muted is False, "can": mic_muted is not None},
+        {"id": "wifi", "label": i18n.tr("toggle_wifi", lang), "on": bool(wireless.get("wlan")),
+         "can": shutil.which("nmcli") is not None and "wlan" in wireless},
+        {"id": "bluetooth", "label": i18n.tr("toggle_bluetooth", lang), "on": bool(wireless.get("bluetooth")),
          "can": shutil.which("bluetoothctl") is not None and "bluetooth" in wireless},
     ]
 
     features = [
-        {"id": i.id, "name": i.name, "status": STATUS_KEY[i.status], "statusText": LABELS_RU[i.status],
+        {"id": i.id, "name": i.name, "status": STATUS_KEY[i.status], "statusText": status_label(i.status, lang),
          "detail": i.detail or "", "hint": i.hint or "",
          "fix": " ".join(FIX_PACKAGES.get(i.id, [])) if i.status is not Status.OK else ""}
         for i in result.items
@@ -230,7 +259,7 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
     for status in (Status.OK, Status.NEEDS_SETUP, Status.NEEDS_ROOT, Status.UNAVAILABLE):
         n = sum(1 for i in result.items if i.status is status)
         if n:
-            counts.append({"status": STATUS_KEY[status], "text": f"{LABELS_RU[status]}: {n}"})
+            counts.append({"status": STATUS_KEY[status], "text": f"{status_label(status, lang)}: {n}"})
 
     return {
         "ready": True,
@@ -238,7 +267,7 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "service": bool(service and service.status is Status.OK),
         "okCount": sum(1 for i in result.items if i.status is Status.OK),
         "total": len(result.items),
-        "modes": MODES,
+        "modes": modes_for_lang(lang),
         "currentMode": current_mode or "",
         "scenarios": scenarios,
         "scenario": scenario,
@@ -247,8 +276,8 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
             "freq": num(cpu["freq_mhz"] / 1000, 1) if cpu.get("freq_mhz") else "—",
             "load": cpu.get("load_pct"),
             "temp": num(temp, 0),
-            "fan": num(fan) if fan is not None else "нет данных",
-            "fanUnit": "об/мин" if fan is not None else "",
+            "fan": num(fan) if fan is not None else i18n.tr("no_data_lower", lang),
+            "fanUnit": i18n.tr("unit_rpm", lang) if fan is not None else "",
         },
         "gpu": gpu,
         "battery": battery,
@@ -256,7 +285,7 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "toggles": toggles,
         "features": features,
         "counts": counts,
-        "temps": temperatures(sensors.state if sensors else None),
+        "temps": temperatures(sensors.state if sensors else None, lang),
         "fans": [{"name": k.split("/", 1)[0], "rpm": v} for k, v in
                  ((sensors.state or {}).get("fans_rpm", {}) if sensors else {}).items()],
         "peripherals": [
@@ -306,13 +335,29 @@ def _plural_ru(n: int, one: str, few: str, many: str) -> str:
     return f"{n} {many}"
 
 
-def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> list[dict]:
+def _count_label(n: int, kind: str, lang: str) -> str:
+    if lang == "en":
+        if kind == "settings":
+            return f"{n} setting" if n == 1 else f"{n} settings"
+        return f"{n} rule" if n == 1 else f"{n} rules"
+    if lang == "uk":
+        if kind == "settings":
+            return _plural_ru(n, "налаштування", "налаштування", "налаштувань")
+        return _plural_ru(n, "правило", "правила", "правил")
+    if kind == "settings":
+        return _plural_ru(n, "настройка", "настройки", "настроек")
+    return _plural_ru(n, "правило", "правила", "правил")
+
+
+def profile_cards(profiles: dict, rules: list, fallback: str | None = None, lang: str = "ru") -> list[dict]:
     """One dict per profile: what it applies and which rules switch to it."""
+    mode_by_id = {m["id"]: m["name"] for m in modes_for_lang(lang)}
+    unchanged = i18n.tr("unchanged", lang)
     cards = []
     for p in profiles.values():
         camera = "Не меняется" if p.camera is None else ("Включена" if p.camera else "Выключена")
         rows = [
-            {"label": "Режим мощности", "value": MODE_BY_ID.get(p.power or "", "Не меняется")},
+            {"label": "Режим мощности", "value": mode_by_id.get(p.power or "", "Не меняется")},
             {"label": "Камера", "value": camera},
             {"label": "Звук (вывод)", "value": f"«{p.output}»" if p.output else "Не меняется"},
             {"label": "Микрофон", "value": f"«{p.input}»" if p.input else "Не меняется"},
@@ -338,15 +383,16 @@ def profile_cards(profiles: dict, rules: list, fallback: str | None = None) -> l
         ])
         summary_parts = []
         if settings_count:
-            summary_parts.append(_plural_ru(settings_count, "настройка", "настройки", "настроек"))
+            summary_parts.append(_count_label(settings_count, "settings", lang))
         if rules_count:
-            summary_parts.append(_plural_ru(rules_count, "правило", "правила", "правил"))
-        summary = " · ".join(summary_parts) if summary_parts else "Не настроен"
+            summary_parts.append(_count_label(rules_count, "rules", lang))
+        summary = " · ".join(summary_parts) if summary_parts else i18n.tr("prof_not_configured", lang)
+        mode_name = mode_by_id.get(p.power or "", i18n.tr("prof_no_changes", lang))
         cards.append({
             "id": p.id,
             "name": p.name,
             "custom": p.id not in DEFAULT_PROFILES,
-            "sub": "Режим: " + MODE_BY_ID.get(p.power or "", "без изменений"),
+            "sub": i18n.tr("prof_sub_mode", lang, mode=mode_name),
             "summary": summary,
             "settingsCount": settings_count,
             "rulesCount": rules_count,

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from ..core import i18n
 
-def format_tooltip(state: dict, mode_names: dict[str, str]) -> str:
+
+def format_tooltip(state: dict, mode_names: dict[str, str], lang: str = "ru") -> str:
     """Short status text for the tray hover tooltip (pure logic, unit-tested)."""
     parts = ["DOCKIT"]
     mode = mode_names.get(state.get("currentMode", ""), "")
@@ -14,7 +16,7 @@ def format_tooltip(state: dict, mode_names: dict[str, str]) -> str:
         parts.append(f"CPU {cpu_temp} °C")
     gpu = state.get("gpu") or {}
     if gpu.get("asleep"):
-        parts.append("GPU спит")
+        parts.append(i18n.tr("tray_gpu_asleep", lang))
     elif gpu.get("temp") and gpu.get("temp") != "—":
         parts.append(f"GPU {gpu['temp']} °C")
     return " · ".join(parts)
@@ -51,28 +53,28 @@ class Tray:
         self._tray = QSystemTrayIcon(icon, app)
         self._tray.setToolTip("DOCKIT")
         self._menu = QMenu()
+        self._show_action = QAction("Открыть DOCKIT", self._menu)
+        self._show_action.triggered.connect(self.show_window)
         self._mode_menu = QMenu("Режим мощности", self._menu)
         self._scenario_menu = QMenu("Сценарий", self._menu)
         self._camera_action = QAction("Камера", self._menu)
         self._camera_action.triggered.connect(lambda: backend.toggle("camera"))
+        self._quit_action = QAction("Выйти", self._menu)
+        self._quit_action.triggered.connect(app.quit)
 
-        show = QAction("Открыть DOCKIT", self._menu)
-        show.triggered.connect(self.show_window)
-        quit_ = QAction("Выйти", self._menu)
-        quit_.triggered.connect(app.quit)
-
-        self._menu.addAction(show)
+        self._menu.addAction(self._show_action)
         self._menu.addSeparator()
         self._menu.addMenu(self._mode_menu)
         self._menu.addMenu(self._scenario_menu)
         self._menu.addAction(self._camera_action)
         self._menu.addSeparator()
-        self._menu.addAction(quit_)
+        self._menu.addAction(self._quit_action)
 
         self._tray.setContextMenu(self._menu)
         self._tray.activated.connect(self._clicked)
         backend.trayChanged.connect(self.sync)
         backend.stateChanged.connect(self.refresh_menu)
+        backend.langChanged.connect(self.refresh_menu)
         self.sync()
         self.refresh_menu()
 
@@ -81,12 +83,14 @@ class Tray:
 
     def refresh_menu(self) -> None:
         from PySide6.QtGui import QAction
-        from .backend import MODE_NAMES
+        from . import viewmodel
 
+        lang = getattr(self._backend, "lang", "ru")
         state = self._backend.state or {}
-        self._tray.setToolTip(format_tooltip(state, MODE_NAMES))
+        mode_names = {m["id"]: m["name"] for m in viewmodel.modes_for_lang(lang)}
+        self._tray.setToolTip(format_tooltip(state, mode_names, lang))
 
-        modes = state.get("modes") or []
+        modes = state.get("modes") or viewmodel.modes_for_lang(lang)
         cur_mode = state.get("currentMode") or ""
         scenarios = state.get("scenarios") or []
         cur_scenario = state.get("scenario") or ""
@@ -94,6 +98,7 @@ class Tray:
         cam = toggles.get("camera")
 
         menu_key = (
+            lang,
             cur_mode,
             cur_scenario,
             tuple((s.get("id"), s.get("name")) for s in scenarios),
@@ -102,6 +107,11 @@ class Tray:
         if menu_key == self._last_menu_key:
             return
         self._last_menu_key = menu_key
+
+        self._show_action.setText(i18n.tr("tray_open", lang))
+        self._mode_menu.setTitle(i18n.tr("power_mode", lang))
+        self._scenario_menu.setTitle(i18n.tr("scenario", lang))
+        self._quit_action.setText(i18n.tr("tray_quit", lang))
 
         self._mode_menu.clear()
         for m in modes:
@@ -123,7 +133,9 @@ class Tray:
 
         if cam and cam.get("can"):
             self._camera_action.setVisible(True)
-            self._camera_action.setText("Выключить камеру" if cam.get("on") else "Включить камеру")
+            self._camera_action.setText(
+                i18n.tr("tray_cam_off", lang) if cam.get("on") else i18n.tr("tray_cam_on", lang)
+            )
         else:
             self._camera_action.setVisible(False)
 

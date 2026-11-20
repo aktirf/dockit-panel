@@ -4,8 +4,8 @@ import QtQuick.Controls
 
 PageFrame {
     id: periphPage
-    title: "Периферия и звук"
-    subtitle: "Громкость, аудиоустройства, Bluetooth и USB-периферия"
+    title: Theme.tr("periph_title")
+    subtitle: Theme.tr("periph_sub")
 
     SyncModel { id: periphModel }
     SyncModel { id: btModel }
@@ -21,10 +21,10 @@ PageFrame {
     }
     function deviceIcon(kindText) {
         var k = String(kindText || "").toLowerCase()
-        if (k.indexOf("мыш") >= 0) return "mouse"
-        if (k.indexOf("клав") >= 0) return "keyboard"
-        if (k.indexOf("кам") >= 0) return "camera"
-        if (k.indexOf("гарн") >= 0 || k.indexOf("науш") >= 0) return "headphones"
+        if (k.indexOf("мыш") >= 0 || k.indexOf("mouse") >= 0) return "mouse"
+        if (k.indexOf("клав") >= 0 || k.indexOf("key") >= 0) return "keyboard"
+        if (k.indexOf("кам") >= 0 || k.indexOf("cam") >= 0) return "camera"
+        if (k.indexOf("гарн") >= 0 || k.indexOf("науш") >= 0 || k.indexOf("head") >= 0) return "headphones"
         if (k.indexOf("bluetooth") >= 0) return "bluetooth"
         return "app"
     }
@@ -32,17 +32,17 @@ PageFrame {
     readonly property bool audioMuted: !!(d.audio && d.audio.outputMuted === true)
     readonly property bool hasVolume: !!(d.audio && d.audio.outputVolume !== undefined && d.audio.outputVolume !== null && Number(d.audio.outputVolume) >= 0)
 
-    // 1. Sound card (Volume slider + Mute + SelectBox dropdowns)
+    // 1. Sound card
     Card {
         id: soundCard
         Layout.fillWidth: true
         RowLayout {
             Layout.fillWidth: true
             Icon { name: periphPage.audioMuted ? "volumeMute" : "speaker"; size: 17; color: periphPage.audioMuted ? Theme.err : Theme.accent }
-            Txt { Layout.fillWidth: true; text: "Звук"; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; text: Theme.tr("sound"); font.pixelSize: 16; font.weight: Font.DemiBold }
             Txt {
                 visible: periphPage.hasVolume
-                text: periphPage.audioMuted ? "Без звука" : (volSlider.displayValue + " %")
+                text: periphPage.audioMuted ? Theme.tr("muted") : (volSlider.displayValue + " %")
                 font.family: Theme.mono
                 font.pixelSize: 13
                 color: periphPage.audioMuted ? Theme.err : Theme.text
@@ -72,7 +72,7 @@ PageFrame {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: backend.toggleMuteOutput()
                 }
-                Tip { text: periphPage.audioMuted ? "Включить звук" : "Выключить звук (Mute)" }
+                Tip { text: periphPage.audioMuted ? Theme.tr("unmute_tip") : Theme.tr("mute_tip") }
             }
             SmoothSlider {
                 id: volSlider
@@ -85,7 +85,6 @@ PageFrame {
             }
         }
 
-        // Output & Microphone dropdowns side-by-side on wide windows
         GridLayout {
             Layout.fillWidth: true
             columns: periphPage.width >= 660 ? 2 : 1
@@ -96,12 +95,12 @@ PageFrame {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 spacing: 6
-                Txt { text: "Куда играет звук"; color: Theme.soft; font.pixelSize: 13 }
+                Txt { text: Theme.tr("sound_output"); color: Theme.soft; font.pixelSize: 13 }
                 SelectBox {
                     id: periphOutSelect
                     items: periphPage.audioItems(d.audio ? d.audio.outputs : [])
                     currentId: d.audio && d.audio.outputDefault ? String(d.audio.outputDefault) : ""
-                    placeholder: "Устройства вывода не найдены"
+                    placeholder: Theme.tr("sound_output_none")
                     onPicked: function (val) { backend.setAudio("output", val) }
                 }
             }
@@ -109,12 +108,12 @@ PageFrame {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 spacing: 6
-                Txt { text: "Микрофон"; color: Theme.soft; font.pixelSize: 13 }
+                Txt { text: Theme.tr("microphone"); color: Theme.soft; font.pixelSize: 13 }
                 SelectBox {
                     id: periphInSelect
                     items: periphPage.audioItems(d.audio ? d.audio.inputs : [])
                     currentId: d.audio && d.audio.inputDefault ? String(d.audio.inputDefault) : ""
-                    placeholder: "Микрофоны не найдены"
+                    placeholder: Theme.tr("mic_none")
                     onPicked: function (val) { backend.setAudio("input", val) }
                 }
             }
@@ -128,9 +127,9 @@ PageFrame {
                 wrapMode: Text.WordWrap
                 color: Theme.muted
                 font.pixelSize: 12
-                text: "Для автопереключения звука под игры или звонки задайте устройства в «Профилях»."
+                text: Theme.tr("audio_profiles_hint")
             }
-            Btn { text: "Профили"; implicitHeight: 34; onClicked: goto("profiles") }
+            Btn { text: Theme.tr("nav_profiles"); implicitHeight: 34; onClicked: goto("profiles") }
         }
     }
 
@@ -140,11 +139,11 @@ PageFrame {
         RowLayout {
             Layout.fillWidth: true
             Icon { name: "bluetooth"; size: 17; color: Theme.accent }
-            Txt { Layout.fillWidth: true; text: "Bluetooth-устройства"; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; text: Theme.tr("bt_devices"); font.pixelSize: 16; font.weight: Font.DemiBold }
             Chip {
                 visible: btModel.count > 0
                 kind: "ok"
-                text: "Подключено: " + btModel.count
+                text: Theme.tr("bt_connected").replace("{n}", String(btModel.count))
             }
         }
         Txt {
@@ -153,7 +152,7 @@ PageFrame {
             wrapMode: Text.WordWrap
             color: Theme.muted
             font.pixelSize: 13
-            text: "Подключённых Bluetooth-устройств нет."
+            text: Theme.tr("bt_none")
         }
         GridLayout {
             visible: btModel.count > 0
@@ -180,7 +179,7 @@ PageFrame {
                             Layout.fillWidth: true
                             Txt { Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight; text: model.name; font.weight: Font.Medium }
                             Txt {
-                                text: model.battery >= 0 ? model.battery + " %" : "заряд ?"
+                                text: model.battery >= 0 ? model.battery + " %" : Theme.tr("bt_bat_unknown")
                                 font.family: Theme.mono
                                 font.pixelSize: 13
                                 color: model.battery >= 0 ? Theme.batteryColor(model.battery) : Theme.muted
@@ -198,18 +197,18 @@ PageFrame {
         }
     }
 
-    // 3. USB peripherals in a responsive 2-column grid with icons
+    // 3. USB peripherals in 2-column grid
     Card {
         Layout.fillWidth: true
         RowLayout {
             Layout.fillWidth: true
             Icon { name: "mouse"; size: 17; color: Theme.accent }
-            Txt { Layout.fillWidth: true; text: "USB-устройства"; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; text: Theme.tr("usb_devices"); font.pixelSize: 16; font.weight: Font.DemiBold }
             Txt { text: periphModel.count > 0 ? String(periphModel.count) : ""; color: Theme.muted; font.family: Theme.mono; font.pixelSize: 13 }
         }
         Txt {
             visible: periphModel.count === 0
-            text: "USB-устройства не найдены."
+            text: Theme.tr("usb_none")
             color: Theme.muted
             font.pixelSize: 13
         }
@@ -261,8 +260,8 @@ PageFrame {
                             }
                             Chip {
                                 kind: model.known ? "ok" : "no"
-                                text: model.known ? "В базе" : "Неизвестно"
-                                tip: model.known ? "Устройство есть в базе DOCKIT." : "Устройства нет в базе (папка devices/)."
+                                text: model.known ? Theme.tr("usb_known") : Theme.tr("usb_unknown")
+                                tip: model.known ? Theme.tr("usb_known_tip") : Theme.tr("usb_unknown_tip")
                             }
                         }
                         Txt {
@@ -288,10 +287,10 @@ PageFrame {
             Layout.fillWidth: true
             spacing: 10
             Icon { name: "keyboard"; size: 16; color: Theme.muted }
-            Txt { Layout.fillWidth: true; text: "Подсветка клавиатуры"; font.pixelSize: 15; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; text: Theme.tr("kbd_backlight"); font.pixelSize: 15; font.weight: Font.DemiBold }
             Chip {
                 kind: !!(d.backlight && d.backlight.length > 0) ? "ok" : "no"
-                text: !!(d.backlight && d.backlight.length > 0) ? "Видна системе" : "Недоступно"
+                text: !!(d.backlight && d.backlight.length > 0) ? Theme.tr("kbd_visible") : Theme.tr("status_no")
             }
         }
         Txt {
@@ -300,7 +299,7 @@ PageFrame {
             color: Theme.muted
             font.pixelSize: 12
             visible: !!(d.backlight && d.backlight.length > 0)
-            text: "Система видит подсветку (" + (d.backlight ? d.backlight.join(", ") : "") + "). Управление из DOCKIT появится позже."
+            text: Theme.tr("kbd_visible_text").replace("{devs}", d.backlight ? d.backlight.join(", ") : "")
         }
         Txt {
             Layout.fillWidth: true
@@ -308,7 +307,7 @@ PageFrame {
             color: Theme.muted
             font.pixelSize: 12
             visible: !!(!d.backlight || d.backlight.length === 0)
-            text: "Подсветка клавиатуры не видна через стандартный интерфейс ядра — используйте клавиши Fn ноутбука."
+            text: Theme.tr("kbd_missing_text")
         }
     }
 }

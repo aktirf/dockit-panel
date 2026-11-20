@@ -17,7 +17,7 @@ from collections import deque
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from ..core import audio, processes, profiles, sysfs
+from ..core import audio, i18n, processes, profiles, sysfs
 from ..core import idle
 from ..core import bluetooth, gpu_power, tuning
 from ..core.cpu import CpuMonitor
@@ -34,6 +34,7 @@ class Backend(QObject):
     stateChanged = Signal()
     toastChanged = Signal()
     settingsChanged = Signal()
+    langChanged = Signal()
     trayChanged = Signal()
     profileCreated = Signal(str)
     logChanged = Signal()
@@ -111,7 +112,7 @@ class Backend(QObject):
     }
     DEFAULTS = {
         "interval": 3, "warn_temp": 90, "notify": True, "tray": False,
-        "accent": "blue", "compact_nav": False,
+        "accent": "blue", "compact_nav": False, "lang": "auto",
     }
 
     @staticmethod
@@ -135,6 +136,8 @@ class Backend(QObject):
                 data["warn_temp"] = loaded["warn_temp"]
             if loaded.get("accent") in self.ACCENTS:
                 data["accent"] = loaded["accent"]
+            if loaded.get("lang") in ("auto", *i18n.SUPPORTED):
+                data["lang"] = loaded["lang"]
             for key in ("notify", "tray", "compact_nav"):
                 if isinstance(loaded.get(key), bool):
                     data[key] = loaded[key]
@@ -167,6 +170,27 @@ class Backend(QObject):
     @Property(bool, notify=trayChanged)
     def trayActive(self) -> bool:
         return self._tray_available and self._settings["tray"]
+
+    def _lang(self) -> str:
+        return i18n.resolve_lang(self._settings.get("lang"))
+
+    @Property(str, notify=langChanged)
+    def lang(self) -> str:
+        return self._lang()
+
+    @Property("QVariantMap", notify=langChanged)
+    def t(self) -> dict:
+        return i18n.catalog(self._lang())
+
+    @Slot(str)
+    def setLang(self, value: str) -> None:
+        if value not in ("auto", *i18n.SUPPORTED):
+            return
+        self._settings["lang"] = value
+        self._save_settings()
+        self.langChanged.emit()
+        self._sync_profiles_now()
+        self.refresh()
 
     @Property(str, notify=settingsChanged)
     def accentColor(self) -> str:
@@ -500,12 +524,13 @@ class Backend(QObject):
 
     @Slot(str, result=str)
     def describeToggle(self, what: str) -> str:
-        return {
-            "camera": "Включает и выключает веб-камеру на уровне системы.",
-            "mic": "Отключает звук микрофона по умолчанию.",
-            "wifi": "Включает и выключает Wi-Fi.",
-            "bluetooth": "Включает и выключает Bluetooth.",
+        key = {
+            "camera": "tip_toggle_camera",
+            "mic": "tip_toggle_mic",
+            "wifi": "tip_toggle_wifi",
+            "bluetooth": "tip_toggle_bluetooth",
         }.get(what, "")
+        return i18n.tr(key, self._lang()) if key else ""
 
     # ---- scanning ----
     @Slot()
@@ -550,9 +575,10 @@ class Backend(QObject):
             audio_item = next((i for i in result.items if i.id == "audio"), None)
             audio_devices = audio_item.state if audio_item and isinstance(audio_item.state, list) else []
             muted = next((d["muted"] for d in audio_devices if d.get("kind") == "input" and d.get("default")), None)
+            lang = self._lang()
             available, rules = profiles.load()
             scenarios = [{"id": p.id, "name": p.name} for p in available.values()]
-            scenarios.append({"id": "auto", "name": "Авто"})
+            scenarios.append({"id": "auto", "name": i18n.tr("scenario_auto", lang)})
             note = ""
             if self._scenario == "auto":
                 self._idle.set_minutes([r.idle for r in rules if r.idle])
@@ -576,7 +602,7 @@ class Backend(QObject):
             else:
                 self._idle.stop()
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
-                                    muted, scenarios, self._scenario)
+                                    muted, scenarios, self._scenario, lang=lang)
             state["bluetooth"] = self._bluetooth()
             state["display"] = self._display()
             if fresh:
@@ -587,7 +613,7 @@ class Backend(QObject):
             state["cooling"] = cooling
             state["journal"] = list(reversed(self._journal))[:6]
             state["settings"] = self._settings_view()
-            state["profiles"] = viewmodel.profile_cards(available, rules)
+            state["profiles"] = viewmodel.profile_cards(available, rules, lang=lang)
             state["apps"] = processes.user_programs()
             state["idleAvailable"] = idle.available()
             fb = profiles.load_fallback()
@@ -699,14 +725,16 @@ class Backend(QObject):
         self._run(lambda: self._apply_profile(profile))
 
     def _sync_profiles_now(self) -> None:
-        """Immediately reflect profile/rule edits in the UI without waiting for the next scan."""
+        """Immediately reflect profile/rule/language edits in the UI without waiting for the next scan."""
+        lang = self._lang()
         available, rules = profiles.load()
         scenarios = [{"id": p.id, "name": p.name} for p in available.values()]
-        scenarios.append({"id": "auto", "name": "Авто"})
+        scenarios.append({"id": "auto", "name": i18n.tr("scenario_auto", lang)})
         fb = profiles.load_fallback()
         self._state = dict(
             self._state,
-            profiles=viewmodel.profile_cards(available, rules),
+            modes=viewmodel.modes_for_lang(lang),
+            profiles=viewmodel.profile_cards(available, rules, lang=lang),
             scenarios=scenarios,
             fallback=fb if fb in available else "",
         )

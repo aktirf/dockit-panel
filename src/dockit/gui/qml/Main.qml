@@ -39,12 +39,17 @@ Window {
         if (backend && backend.accentColor)
             Theme.accent = backend.accentColor
     }
+    function syncLang() {
+        if (backend && backend.t)
+            Theme.t = backend.t
+    }
     Connections {
         target: backend
         function onStateChanged() { win.syncAll() }
         function onSettingsChanged() { win.syncAccent() }
+        function onLangChanged() { win.syncLang() }
     }
-    Component.onCompleted: { syncAll(); syncAccent() }
+    Component.onCompleted: { syncAll(); syncAccent(); syncLang() }
     readonly property int problems: d.features ? d.features.filter(function (f) { return f.status !== "ok" }).length : 0
 
     function modeName(id) {
@@ -89,7 +94,7 @@ Window {
                         radius: 10
                         color: "#1B2A3A"
                         Icon { anchors.centerIn: parent; name: "gauge"; size: 19; color: Theme.accent }
-                        Tip { text: win.compactNav ? ("DOCKIT — " + (d.model || "Ноутбук")) : "" }
+                        Tip { text: win.compactNav ? ("DOCKIT — " + (d.model || Theme.tr("app_laptop"))) : "" }
                     }
                     ColumnLayout {
                         visible: !win.compactNav
@@ -97,21 +102,21 @@ Window {
                         Layout.minimumWidth: 0
                         spacing: 0
                         Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: "DOCKIT"; font.pixelSize: 15; font.weight: Font.DemiBold }
-                        Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: d.model || "Ноутбук"; font.pixelSize: 12; color: Theme.muted }
+                        Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: d.model || Theme.tr("app_laptop"); font.pixelSize: 12; color: Theme.muted }
                     }
                 }
 
-                NavItem { compact: win.compactNav; icon: "grid"; text: "Обзор"; active: win.page === "overview"; onClicked: win.page = "overview" }
-                NavItem { compact: win.compactNav; icon: "gauge"; text: "Производительность"; active: win.page === "performance"; onClicked: win.page = "performance" }
-                NavItem { compact: win.compactNav; icon: "battery"; text: "Питание и батарея"; active: win.page === "battery"; onClicked: win.page = "battery" }
-                NavItem { compact: win.compactNav; icon: "fan"; text: "Охлаждение"; active: win.page === "cooling"; onClicked: win.page = "cooling" }
-                NavItem { compact: win.compactNav; icon: "mouse"; text: "Периферия"; active: win.page === "peripherals"; onClicked: win.page = "peripherals" }
-                NavItem { compact: win.compactNav; icon: "layers"; text: "Профили"; active: win.page === "profiles"; onClicked: win.page = "profiles" }
+                NavItem { compact: win.compactNav; icon: "grid"; text: Theme.tr("nav_overview"); active: win.page === "overview"; onClicked: win.page = "overview" }
+                NavItem { compact: win.compactNav; icon: "gauge"; text: Theme.tr("nav_performance"); active: win.page === "performance"; onClicked: win.page = "performance" }
+                NavItem { compact: win.compactNav; icon: "battery"; text: Theme.tr("nav_battery"); active: win.page === "battery"; onClicked: win.page = "battery" }
+                NavItem { compact: win.compactNav; icon: "fan"; text: Theme.tr("nav_cooling"); active: win.page === "cooling"; onClicked: win.page = "cooling" }
+                NavItem { compact: win.compactNav; icon: "mouse"; text: Theme.tr("nav_peripherals"); active: win.page === "peripherals"; onClicked: win.page = "peripherals" }
+                NavItem { compact: win.compactNav; icon: "layers"; text: Theme.tr("nav_profiles"); active: win.page === "profiles"; onClicked: win.page = "profiles" }
 
                 Item { Layout.fillHeight: true }
 
-                NavItem { compact: win.compactNav; icon: "pulse"; text: "Диагностика"; badge: win.problems; active: win.page === "diagnostics"; onClicked: win.page = "diagnostics" }
-                NavItem { compact: win.compactNav; icon: "sliders"; text: "Настройки"; active: win.page === "settings"; onClicked: win.page = "settings" }
+                NavItem { compact: win.compactNav; icon: "pulse"; text: Theme.tr("nav_diagnostics"); badge: win.problems; active: win.page === "diagnostics"; onClicked: win.page = "diagnostics" }
+                NavItem { compact: win.compactNav; icon: "sliders"; text: Theme.tr("nav_settings"); active: win.page === "settings"; onClicked: win.page = "settings" }
             }
         }
 
@@ -217,7 +222,7 @@ Window {
             Txt {
                 visible: !d.ready
                 anchors.centerIn: parent
-                text: "Проверяю ноутбук…"
+                text: Theme.tr("app_checking")
                 color: Theme.muted
                 font.pixelSize: 16
             }
@@ -237,8 +242,8 @@ Window {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Обзор"; font.pixelSize: flick.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
-                        Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Всё важное о ноутбуке на одном экране"; color: Theme.muted }
+                        Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("overview_title"); font.pixelSize: flick.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
+                        Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("overview_sub"); color: Theme.muted }
                     }
                     Flow {
                         Layout.fillWidth: true
@@ -246,11 +251,11 @@ Window {
                         Chip {
                             big: true
                             kind: d.service ? "ok" : "no"
-                            text: d.service ? "Фоновая служба работает" : "Фоновая служба не запущена"
+                            text: d.service ? Theme.tr("service_running") : Theme.tr("service_stopped")
                         }
                         Chip {
                             big: true
-                            text: d.okCount + " из " + d.total + " функций работают"
+                            text: Theme.tr("working_count").replace("{ok}", String(d.okCount)).replace("{total}", String(d.total))
                         }
                     }
                 }
@@ -261,8 +266,8 @@ Window {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 12
-                        Txt { Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight; text: "Сценарий"; font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Txt { text: "Режим: " + win.modeName(d.currentMode); color: Theme.muted; font.pixelSize: 13; elide: Text.ElideRight }
+                        Txt { Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight; text: Theme.tr("scenario"); font.pixelSize: 16; font.weight: Font.DemiBold }
+                        Txt { text: Theme.tr("mode_now").replace("{mode}", win.modeName(d.currentMode)); color: Theme.muted; font.pixelSize: 13; elide: Text.ElideRight }
                     }
                     Flow {
                         Layout.fillWidth: true
@@ -312,11 +317,11 @@ Window {
                         Layout.fillHeight: true
                         RowLayout {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Батарея"; font.pixelSize: 15; font.weight: Font.DemiBold }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("battery"); font.pixelSize: 15; font.weight: Font.DemiBold }
                             Chip {
                                 kind: d.battery.status || "no"
                                 icon: Theme.statusIcon(d.battery.status || "no")
-                                text: d.battery.statusText || "Нет данных"
+                                text: d.battery.statusText || Theme.tr("no_data")
                             }
                         }
                         Row {
@@ -339,29 +344,47 @@ Window {
                             }
                             Bar { Layout.fillWidth: true; value: d.battery.percent || 0; fill: Theme.batteryColor(d.battery.percent) }
                         }
-                        RowLayout {
+                        Item {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Состояние батареи"; color: Theme.soft }
-                            Txt { text: (d.battery.health || "—") + " %"; font.family: Theme.mono }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Циклов зарядки"; color: Theme.soft }
-                            Txt {
-                                text: d.battery.cycles !== undefined && d.battery.cycles !== null ? d.battery.cycles : "—"
-                                font.family: Theme.mono
+                            implicitHeight: ovHealthRow.implicitHeight
+                            RowLayout {
+                                id: ovHealthRow
+                                anchors.fill: parent
+                                Txt { Layout.fillWidth: true; text: Theme.tr("battery_health"); color: Theme.soft }
+                                Txt { text: (d.battery.health || "—") + " %"; font.family: Theme.mono }
                             }
+                            Tip { text: Theme.tr("tip_bat_health") }
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                            implicitHeight: ovCyclesRow.implicitHeight
+                            RowLayout {
+                                id: ovCyclesRow
+                                anchors.fill: parent
+                                Txt { Layout.fillWidth: true; text: Theme.tr("battery_cycles"); color: Theme.soft }
+                                Txt {
+                                    text: d.battery.cycles !== undefined && d.battery.cycles !== null ? d.battery.cycles : "—"
+                                    font.family: Theme.mono
+                                }
+                            }
+                            Tip { text: Theme.tr("tip_bat_cycles") }
                         }
                         Item { Layout.fillHeight: true }
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
-                        RowLayout {
+                        Item {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Лимит заряда"; color: Theme.soft }
-                            Chip {
-                                kind: d.limit.status || "no"
-                                icon: Theme.statusIcon(d.limit.status || "no")
-                                text: d.limit.statusText || "Нет данных"
+                            implicitHeight: ovLimitRow.implicitHeight
+                            RowLayout {
+                                id: ovLimitRow
+                                anchors.fill: parent
+                                Txt { Layout.fillWidth: true; text: Theme.tr("charge_limit"); color: Theme.soft }
+                                Chip {
+                                    kind: d.limit.status || "no"
+                                    icon: Theme.statusIcon(d.limit.status || "no")
+                                    text: d.limit.statusText || Theme.tr("no_data")
+                                }
                             }
+                            Tip { text: Theme.tr("tip_charge_limit") }
                         }
                     }
 
@@ -371,71 +394,84 @@ Window {
                         Layout.fillHeight: true
                         RowLayout {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Процессор и видеокарта"; font.pixelSize: 15; font.weight: Font.DemiBold }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("hw_card_title"); font.pixelSize: 15; font.weight: Font.DemiBold }
                             Chip {
                                 id: overviewGpuChip
                                 visible: !!(d.gpu && d.gpu.sleepText && d.gpu.sleepText !== "—")
-                                kind: !!(d.gpu && d.gpu.asleep) ? "ok" : ((d.gpu && d.gpu.sleepText === "не засыпает") ? "setup" : "info")
+                                kind: !!(d.gpu && d.gpu.asleep) ? "ok" : ((d.gpu && d.gpu.sleepText === Theme.tr("gpu_sleep_never")) ? "setup" : "info")
                                 text: d.gpu ? "GPU: " + String(d.gpu.sleepText || "—") : ""
+                                tip: d.gpu ? String(d.gpu.sleepTip || "") : ""
                             }
                         }
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 12
-                            ColumnLayout {
+                            Item {
                                 Layout.fillWidth: true
-                                spacing: 2
-                                Txt { text: "CPU"; color: Theme.muted; font.pixelSize: 12 }
-                                Row {
-                                    spacing: 4
-                                    Txt { text: d.cpu ? String(d.cpu.temp || "—") : "—"; font.family: Theme.mono; font.pixelSize: 30; font.weight: Font.Medium }
-                                    Txt { text: "°C"; color: Theme.muted; anchors.baseline: parent.children[0].baseline }
+                                implicitHeight: ovCpuCol.implicitHeight
+                                ColumnLayout {
+                                    id: ovCpuCol
+                                    anchors.fill: parent
+                                    spacing: 2
+                                    Txt { text: "CPU"; color: Theme.muted; font.pixelSize: 12 }
+                                    Row {
+                                        spacing: 4
+                                        Txt { text: d.cpu ? String(d.cpu.temp || "—") : "—"; font.family: Theme.mono; font.pixelSize: 30; font.weight: Font.Medium }
+                                        Txt { text: "°C"; color: Theme.muted; anchors.baseline: parent.children[0].baseline }
+                                    }
+                                    Txt {
+                                        text: (d.cpu && d.cpu.load !== null && d.cpu.load !== undefined) ? Theme.tr("load_pct").replace("{pct}", String(d.cpu.load)) : "—"
+                                        color: Theme.muted; font.pixelSize: 12; font.family: Theme.mono
+                                    }
                                 }
-                                Txt {
-                                    text: (d.cpu && d.cpu.load !== null && d.cpu.load !== undefined) ? ("Загрузка " + String(d.cpu.load) + " %") : "—"
-                                    color: Theme.muted; font.pixelSize: 12; font.family: Theme.mono
-                                }
+                                Tip { text: Theme.tr("tip_cpu_card") }
                             }
                             Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border }
-                            ColumnLayout {
+                            Item {
                                 Layout.fillWidth: true
-                                spacing: 2
-                                Txt { text: "GPU"; color: Theme.muted; font.pixelSize: 12 }
-                                Row {
-                                    spacing: 4
-                                    Txt {
-                                        text: !!(d.gpu && d.gpu.asleep) ? "Спит" : (d.gpu ? String(d.gpu.temp || "—") : "—")
-                                        color: !!(d.gpu && d.gpu.asleep) ? Theme.okText : Theme.text
-                                        font.family: Theme.mono; font.pixelSize: 30; font.weight: Font.Medium
+                                implicitHeight: ovGpuCol.implicitHeight
+                                ColumnLayout {
+                                    id: ovGpuCol
+                                    anchors.fill: parent
+                                    spacing: 2
+                                    Txt { text: "GPU"; color: Theme.muted; font.pixelSize: 12 }
+                                    Row {
+                                        spacing: 4
+                                        Txt {
+                                            text: !!(d.gpu && d.gpu.asleep) ? Theme.tr("gpu_sleeping") : (d.gpu ? String(d.gpu.temp || "—") : "—")
+                                            color: !!(d.gpu && d.gpu.asleep) ? Theme.okText : Theme.text
+                                            font.family: Theme.mono; font.pixelSize: 30; font.weight: Font.Medium
+                                        }
+                                        Txt {
+                                            visible: !!(d.gpu && !d.gpu.asleep)
+                                            text: "°C"; color: Theme.muted; anchors.baseline: parent.children[0].baseline
+                                        }
                                     }
                                     Txt {
-                                        visible: !!(d.gpu && !d.gpu.asleep)
-                                        text: "°C"; color: Theme.muted; anchors.baseline: parent.children[0].baseline
+                                        text: !!(d.gpu && d.gpu.asleep)
+                                              ? Theme.tr("gpu_sleeping_sub")
+                                              : ((d.gpu && d.gpu.power && d.gpu.power !== "—") ? (String(d.gpu.power) + " " + Theme.tr("unit_w")) : "—")
+                                        color: Theme.muted; font.pixelSize: 12; font.family: Theme.mono
                                     }
                                 }
-                                Txt {
-                                    text: !!(d.gpu && d.gpu.asleep)
-                                          ? "Не тратит батарею"
-                                          : ((d.gpu && d.gpu.power && d.gpu.power !== "—") ? (String(d.gpu.power) + " Вт") : "—")
-                                    color: Theme.muted; font.pixelSize: 12; font.family: Theme.mono
-                                }
+                                Tip { text: (d.gpu && d.gpu.sleepTip) ? String(d.gpu.sleepTip) : Theme.tr("tip_gpu_card") }
                             }
                         }
                         RowLayout {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Частота CPU"; color: Theme.soft }
-                            Txt { text: (d.cpu ? String(d.cpu.freq || "—") : "—") + " ГГц"; font.family: Theme.mono }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("cpu_freq"); color: Theme.soft }
+                            Txt { text: (d.cpu ? String(d.cpu.freq || "—") : "—") + " " + Theme.tr("unit_ghz"); font.family: Theme.mono }
                         }
                         RowLayout {
                             Layout.fillWidth: true
                             visible: !!(d.gpu && d.gpu.holders && d.gpu.holders.length > 0)
-                            Txt { Layout.fillWidth: true; text: "Держат GPU"; color: Theme.soft }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("gpu_holders_label"); color: Theme.soft }
                             Txt { text: (d.gpu && d.gpu.holders) ? d.gpu.holders.join(", ") : ""; color: Theme.warn; font.pixelSize: 12; elide: Text.ElideRight }
                         }
                         Item { Layout.fillHeight: true }
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
                         Btn {
-                            text: "Открыть «Производительность»"
+                            text: Theme.tr("open_performance")
                             onClicked: win.page = "performance"
                         }
                     }
@@ -445,7 +481,7 @@ Window {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 12
-                    Txt { text: "Быстрые переключатели"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Txt { text: Theme.tr("quick_toggles"); font.pixelSize: 16; font.weight: Font.DemiBold }
                     GridLayout {
                         Layout.fillWidth: true
                         columns: (width + 12) >= 4 * 222 ? 4 : ((width + 12) >= 2 * 222 ? 2 : 1)
@@ -489,7 +525,7 @@ Window {
                             RowLayout {
                                 Layout.fillWidth: true
                                 Icon { name: "sun"; size: 15; color: Theme.accent }
-                                Txt { Layout.fillWidth: true; text: "Яркость экрана"; font.pixelSize: 13; color: Theme.soft }
+                                Txt { Layout.fillWidth: true; text: Theme.tr("screen_brightness"); font.pixelSize: 13; color: Theme.soft }
                                 Txt {
                                     text: overviewDisplayCard.hasBright ? (overviewBrightSlider.displayValue + " %") : "—"
                                     font.family: Theme.mono
@@ -514,9 +550,9 @@ Window {
                             RowLayout {
                                 Layout.fillWidth: true
                                 Icon { name: "monitor"; size: 15; color: Theme.accent }
-                                Txt { Layout.fillWidth: true; text: "Частота экрана"; font.pixelSize: 13; color: Theme.soft }
+                                Txt { Layout.fillWidth: true; text: Theme.tr("screen_refresh"); font.pixelSize: 13; color: Theme.soft }
                                 Txt {
-                                    text: (d.display && d.display.refresh) ? String(d.display.refresh) + " Гц" : "—"
+                                    text: (d.display && d.display.refresh) ? String(d.display.refresh) + " " + Theme.tr("unit_hz") : "—"
                                     font.family: Theme.mono
                                     font.pixelSize: 13
                                 }
@@ -524,7 +560,7 @@ Window {
                             SegmentBar {
                                 id: overviewRatesBar
                                 options: (d.display && d.display.rates ? d.display.rates : []).map(function (r) {
-                                    return { id: String(r), label: String(r) + " Гц", tip: "" }
+                                    return { id: String(r), label: String(r) + " " + Theme.tr("unit_hz"), tip: Theme.tr("refresh_tip") }
                                 })
                                 current: (d.display && d.display.refresh) ? String(d.display.refresh) : ""
                                 onPicked: function (val) { backend.setRefresh(Number(val)) }
@@ -538,11 +574,11 @@ Window {
                     Layout.fillWidth: true
                     RowLayout {
                         Layout.fillWidth: true
-                        Txt { Layout.fillWidth: true; text: "Что переключалось"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                        Txt { Layout.fillWidth: true; text: Theme.tr("journal_title"); font.pixelSize: 16; font.weight: Font.DemiBold }
                         Btn {
                             visible: journalModel.count > 3
                             implicitHeight: 30
-                            text: win.journalExpanded ? "Свернуть" : "Все (" + journalModel.count + ")"
+                            text: win.journalExpanded ? Theme.tr("journal_collapse") : Theme.tr("journal_all").replace("{n}", String(journalModel.count))
                             onClicked: win.journalExpanded = !win.journalExpanded
                         }
                     }
@@ -552,7 +588,7 @@ Window {
                         wrapMode: Text.WordWrap
                         color: Theme.muted
                         font.pixelSize: 13
-                        text: "Пока ничего. Здесь появятся смены профилей и режимов с причиной, например «Авто: Работа (работа от батареи)»."
+                        text: Theme.tr("journal_empty")
                     }
                     Repeater {
                         model: journalModel
@@ -574,15 +610,18 @@ Window {
                         columns: content.width >= 600 ? 3 : 1
                         columnSpacing: 12
                         rowSpacing: 10
-                        Chip { kind: win.problems > 0 ? "setup" : "ok"; text: win.problems > 0 ? "Не работает: " + win.problems : "Всё работает" }
+                        Chip {
+                            kind: win.problems > 0 ? "setup" : "ok"
+                            text: win.problems > 0 ? Theme.tr("problems_count_chip").replace("{n}", String(win.problems)) : Theme.tr("problems_none_chip")
+                        }
                         Txt {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             wrapMode: Text.WordWrap
                             color: Theme.muted
-                            text: win.problems > 0 ? "Некоторые функции недоступны. Что именно и как исправить, написано в «Диагностике»." : "Все функции этого ноутбука, которые знает DOCKIT, работают."
+                            text: win.problems > 0 ? Theme.tr("problems_some_text") : Theme.tr("problems_none_text")
                         }
-                        Btn { text: "Открыть «Диагностику»"; onClicked: win.page = "diagnostics" }
+                        Btn { text: Theme.tr("open_diagnostics"); onClicked: win.page = "diagnostics" }
                     }
                 }
             }
