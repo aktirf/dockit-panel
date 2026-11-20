@@ -190,6 +190,9 @@ def test_power_profile_needs_no_password_but_camera_does():
     policy = (Path(__file__).resolve().parents[1] / "data/polkit/org.dockit.policy").read_text()
     blocks = dict(re.findall(r'<action id="([^"]+)">(.*?)</action>', policy, re.S))
     assert "<allow_active>yes</allow_active>" in blocks["org.dockit.set-power-profile"]
+    assert "<allow_active>yes</allow_active>" in blocks["org.dockit.set-kbd-backlight"]
+    assert "<allow_any>no</allow_any>" in blocks["org.dockit.set-kbd-backlight"]
+    assert "<allow_inactive>no</allow_inactive>" in blocks["org.dockit.set-kbd-backlight"]
     for action_id in ("org.dockit.set-camera", "org.dockit.set-cpu", "org.dockit.set-gpu-limit"):
         assert "<allow_active>auth_self_keep</allow_active>" in blocks[action_id]
         assert "<allow_any>no</allow_any>" in blocks[action_id]

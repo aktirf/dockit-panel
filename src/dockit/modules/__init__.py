@@ -5,6 +5,7 @@ from .battery import Battery
 from .battery_limit import BatteryLimit
 from .camera import Camera
 from .gpu_nvidia import GpuNvidia
+from .kbd_backlight import KbdBacklight
 from .power_profile import PowerProfile
 from .sensors import Sensors
 from .service import Service
@@ -20,4 +21,5 @@ ALL_MODULES = [
     Camera,
     Wireless,
     Audio,
+    KbdBacklight,
 ]

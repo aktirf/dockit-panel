@@ -21,4 +21,5 @@ POLKIT_IDS = {
     "set_boost": "org.dockit.set-cpu",
     "set_epp": "org.dockit.set-cpu",
     "set_gpu_power_limit": "org.dockit.set-gpu-limit",
+    "set_kbd_backlight": "org.dockit.set-kbd-backlight",
 }

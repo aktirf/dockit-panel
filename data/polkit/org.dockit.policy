@@ -66,4 +66,18 @@
       <allow_active>auth_self_keep</allow_active>
     </defaults>
   </action>
+
+  <action id="org.dockit.set-kbd-backlight">
+    <description>Change keyboard backlight brightness and color</description>
+    <description xml:lang="ru">Изменить яркость и цвет подсветки клавиатуры</description>
+    <message>Authentication is required to change keyboard backlight</message>
+    <message xml:lang="ru">Для изменения подсветки клавиатуры нужно подтверждение</message>
+    <!-- Same as systemd-logind brightness: the person sitting at the laptop may adjust
+         their own keyboard backlight without a password prompt. -->
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
 </policyconfig>

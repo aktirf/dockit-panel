@@ -142,6 +142,51 @@ def _item(result: ScanResult, item_id: str):
 
 
 GPU_SLEEP_EMPTY = {"asleep": False, "sleepText": "—", "holders": [], "sleepTip": ""}
+KBD_BACKLIGHT_EMPTY = {
+    "available": False,
+    "can": False,
+    "rgb": False,
+    "backend": "",
+    "deviceName": "",
+    "devices": [],
+    "on": True,
+    "brightness": 100,
+    "color": "#5AB0FF",
+    "autonomous": False,
+}
+
+
+def kbd_backlight_view(kbd_state: dict | None, service_ok: bool, saved: dict | None = None) -> dict:
+    """View dict for the keyboard / LampArray backlight card."""
+    devices = list((kbd_state or {}).get("devices") or [])
+    if not devices:
+        return dict(KBD_BACKLIGHT_EMPTY)
+    pref = saved or {}
+    first = devices[0]
+    rgb = any(bool(d.get("rgb")) for d in devices)
+    backend = str(first.get("backend") or "")
+    live_brightness = first.get("brightness")
+    if not rgb and live_brightness is not None:
+        brightness = max(0, min(100, int(live_brightness)))
+        on = brightness > 0
+        autonomous = False
+    else:
+        brightness = max(0, min(100, int(pref.get("brightness", 100))))
+        on = bool(pref.get("on", True))
+        autonomous = bool(pref.get("autonomous", False))
+    color = str(pref.get("color") or "#5AB0FF")
+    return {
+        "available": True,
+        "can": bool(service_ok),
+        "rgb": rgb,
+        "backend": backend,
+        "deviceName": ", ".join(str(d.get("name") or "") for d in devices if d.get("name")),
+        "devices": devices,
+        "on": on,
+        "brightness": brightness,
+        "color": color,
+        "autonomous": autonomous,
+    }
 
 
 def gpu_sleep_view(gpu_state: dict | None, lang: str = "ru") -> dict:
@@ -177,7 +222,7 @@ def empty() -> dict:
             "battery": {"percent": None, "text": "—", "source": "", "health": "—", "cycles": None,
                         "power": "—", "left": "", "status": "no", "statusText": ""},
             "limit": {"status": "no", "statusText": ""}, "toggles": [], "temps": [], "fans": [],
-            "peripherals": [], "backlight": [], "system": {},
+            "peripherals": [], "backlight": [], "kbdBacklight": dict(KBD_BACKLIGHT_EMPTY), "system": {},
             "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "bluetooth": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
             "fallback": ""}
@@ -185,7 +230,8 @@ def empty() -> dict:
 
 def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str,
           cpu_history: list, gpu_history: list, mic_muted: bool | None,
-          scenarios: list[dict], scenario: str, lang: str = "ru") -> dict:
+          scenarios: list[dict], scenario: str, lang: str = "ru",
+          kbd_saved: dict | None = None) -> dict:
     service = _item(result, "service")
     sensors = _item(result, "sensors")
     gpu_item = _item(result, "gpu_nvidia")
@@ -193,6 +239,7 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
     limit_item = _item(result, "battery_limit")
     cam_item = _item(result, "camera")
     wifi_item = _item(result, "wireless")
+    kbd_item = _item(result, "kbd_backlight")
 
     temp = cpu_temperature(sensors.state if sensors else None)
     fans = (sensors.state or {}).get("fans_rpm", {}) if sensors else {}
@@ -293,7 +340,8 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
              "notes": p.notes or "", "status": p.status}
             for p in result.peripherals
         ],
-        "backlight": _keyboard_leds(),
+        "backlight": [d["name"] for d in ((kbd_item.state or {}).get("devices") or [])] if (kbd_item and kbd_item.state) else _keyboard_leds(),
+        "kbdBacklight": kbd_backlight_view(kbd_item.state if kbd_item else None, bool(service and service.status is Status.OK), kbd_saved),
         "system": dict(result.system),
         "cpuHistory": list(cpu_history),
         "gpuHistory": list(gpu_history),

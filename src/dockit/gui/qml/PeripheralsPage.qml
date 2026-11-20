@@ -32,6 +32,30 @@ PageFrame {
     readonly property bool audioMuted: !!(d.audio && d.audio.outputMuted === true)
     readonly property bool hasVolume: !!(d.audio && d.audio.outputVolume !== undefined && d.audio.outputVolume !== null && Number(d.audio.outputVolume) >= 0)
 
+    readonly property var kbd: d.kbdBacklight || ({})
+    readonly property bool kbdAvailable: !!(kbd && kbd.available === true)
+    readonly property bool kbdCan: !!(kbd && kbd.can === true)
+    readonly property bool kbdRgb: !!(kbd && kbd.rgb === true)
+    readonly property bool kbdAuto: !!(kbd && kbd.autonomous === true)
+    readonly property bool kbdOn: !!(kbd && kbd.on === true)
+    readonly property int kbdBright: kbd && kbd.brightness !== undefined ? Number(kbd.brightness) : 100
+    readonly property string kbdColor: kbd && kbd.color ? String(kbd.color) : "#5AB0FF"
+    readonly property string kbdDevice: kbd && kbd.deviceName ? String(kbd.deviceName) : ""
+    readonly property var kbdPalette: [
+        "#FFFFFF", "#FFE4B5", "#5AB0FF", "#22D3EE", "#4CC38A",
+        "#22C55E", "#F5B942", "#FB923C", "#FF5A5A", "#A78BFA", "#F472B6"
+    ]
+
+    function applyKbd(on, bright, color, autoMode) {
+        if (!kbdCan) return
+        backend.setKbdBacklight(!!on, Math.max(0, Math.min(100, Math.round(Number(bright)))), String(color || kbdColor), !!autoMode)
+    }
+
+    onKbdColorChanged: {
+        if (kbdHexInput && !kbdHexInput.activeFocus)
+            kbdHexInput.text = kbdColor
+    }
+
     // 1. Sound card
     Card {
         id: soundCard
@@ -133,7 +157,247 @@ PageFrame {
         }
     }
 
-    // 2. Bluetooth devices with battery bars
+    // 2. Keyboard backlight (HID LampArray RGB + kernel LED)
+    Card {
+        id: kbdBacklightCard
+        Layout.fillWidth: true
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Icon {
+                name: "keyboard"
+                size: 17
+                color: periphPage.kbdAvailable ? (periphPage.kbdRgb && periphPage.kbdOn && !periphPage.kbdAuto ? periphPage.kbdColor : Theme.accent) : Theme.muted
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                spacing: 1
+                Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: Theme.tr("kbd_backlight"); font.pixelSize: 16; font.weight: Font.DemiBold }
+                Txt {
+                    visible: periphPage.kbdAvailable && periphPage.kbdDevice !== ""
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                    color: Theme.muted
+                    font.pixelSize: 12
+                    text: periphPage.kbdDevice + (periphPage.kbdRgb ? " · HID LampArray" : " · LED")
+                }
+            }
+            Chip {
+                visible: !periphPage.kbdAvailable
+                kind: "no"
+                text: Theme.tr("status_no")
+            }
+            Chip {
+                visible: periphPage.kbdAvailable
+                kind: periphPage.kbdAuto ? "setup" : (periphPage.kbdOn ? "ok" : "no")
+                text: periphPage.kbdAuto ? Theme.tr("kbd_auto_chip") : (periphPage.kbdRgb ? "RGB" : "LED")
+                tip: periphPage.kbdRgb ? Theme.tr("kbd_lamparray_tip") : Theme.tr("kbd_led_tip")
+            }
+            Btn {
+                id: kbdPowerBtn
+                visible: periphPage.kbdAvailable && !periphPage.kbdAuto
+                enabled: periphPage.kbdCan
+                implicitHeight: 34
+                primary: periphPage.kbdOn
+                text: periphPage.kbdOn ? Theme.tr("kbd_on") : Theme.tr("kbd_off")
+                onClicked: {
+                    var nextOn = !periphPage.kbdOn
+                    var nextBright = nextOn ? (periphPage.kbdBright > 0 ? periphPage.kbdBright : 100) : periphPage.kbdBright
+                    periphPage.applyKbd(nextOn, nextBright, periphPage.kbdColor, false)
+                }
+            }
+        }
+
+        // Unavailable state
+        Txt {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: Theme.muted
+            font.pixelSize: 13
+            visible: !periphPage.kbdAvailable
+            text: Theme.tr("kbd_missing_text")
+        }
+
+        // Daemon not running hint
+        Txt {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: Theme.warn
+            font.pixelSize: 12
+            visible: periphPage.kbdAvailable && !periphPage.kbdCan
+            text: Theme.tr("kbd_need_service")
+        }
+
+        // Mode switcher: DOCKIT (color) vs Keyboard (Fn) — for LampArray RGB devices
+        ColumnLayout {
+            visible: periphPage.kbdAvailable && periphPage.kbdRgb
+            Layout.fillWidth: true
+            spacing: 6
+            Txt {
+                text: Theme.tr("kbd_mode")
+                color: Theme.soft
+                font.pixelSize: 13
+            }
+            SegmentBar {
+                id: kbdModeBar
+                enabled: periphPage.kbdCan
+                opacity: periphPage.kbdCan ? 1.0 : 0.55
+                options: [
+                    { id: "dockit", label: Theme.tr("kbd_mode_dockit"), tip: Theme.tr("kbd_mode_tip") },
+                    { id: "auto", label: Theme.tr("kbd_mode_auto"), tip: Theme.tr("kbd_mode_tip") }
+                ]
+                current: periphPage.kbdAuto ? "auto" : "dockit"
+                onPicked: function (val) {
+                    if (val === "auto")
+                        periphPage.applyKbd(true, periphPage.kbdBright, periphPage.kbdColor, true)
+                    else
+                        periphPage.applyKbd(periphPage.kbdOn, periphPage.kbdBright > 0 ? periphPage.kbdBright : 100, periphPage.kbdColor, false)
+                }
+            }
+        }
+
+        // Autonomous mode explanation
+        Txt {
+            visible: periphPage.kbdAvailable && periphPage.kbdAuto
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: Theme.muted
+            font.pixelSize: 12
+            text: Theme.tr("kbd_auto_hint")
+        }
+
+        // Brightness slider (hidden in autonomous mode)
+        ColumnLayout {
+            visible: periphPage.kbdAvailable && !periphPage.kbdAuto
+            Layout.fillWidth: true
+            spacing: 6
+            RowLayout {
+                Layout.fillWidth: true
+                Txt { Layout.fillWidth: true; text: Theme.tr("kbd_brightness"); color: Theme.soft; font.pixelSize: 13 }
+                Txt {
+                    text: kbdBrightSlider.displayValue + " %"
+                    font.family: Theme.mono
+                    font.pixelSize: 13
+                    color: periphPage.kbdOn ? Theme.text : Theme.muted
+                }
+            }
+            SmoothSlider {
+                id: kbdBrightSlider
+                enabled: periphPage.kbdCan
+                from: 0
+                to: 100
+                targetValue: periphPage.kbdOn ? periphPage.kbdBright : 0
+                fillColor: !periphPage.kbdOn ? Theme.muted : (periphPage.kbdRgb ? periphPage.kbdColor : Theme.accent)
+                handleColor: !periphPage.kbdOn ? Theme.muted : (periphPage.kbdRgb ? periphPage.kbdColor : Theme.accent)
+                onCommitted: function (val) {
+                    periphPage.applyKbd(val > 0, val, periphPage.kbdColor, false)
+                }
+            }
+        }
+
+        // RGB color presets + custom HEX (LampArray only, when not autonomous)
+        ColumnLayout {
+            visible: periphPage.kbdAvailable && periphPage.kbdRgb && !periphPage.kbdAuto
+            Layout.fillWidth: true
+            spacing: 10
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                Txt { Layout.fillWidth: true; text: Theme.tr("kbd_color"); color: Theme.soft; font.pixelSize: 13 }
+                Btn {
+                    enabled: periphPage.kbdCan
+                    implicitHeight: 30
+                    text: Theme.tr("kbd_match_accent")
+                    onClicked: {
+                        var bright = periphPage.kbdBright > 0 ? periphPage.kbdBright : 100
+                        periphPage.applyKbd(true, bright, String(backend.accentColor || "#5AB0FF"), false)
+                    }
+                }
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 10
+                Repeater {
+                    model: periphPage.kbdPalette
+                    delegate: Rectangle {
+                        id: swatchItem
+                        required property string modelData
+                        readonly property bool chosen: periphPage.kbdColor.toUpperCase() === modelData.toUpperCase()
+                        implicitWidth: 32
+                        implicitHeight: 32
+                        radius: 16
+                        color: modelData
+                        border.width: chosen ? 3 : (swatchHover.hovered ? 2 : 1)
+                        border.color: chosen ? "#FFFFFF" : (swatchHover.hovered ? Theme.soft : Theme.border3)
+                        opacity: periphPage.kbdCan ? 1.0 : 0.45
+                        HoverHandler { id: swatchHover }
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: periphPage.kbdCan
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                var bright = periphPage.kbdBright > 0 ? periphPage.kbdBright : 100
+                                periphPage.applyKbd(true, bright, swatchItem.modelData, false)
+                            }
+                        }
+                        Tip { text: swatchItem.modelData }
+                    }
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                Rectangle {
+                    readonly property bool validHex: /^#[0-9a-fA-F]{6}$/.test(kbdHexInput.text.trim())
+                    implicitWidth: 28
+                    implicitHeight: 28
+                    radius: 8
+                    color: validHex ? kbdHexInput.text.trim() : periphPage.kbdColor
+                    border.width: 1
+                    border.color: Theme.border3
+                }
+                TextField {
+                    id: kbdHexInput
+                    enabled: periphPage.kbdCan
+                    implicitWidth: 112
+                    implicitHeight: 34
+                    text: periphPage.kbdColor
+                    placeholderText: "#5AB0FF"
+                    font.family: Theme.mono
+                    font.pixelSize: 13
+                    color: Theme.text
+                    placeholderTextColor: Theme.muted
+                    maximumLength: 7
+                    background: Rectangle {
+                        radius: 9
+                        color: Theme.cardInner
+                        border.width: 1
+                        border.color: kbdHexInput.activeFocus ? Theme.accent : Theme.border2
+                    }
+                    onAccepted: {
+                        if (/^#[0-9a-fA-F]{6}$/.test(text.trim())) {
+                            var bright = periphPage.kbdBright > 0 ? periphPage.kbdBright : 100
+                            periphPage.applyKbd(true, bright, text.trim(), false)
+                        }
+                    }
+                    Tip { text: Theme.tr("kbd_color_tip") }
+                }
+                Btn {
+                    enabled: periphPage.kbdCan && /^#[0-9a-fA-F]{6}$/.test(kbdHexInput.text.trim())
+                    implicitHeight: 34
+                    text: Theme.tr("kbd_apply_color")
+                    onClicked: {
+                        var bright = periphPage.kbdBright > 0 ? periphPage.kbdBright : 100
+                        periphPage.applyKbd(true, bright, kbdHexInput.text.trim(), false)
+                    }
+                }
+                Item { Layout.fillWidth: true }
+            }
+        }
+    }
+
+    // 3. Bluetooth devices with battery bars
     Card {
         Layout.fillWidth: true
         RowLayout {
@@ -275,39 +539,6 @@ PageFrame {
                     }
                 }
             }
-        }
-    }
-
-    // 4. Compact keyboard backlight strip
-    Card {
-        id: kbdBacklightCard
-        Layout.fillWidth: true
-        pad: 16
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-            Icon { name: "keyboard"; size: 16; color: Theme.muted }
-            Txt { Layout.fillWidth: true; text: Theme.tr("kbd_backlight"); font.pixelSize: 15; font.weight: Font.DemiBold }
-            Chip {
-                kind: !!(d.backlight && d.backlight.length > 0) ? "ok" : "no"
-                text: !!(d.backlight && d.backlight.length > 0) ? Theme.tr("kbd_visible") : Theme.tr("status_no")
-            }
-        }
-        Txt {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            color: Theme.muted
-            font.pixelSize: 12
-            visible: !!(d.backlight && d.backlight.length > 0)
-            text: Theme.tr("kbd_visible_text").replace("{devs}", d.backlight ? d.backlight.join(", ") : "")
-        }
-        Txt {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            color: Theme.muted
-            font.pixelSize: 12
-            visible: !!(!d.backlight || d.backlight.length === 0)
-            text: Theme.tr("kbd_missing_text")
         }
     }
 }

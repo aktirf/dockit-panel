@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ..core import display, sysfs, tuning
+from ..core import display, kbd_backlight, sysfs, tuning
 from ..core.usb import BASE as USB_BASE
 from ..core.usb import list_usb
 from ..peripherals.database import DeviceEntry, load_database
@@ -134,3 +134,64 @@ def set_gpu_power_limit(value) -> dict:
     if proc.returncode != 0:
         raise ActionError("Драйвер отказался менять лимит мощности.")
     return {"limit": value}
+
+
+def set_kbd_backlight(
+    value,
+    hid_base: str = kbd_backlight.HID_BASE,
+    leds_base: str = kbd_backlight.LEDS_BASE,
+    dev_base: str = kbd_backlight.DEV_BASE,
+    ioctl_fn=kbd_backlight._ioctl_feature,
+) -> dict:
+    if not isinstance(value, dict):
+        raise ActionError("Параметры подсветки должны быть объектом.")
+    autonomous = value.get("autonomous", False)
+    if not isinstance(autonomous, bool):
+        raise ActionError("Поле autonomous должно быть true или false.")
+    on = value.get("on", True)
+    if not isinstance(on, bool):
+        raise ActionError("Поле on должно быть true или false.")
+    brightness = value.get("brightness", 100)
+    if isinstance(brightness, bool) or not isinstance(brightness, int) or not 0 <= brightness <= 100:
+        raise ActionError("Яркость подсветки должна быть числом от 0 до 100.")
+    raw_color = value.get("color", "#5AB0FF")
+    try:
+        color = kbd_backlight.normalize_hex_color(raw_color)
+    except ValueError as exc:
+        raise ActionError("Цвет должен быть в формате #RRGGBB.") from exc
+
+    lamparrays = kbd_backlight.discover_lamparray(hid_base)
+    if lamparrays:
+        applied = []
+        for dev in lamparrays:
+            try:
+                applied.append(
+                    kbd_backlight.apply_lamparray(
+                        dev,
+                        on=on,
+                        brightness=brightness,
+                        color=color,
+                        autonomous=autonomous,
+                        dev_base=dev_base,
+                        ioctl_fn=ioctl_fn,
+                    )
+                )
+            except (OSError, ValueError) as exc:
+                msg = getattr(exc, "strerror", None) or "ошибка"
+                raise ActionError(f"Не удалось изменить подсветку: {msg}.") from exc
+        return applied[0]
+
+    leds = kbd_backlight.discover_leds(leds_base)
+    if leds:
+        applied = []
+        for led in leds:
+            try:
+                applied.append(
+                    kbd_backlight.apply_led(led, on=on, brightness=brightness, leds_base=leds_base)
+                )
+            except (OSError, ValueError) as exc:
+                msg = getattr(exc, "strerror", None) or "ошибка"
+                raise ActionError(f"Не удалось изменить подсветку: {msg}.") from exc
+        return applied[0]
+
+    raise ActionError("Подсветка клавиатуры не найдена.")
