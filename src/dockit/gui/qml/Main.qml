@@ -233,41 +233,103 @@ Window {
                 width: Math.min(Math.max(200, flick.width - flick.sidePad * 2), 1020)
                 x: Math.max(flick.sidePad, (flick.width - width) / 2)
                 y: 28
-                spacing: 24
+                spacing: 20
 
-                // header (wraps chips cleanly on narrow tiled windows)
-                ColumnLayout {
+                // 1. Hero header banner (subtle accent gradient, model title, live status chips)
+                Rectangle {
+                    id: overviewHero
                     Layout.fillWidth: true
-                    spacing: 12
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-                        Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("overview_title"); font.pixelSize: flick.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
-                        Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("overview_sub"); color: Theme.muted }
+                    implicitHeight: heroCol.implicitHeight + 36
+                    radius: 18
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.28)
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14) }
+                        GradientStop { position: 0.55; color: Theme.card }
+                        GradientStop { position: 1.0; color: Theme.card }
                     }
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 10
-                        Chip {
-                            big: true
-                            kind: d.service ? "ok" : "no"
-                            text: d.service ? Theme.tr("service_running") : Theme.tr("service_stopped")
+
+                    ColumnLayout {
+                        id: heroCol
+                        anchors.fill: parent
+                        anchors.margins: 18
+                        spacing: 14
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 14
+                            Rectangle {
+                                implicitWidth: 44
+                                implicitHeight: 44
+                                radius: 13
+                                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
+                                border.width: 1
+                                border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                                Icon { anchors.centerIn: parent; name: "gauge"; size: 22; color: Theme.accent }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                spacing: 2
+                                Txt {
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                    text: d.model ? String(d.model) : Theme.tr("overview_title")
+                                    font.pixelSize: flick.width < 560 ? 19 : 24
+                                    font.weight: Font.DemiBold
+                                }
+                                Txt {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: Theme.tr("overview_sub")
+                                    color: Theme.muted
+                                    font.pixelSize: 13
+                                }
+                            }
                         }
-                        Chip {
-                            big: true
-                            text: Theme.tr("working_count").replace("{ok}", String(d.okCount)).replace("{total}", String(d.total))
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Chip {
+                                big: true
+                                kind: d.service ? "ok" : "no"
+                                icon: d.service ? "check" : "x"
+                                text: d.service ? Theme.tr("service_running") : Theme.tr("service_stopped")
+                            }
+                            Chip {
+                                big: true
+                                kind: win.problems > 0 ? "setup" : "ok"
+                                icon: "pulse"
+                                text: Theme.tr("working_count").replace("{ok}", String(d.okCount)).replace("{total}", String(d.total))
+                            }
+                            Chip {
+                                big: true
+                                visible: !!(d.currentMode && d.currentMode !== "")
+                                kind: d.currentMode === "performance" ? "setup" : (d.currentMode === "low-power" ? "ok" : "info")
+                                icon: "zap"
+                                text: Theme.tr("mode_now").replace("{mode}", win.modeName(d.currentMode))
+                            }
                         }
                     }
                 }
 
-                // mode + scenarios
+                // 2. Scenarios strip
                 Card {
+                    id: overviewScenariosCard
                     Layout.fillWidth: true
+                    pad: 18
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 12
+                        spacing: 10
+                        Icon { name: "layers"; size: 17; color: Theme.accent }
                         Txt { Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight; text: Theme.tr("scenario"); font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Txt { text: Theme.tr("mode_now").replace("{mode}", win.modeName(d.currentMode)); color: Theme.muted; font.pixelSize: 13; elide: Text.ElideRight }
+                        Btn {
+                            implicitHeight: 30
+                            text: Theme.tr("open_profiles")
+                            onClicked: win.page = "profiles"
+                        }
                     }
                     Flow {
                         Layout.fillWidth: true
@@ -275,23 +337,35 @@ Window {
                         Repeater {
                             model: scenariosModel
                             delegate: Rectangle {
+                                id: scenPill
                                 readonly property bool sel: model.id === d.scenario
-                                height: 40
-                                width: parent && parent.width > 0 ? Math.min(pillText.implicitWidth + 32, Math.max(72, parent.width)) : pillText.implicitWidth + 32
-                                radius: 20
-                                color: sel ? Theme.accent : Theme.btn
+                                readonly property bool isAuto: model.id === "auto"
+                                height: 38
+                                width: parent && parent.width > 0 ? Math.min(pillRow.implicitWidth + 28, Math.max(76, parent.width)) : pillRow.implicitWidth + 28
+                                radius: 19
+                                color: sel ? Theme.accent : (scenHover.hovered ? Theme.cardInner : Theme.btn)
                                 border.width: 1
-                                border.color: sel ? Theme.accent : Theme.border3
-                                Behavior on color { ColorAnimation { duration: 160 } }
-                                Txt {
-                                    id: pillText
+                                border.color: sel ? Theme.accent : (scenHover.hovered ? Theme.accent : Theme.border3)
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                                HoverHandler { id: scenHover }
+                                Row {
+                                    id: pillRow
                                     anchors.centerIn: parent
-                                    width: Math.max(0, parent.width - 24)
-                                    horizontalAlignment: Text.AlignHCenter
-                                    elide: Text.ElideRight
-                                    text: model.name
-                                    color: sel ? "#0B1218" : Theme.soft
-                                    font.weight: sel ? Font.DemiBold : Font.Medium
+                                    spacing: 6
+                                    Icon {
+                                        visible: scenPill.isAuto
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: "zap"
+                                        size: 14
+                                        color: scenPill.sel ? "#0B1218" : Theme.accent
+                                    }
+                                    Txt {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: String(model.name || "")
+                                        color: scenPill.sel ? "#0B1218" : Theme.soft
+                                        font.pixelSize: 13
+                                        font.weight: scenPill.sel ? Font.DemiBold : Font.Medium
+                                    }
                                 }
                                 MouseArea {
                                     anchors.fill: parent
@@ -303,98 +377,157 @@ Window {
                     }
                 }
 
-                // battery and hardware status
+                // 3. Battery and live CPU/GPU telemetry
                 GridLayout {
                     Layout.fillWidth: true
                     columns: width >= 660 ? 2 : 1
                     columnSpacing: 16
                     rowSpacing: 16
 
-
-
+                    // Battery card
                     Card {
+                        id: overviewBatCard
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         RowLayout {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: Theme.tr("battery"); font.pixelSize: 15; font.weight: Font.DemiBold }
+                            spacing: 8
+                            Icon { name: "battery"; size: 17; color: Theme.batteryColor(d.battery.percent) }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("battery"); font.pixelSize: 16; font.weight: Font.DemiBold }
                             Chip {
                                 kind: d.battery.status || "no"
                                 icon: Theme.statusIcon(d.battery.status || "no")
-                                text: d.battery.statusText || Theme.tr("no_data")
+                                text: d.battery.source || d.battery.statusText || Theme.tr("no_data")
                             }
                         }
-                        Row {
-                            spacing: 8
-                            Txt {
-                                text: d.battery.percent !== undefined && d.battery.percent !== null ? d.battery.percent : "—"
-                                font.family: Theme.mono
-                                font.pixelSize: 36
-                                font.weight: Font.Medium
-                            }
-                            Txt { text: "%"; color: Theme.muted; anchors.baseline: parent.children[0].baseline }
-                        }
-                        ColumnLayout {
+
+                        RowLayout {
                             Layout.fillWidth: true
-                            spacing: 6
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Txt { Layout.fillWidth: true; text: d.battery.text || ""; font.pixelSize: 13; color: Theme.muted }
-                                Txt { text: d.battery.source || ""; font.pixelSize: 13 }
-                            }
-                            Bar { Layout.fillWidth: true; value: d.battery.percent || 0; fill: Theme.batteryColor(d.battery.percent) }
-                        }
-                        Item {
-                            Layout.fillWidth: true
-                            implicitHeight: ovHealthRow.implicitHeight
-                            RowLayout {
-                                id: ovHealthRow
-                                anchors.fill: parent
-                                Txt { Layout.fillWidth: true; text: Theme.tr("battery_health"); color: Theme.soft }
-                                Txt { text: (d.battery.health || "—") + " %"; font.family: Theme.mono }
-                            }
-                            Tip { text: Theme.tr("tip_bat_health") }
-                        }
-                        Item {
-                            Layout.fillWidth: true
-                            implicitHeight: ovCyclesRow.implicitHeight
-                            RowLayout {
-                                id: ovCyclesRow
-                                anchors.fill: parent
-                                Txt { Layout.fillWidth: true; text: Theme.tr("battery_cycles"); color: Theme.soft }
+                            spacing: 12
+                            Row {
+                                spacing: 6
                                 Txt {
-                                    text: d.battery.cycles !== undefined && d.battery.cycles !== null ? d.battery.cycles : "—"
+                                    text: d.battery.percent !== undefined && d.battery.percent !== null ? String(d.battery.percent) : "—"
+                                    color: Theme.batteryColor(d.battery.percent)
                                     font.family: Theme.mono
+                                    font.pixelSize: 38
+                                    font.weight: Font.DemiBold
+                                }
+                                Txt { text: "%"; color: Theme.muted; font.pixelSize: 16; anchors.baseline: parent.children[0].baseline }
+                            }
+                            Item { Layout.fillWidth: true }
+                            ColumnLayout {
+                                spacing: 2
+                                Txt {
+                                    Layout.alignment: Qt.AlignRight
+                                    text: String(d.battery.text || "")
+                                    font.pixelSize: 13
+                                    color: Theme.soft
+                                }
+                                Txt {
+                                    Layout.alignment: Qt.AlignRight
+                                    visible: !!(d.battery.left && d.battery.left !== "") || !!(d.battery.power && d.battery.power !== "—")
+                                    text: (d.battery.left && d.battery.left !== "")
+                                          ? String(d.battery.left)
+                                          : (String(d.battery.power || "—") + " " + Theme.tr("unit_w"))
+                                    font.pixelSize: 12
+                                    font.family: Theme.mono
+                                    color: Theme.muted
                                 }
                             }
-                            Tip { text: Theme.tr("tip_bat_cycles") }
                         }
+
+                        Bar {
+                            Layout.fillWidth: true
+                            value: d.battery.percent || 0
+                            fill: Theme.batteryColor(d.battery.percent)
+                        }
+
+                        // Compact 2-tile health + cycles strip
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+                            Rectangle {
+                                Layout.fillWidth: true
+                                implicitHeight: ovHealthTile.implicitHeight + 18
+                                radius: 11
+                                color: Theme.cardInner
+                                border.width: 1
+                                border.color: Theme.border2
+                                ColumnLayout {
+                                    id: ovHealthTile
+                                    anchors.fill: parent
+                                    anchors.margins: 9
+                                    spacing: 2
+                                    Txt { text: Theme.tr("battery_health"); color: Theme.muted; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Txt { text: (d.battery.health || "—") + " %"; font.family: Theme.mono; font.pixelSize: 15; font.weight: Font.DemiBold }
+                                }
+                                Tip { text: Theme.tr("tip_bat_health") }
+                            }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                implicitHeight: ovCyclesTile.implicitHeight + 18
+                                radius: 11
+                                color: Theme.cardInner
+                                border.width: 1
+                                border.color: Theme.border2
+                                ColumnLayout {
+                                    id: ovCyclesTile
+                                    anchors.fill: parent
+                                    anchors.margins: 9
+                                    spacing: 2
+                                    Txt { text: Theme.tr("battery_cycles"); color: Theme.muted; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Txt {
+                                        text: d.battery.cycles !== undefined && d.battery.cycles !== null ? String(d.battery.cycles) : "—"
+                                        font.family: Theme.mono
+                                        font.pixelSize: 15
+                                        font.weight: Font.DemiBold
+                                    }
+                                }
+                                Tip { text: Theme.tr("tip_bat_cycles") }
+                            }
+                        }
+
                         Item { Layout.fillHeight: true }
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
-                        Item {
+                        RowLayout {
                             Layout.fillWidth: true
-                            implicitHeight: ovLimitRow.implicitHeight
-                            RowLayout {
-                                id: ovLimitRow
-                                anchors.fill: parent
-                                Txt { Layout.fillWidth: true; text: Theme.tr("charge_limit"); color: Theme.soft }
-                                Chip {
-                                    kind: d.limit.status || "no"
-                                    icon: Theme.statusIcon(d.limit.status || "no")
-                                    text: d.limit.statusText || Theme.tr("no_data")
+                            spacing: 10
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                implicitHeight: ovLimitInner.implicitHeight
+                                RowLayout {
+                                    id: ovLimitInner
+                                    anchors.fill: parent
+                                    spacing: 6
+                                    Txt { text: Theme.tr("charge_limit"); color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Chip {
+                                        kind: d.limit.status || "no"
+                                        icon: Theme.statusIcon(d.limit.status || "no")
+                                        text: d.limit.statusText || Theme.tr("no_data")
+                                    }
                                 }
+                                Tip { text: Theme.tr("tip_charge_limit") }
                             }
-                            Tip { text: Theme.tr("tip_charge_limit") }
+                            Btn {
+                                implicitHeight: 32
+                                text: Theme.tr("open_battery")
+                                onClicked: win.page = "battery"
+                            }
                         }
                     }
 
+                    // CPU & GPU live card
                     Card {
                         id: overviewHardwareCard
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         RowLayout {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: Theme.tr("hw_card_title"); font.pixelSize: 15; font.weight: Font.DemiBold }
+                            spacing: 8
+                            Icon { name: "cpu"; size: 17; color: Theme.accent }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("hw_card_title"); font.pixelSize: 16; font.weight: Font.DemiBold }
                             Chip {
                                 id: overviewGpuChip
                                 visible: !!(d.gpu && d.gpu.sleepText && d.gpu.sleepText !== "—")
@@ -403,44 +536,96 @@ Window {
                                 tip: d.gpu ? String(d.gpu.sleepTip || "") : ""
                             }
                         }
+
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 12
-                            Item {
+                            spacing: 10
+
+                            // CPU telemetry tile
+                            Rectangle {
                                 Layout.fillWidth: true
-                                implicitHeight: ovCpuCol.implicitHeight
+                                Layout.fillHeight: true
+                                implicitHeight: ovCpuCol.implicitHeight + 22
+                                radius: 12
+                                color: Theme.cardInner
+                                border.width: 1
+                                border.color: Theme.border2
                                 ColumnLayout {
                                     id: ovCpuCol
                                     anchors.fill: parent
-                                    spacing: 2
-                                    Txt { text: "CPU"; color: Theme.muted; font.pixelSize: 12 }
+                                    anchors.margins: 11
+                                    spacing: 4
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Txt { Layout.fillWidth: true; text: "CPU"; color: Theme.muted; font.pixelSize: 12; font.weight: Font.DemiBold }
+                                        Txt {
+                                            text: (d.cpu ? String(d.cpu.freq || "—") : "—") + " " + Theme.tr("unit_ghz")
+                                            color: Theme.muted
+                                            font.family: Theme.mono
+                                            font.pixelSize: 11
+                                        }
+                                    }
                                     Row {
                                         spacing: 4
-                                        Txt { text: d.cpu ? String(d.cpu.temp || "—") : "—"; font.family: Theme.mono; font.pixelSize: 30; font.weight: Font.Medium }
+                                        Txt {
+                                            text: d.cpu ? String(d.cpu.temp || "—") : "—"
+                                            color: Theme.tempColor(d.cpu ? d.cpu.temp : "")
+                                            font.family: Theme.mono
+                                            font.pixelSize: 30
+                                            font.weight: Font.DemiBold
+                                        }
                                         Txt { text: "°C"; color: Theme.muted; anchors.baseline: parent.children[0].baseline }
                                     }
                                     Txt {
                                         text: (d.cpu && d.cpu.load !== null && d.cpu.load !== undefined) ? Theme.tr("load_pct").replace("{pct}", String(d.cpu.load)) : "—"
-                                        color: Theme.muted; font.pixelSize: 12; font.family: Theme.mono
+                                        color: Theme.soft
+                                        font.pixelSize: 12
+                                        font.family: Theme.mono
+                                    }
+                                    Spark {
+                                        Layout.fillWidth: true
+                                        implicitHeight: 28
+                                        values: d.cpuHistory || []
+                                        lineColor: Theme.tempColor(d.cpu ? d.cpu.temp : "")
                                     }
                                 }
                                 Tip { text: Theme.tr("tip_cpu_card") }
                             }
-                            Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border }
-                            Item {
+
+                            // GPU telemetry tile
+                            Rectangle {
                                 Layout.fillWidth: true
-                                implicitHeight: ovGpuCol.implicitHeight
+                                Layout.fillHeight: true
+                                implicitHeight: ovGpuCol.implicitHeight + 22
+                                radius: 12
+                                color: Theme.cardInner
+                                border.width: 1
+                                border.color: !!(d.gpu && d.gpu.asleep) ? Qt.rgba(0.298, 0.765, 0.541, 0.35) : Theme.border2
                                 ColumnLayout {
                                     id: ovGpuCol
                                     anchors.fill: parent
-                                    spacing: 2
-                                    Txt { text: "GPU"; color: Theme.muted; font.pixelSize: 12 }
+                                    anchors.margins: 11
+                                    spacing: 4
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Txt { Layout.fillWidth: true; text: "GPU"; color: Theme.muted; font.pixelSize: 12; font.weight: Font.DemiBold }
+                                        Txt {
+                                            text: !!(d.gpu && d.gpu.asleep)
+                                                  ? ("0 " + Theme.tr("unit_w"))
+                                                  : ((d.gpu && d.gpu.power && d.gpu.power !== "—") ? (String(d.gpu.power) + " " + Theme.tr("unit_w")) : "—")
+                                            color: !!(d.gpu && d.gpu.asleep) ? Theme.okText : Theme.muted
+                                            font.family: Theme.mono
+                                            font.pixelSize: 11
+                                        }
+                                    }
                                     Row {
                                         spacing: 4
                                         Txt {
                                             text: !!(d.gpu && d.gpu.asleep) ? Theme.tr("gpu_sleeping") : (d.gpu ? String(d.gpu.temp || "—") : "—")
-                                            color: !!(d.gpu && d.gpu.asleep) ? Theme.okText : Theme.text
-                                            font.family: Theme.mono; font.pixelSize: 30; font.weight: Font.Medium
+                                            color: !!(d.gpu && d.gpu.asleep) ? Theme.okText : Theme.tempColor(d.gpu ? d.gpu.temp : "")
+                                            font.family: Theme.mono
+                                            font.pixelSize: !!(d.gpu && d.gpu.asleep) ? 24 : 30
+                                            font.weight: Font.DemiBold
                                         }
                                         Txt {
                                             visible: !!(d.gpu && !d.gpu.asleep)
@@ -448,39 +633,51 @@ Window {
                                         }
                                     }
                                     Txt {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
                                         text: !!(d.gpu && d.gpu.asleep)
                                               ? Theme.tr("gpu_sleeping_sub")
-                                              : ((d.gpu && d.gpu.power && d.gpu.power !== "—") ? (String(d.gpu.power) + " " + Theme.tr("unit_w")) : "—")
-                                        color: Theme.muted; font.pixelSize: 12; font.family: Theme.mono
+                                              : ((d.gpu && d.gpu.util !== null && d.gpu.util !== undefined)
+                                                 ? Theme.tr("load_pct").replace("{pct}", String(d.gpu.util))
+                                                 : "—")
+                                        color: !!(d.gpu && d.gpu.asleep) ? Theme.okText : Theme.soft
+                                        font.pixelSize: 12
+                                        font.family: Theme.mono
+                                    }
+                                    Spark {
+                                        Layout.fillWidth: true
+                                        implicitHeight: 28
+                                        opacity: !!(d.gpu && d.gpu.asleep) ? 0.35 : 1.0
+                                        values: d.gpuHistory || []
+                                        lineColor: !!(d.gpu && d.gpu.asleep) ? Theme.ok : Theme.tempColor(d.gpu ? d.gpu.temp : "")
                                     }
                                 }
                                 Tip { text: (d.gpu && d.gpu.sleepTip) ? String(d.gpu.sleepTip) : Theme.tr("tip_gpu_card") }
                             }
                         }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: Theme.tr("cpu_freq"); color: Theme.soft }
-                            Txt { text: (d.cpu ? String(d.cpu.freq || "—") : "—") + " " + Theme.tr("unit_ghz"); font.family: Theme.mono }
-                        }
+
                         RowLayout {
                             Layout.fillWidth: true
                             visible: !!(d.gpu && d.gpu.holders && d.gpu.holders.length > 0)
-                            Txt { Layout.fillWidth: true; text: Theme.tr("gpu_holders_label"); color: Theme.soft }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("gpu_holders_label"); color: Theme.soft; font.pixelSize: 12 }
                             Txt { text: (d.gpu && d.gpu.holders) ? d.gpu.holders.join(", ") : ""; color: Theme.warn; font.pixelSize: 12; elide: Text.ElideRight }
                         }
+
                         Item { Layout.fillHeight: true }
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
                         Btn {
+                            Layout.fillWidth: true
+                            implicitHeight: 34
                             text: Theme.tr("open_performance")
                             onClicked: win.page = "performance"
                         }
                     }
                 }
 
-                // quick toggles
+                // 4. Quick toggles
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 12
+                    spacing: 10
                     Txt { text: Theme.tr("quick_toggles"); font.pixelSize: 16; font.weight: Font.DemiBold }
                     GridLayout {
                         Layout.fillWidth: true
@@ -502,16 +699,18 @@ Window {
                     }
                 }
 
-                // quick display strip (brightness slider + refresh rate)
+                // 5. Quick controls strip (brightness + refresh rate + keyboard RGB shortcut)
                 Card {
                     id: overviewDisplayCard
                     Layout.fillWidth: true
                     pad: 16
                     readonly property bool hasBright: !!(d.display && d.display.brightness !== null && d.display.brightness !== undefined)
                     readonly property bool hasRates: !!(d.display && d.display.rates && d.display.rates.length > 0)
-                    visible: hasBright || hasRates
+                    readonly property bool hasKbd: !!(d.kbdBacklight && d.kbdBacklight.available === true)
+                    visible: hasBright || hasRates || hasKbd
 
                     GridLayout {
+                        visible: overviewDisplayCard.hasBright || overviewDisplayCard.hasRates
                         Layout.fillWidth: true
                         columns: (overviewDisplayCard.hasBright && overviewDisplayCard.hasRates && content.width >= 660) ? 2 : 1
                         columnSpacing: 20
@@ -567,61 +766,153 @@ Window {
                             }
                         }
                     }
-                }
 
-                // what the program switched and why
-                Card {
-                    Layout.fillWidth: true
+                    Rectangle {
+                        visible: overviewDisplayCard.hasKbd && (overviewDisplayCard.hasBright || overviewDisplayCard.hasRates)
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Theme.border
+                    }
+
+                    // Compact keyboard backlight shortcut strip
                     RowLayout {
+                        id: overviewKbdRow
+                        visible: overviewDisplayCard.hasKbd
                         Layout.fillWidth: true
-                        Txt { Layout.fillWidth: true; text: Theme.tr("journal_title"); font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Btn {
-                            visible: journalModel.count > 3
-                            implicitHeight: 30
-                            text: win.journalExpanded ? Theme.tr("journal_collapse") : Theme.tr("journal_all").replace("{n}", String(journalModel.count))
-                            onClicked: win.journalExpanded = !win.journalExpanded
+                        spacing: 10
+                        readonly property var kb: d.kbdBacklight || ({})
+                        readonly property bool kbOn: !!(kb && kb.on === true)
+                        readonly property bool kbAuto: !!(kb && kb.autonomous === true)
+                        readonly property bool kbRgb: !!(kb && kb.rgb === true)
+                        readonly property bool kbCan: !!(kb && kb.can === true)
+                        readonly property int kbBright: kb && kb.brightness !== undefined ? Number(kb.brightness) : 100
+                        readonly property string kbColor: kb && kb.color ? String(kb.color) : "#5AB0FF"
+
+                        Rectangle {
+                            implicitWidth: 26
+                            implicitHeight: 26
+                            radius: 8
+                            color: overviewKbdRow.kbAuto ? Theme.btn : (overviewKbdRow.kbOn ? (overviewKbdRow.kbRgb ? overviewKbdRow.kbColor : Theme.accent) : Theme.cardInner)
+                            border.width: 1
+                            border.color: overviewKbdRow.kbOn && !overviewKbdRow.kbAuto ? "#FFFFFF" : Theme.border3
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "keyboard"
+                                size: 14
+                                color: overviewKbdRow.kbOn && !overviewKbdRow.kbAuto ? "#0B1218" : Theme.muted
+                            }
                         }
-                    }
-                    Txt {
-                        visible: journalModel.count === 0
-                        Layout.fillWidth: true
-                        wrapMode: Text.WordWrap
-                        color: Theme.muted
-                        font.pixelSize: 13
-                        text: Theme.tr("journal_empty")
-                    }
-                    Repeater {
-                        model: journalModel
-                        delegate: RowLayout {
-                            visible: win.journalExpanded || index < 3
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 12
-                            Txt { text: model.time; color: Theme.muted; font.family: Theme.mono; font.pixelSize: 13 }
-                            Txt { Layout.fillWidth: true; text: model.text; wrapMode: Text.WordWrap; font.pixelSize: 13 }
+                            Layout.minimumWidth: 0
+                            spacing: 1
+                            Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: Theme.tr("kbd_backlight"); font.pixelSize: 13; font.weight: Font.Medium }
+                            Txt {
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                font.family: Theme.mono
+                                color: Theme.muted
+                                text: overviewKbdRow.kbAuto
+                                      ? Theme.tr("kbd_auto_chip")
+                                      : (!overviewKbdRow.kbOn
+                                         ? Theme.tr("kbd_off")
+                                         : (overviewKbdRow.kbRgb ? (overviewKbdRow.kbColor + " · " + overviewKbdRow.kbBright + " %") : (overviewKbdRow.kbBright + " %")))
+                            }
+                        }
+                        Btn {
+                            visible: !overviewKbdRow.kbAuto
+                            enabled: overviewKbdRow.kbCan
+                            implicitHeight: 32
+                            primary: overviewKbdRow.kbOn
+                            text: overviewKbdRow.kbOn ? Theme.tr("kbd_on") : Theme.tr("kbd_off")
+                            onClicked: {
+                                var nextOn = !overviewKbdRow.kbOn
+                                var nextBright = nextOn ? (overviewKbdRow.kbBright > 0 ? overviewKbdRow.kbBright : 100) : overviewKbdRow.kbBright
+                                backend.setKbdBacklight(nextOn, nextBright, overviewKbdRow.kbColor, false)
+                            }
+                        }
+                        Btn {
+                            implicitHeight: 32
+                            text: Theme.tr("open_kbd_color")
+                            onClicked: win.page = "peripherals"
                         }
                     }
                 }
 
-                // problems: details are on the Diagnostics page
-                Card {
+                // 6. Compact 2-column footer: Journal + System Health
+                GridLayout {
                     Layout.fillWidth: true
-                    GridLayout {
+                    columns: width >= 680 ? 2 : 1
+                    columnSpacing: 16
+                    rowSpacing: 16
+
+                    Card {
                         Layout.fillWidth: true
-                        columns: content.width >= 600 ? 3 : 1
-                        columnSpacing: 12
-                        rowSpacing: 10
-                        Chip {
-                            kind: win.problems > 0 ? "setup" : "ok"
-                            text: win.problems > 0 ? Theme.tr("problems_count_chip").replace("{n}", String(win.problems)) : Theme.tr("problems_none_chip")
+                        Layout.fillHeight: true
+                        pad: 18
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Icon { name: "clock"; size: 16; color: Theme.accent }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("journal_title"); font.pixelSize: 15; font.weight: Font.DemiBold }
+                            Btn {
+                                visible: journalModel.count > 3
+                                implicitHeight: 28
+                                text: win.journalExpanded ? Theme.tr("journal_collapse") : Theme.tr("journal_all").replace("{n}", String(journalModel.count))
+                                onClicked: win.journalExpanded = !win.journalExpanded
+                            }
+                        }
+                        Txt {
+                            visible: journalModel.count === 0
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: Theme.muted
+                            font.pixelSize: 12
+                            text: Theme.tr("journal_empty")
+                        }
+                        Repeater {
+                            model: journalModel
+                            delegate: RowLayout {
+                                visible: win.journalExpanded || index < 3
+                                Layout.fillWidth: true
+                                spacing: 10
+                                Txt { text: model.time; color: Theme.muted; font.family: Theme.mono; font.pixelSize: 12 }
+                                Txt { Layout.fillWidth: true; text: model.text; wrapMode: Text.WordWrap; font.pixelSize: 12 }
+                            }
+                        }
+                        Item { Layout.fillHeight: true }
+                    }
+
+                    Card {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        pad: 18
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Icon { name: "pulse"; size: 16; color: win.problems > 0 ? Theme.warn : Theme.okText }
+                            Txt { Layout.fillWidth: true; text: Theme.tr("nav_diagnostics"); font.pixelSize: 15; font.weight: Font.DemiBold }
+                            Chip {
+                                kind: win.problems > 0 ? "setup" : "ok"
+                                text: win.problems > 0 ? Theme.tr("problems_count_chip").replace("{n}", String(win.problems)) : Theme.tr("problems_none_chip")
+                            }
                         }
                         Txt {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             wrapMode: Text.WordWrap
                             color: Theme.muted
+                            font.pixelSize: 12
                             text: win.problems > 0 ? Theme.tr("problems_some_text") : Theme.tr("problems_none_text")
                         }
-                        Btn { text: Theme.tr("open_diagnostics"); onClicked: win.page = "diagnostics" }
+                        Item { Layout.fillHeight: true }
+                        Btn {
+                            Layout.fillWidth: true
+                            implicitHeight: 34
+                            text: Theme.tr("open_diagnostics")
+                            onClicked: win.page = "diagnostics"
+                        }
                     }
                 }
             }
