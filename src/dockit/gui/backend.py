@@ -107,7 +107,10 @@ class Backend(QObject):
         "amber": "#F5B942",
         "coral": "#FF7A7A",
     }
-    DEFAULTS = {"interval": 3, "warn_temp": 90, "notify": True, "tray": False, "accent": "blue"}
+    DEFAULTS = {
+        "interval": 3, "warn_temp": 90, "notify": True, "tray": False,
+        "accent": "blue", "compact_nav": False,
+    }
 
     @staticmethod
     def _settings_path() -> str:
@@ -130,7 +133,7 @@ class Backend(QObject):
                 data["warn_temp"] = loaded["warn_temp"]
             if loaded.get("accent") in self.ACCENTS:
                 data["accent"] = loaded["accent"]
-            for key in ("notify", "tray"):
+            for key in ("notify", "tray", "compact_nav"):
                 if isinstance(loaded.get(key), bool):
                     data[key] = loaded[key]
         except (OSError, ValueError, AttributeError):
@@ -220,6 +223,12 @@ class Backend(QObject):
         self.refresh()
 
     @Slot(bool)
+    def setCompactNav(self, value: bool) -> None:
+        self._settings["compact_nav"] = bool(value)
+        self._save_settings()
+        self.refresh()
+
+    @Slot(bool)
     def setTray(self, value: bool) -> None:
         self._settings["tray"] = bool(value)
         self._save_settings()
@@ -271,6 +280,16 @@ class Backend(QObject):
 
         threading.Thread(target=target, daemon=True).start()
 
+    @Slot()
+    def copyLog(self) -> None:
+        from PySide6.QtGui import QGuiApplication
+        text = getattr(self, "_log_text", "")
+        if not text:
+            self._say("Сначала нажмите «Обновить», чтобы загрузить журнал")
+            return
+        QGuiApplication.clipboard().setText(text)
+        self._say("Журнал службы скопирован в буфер обмена")
+
     @Slot(str)
     def installFix(self, feature_id: str) -> None:
         packages = viewmodel.FIX_PACKAGES.get(feature_id)
@@ -299,6 +318,32 @@ class Backend(QObject):
             except audio.AudioError as exc:
                 return str(exc)
             return ("Звук: " if kind == "output" else "Микрофон: ") + device.description
+
+        self._run(work)
+
+    @Slot(int)
+    def setVolume(self, percent: int) -> None:
+        percent = max(0, min(150, int(percent)))
+
+        def work() -> str:
+            try:
+                audio.set_volume("output", percent)
+            except audio.AudioError as exc:
+                return str(exc)
+            return f"Громкость: {percent} %"
+
+        self._run(work)
+
+    @Slot()
+    def toggleMuteOutput(self) -> None:
+        cur_muted = bool((self._state.get("audio") or {}).get("outputMuted", False))
+
+        def work() -> str:
+            try:
+                audio.set_mute("output", not cur_muted)
+            except audio.AudioError as exc:
+                return str(exc)
+            return "Звук выключен" if not cur_muted else "Звук включён"
 
         self._run(work)
 
@@ -534,13 +579,15 @@ class Backend(QObject):
             state["idleAvailable"] = idle.available()
             fb = profiles.load_fallback()
             state["fallback"] = fb if fb in available else ""
+            def_out = next((d for d in audio_devices if d.get("kind") == "output" and d.get("default")), None)
+            def_in = next((d for d in audio_devices if d.get("kind") == "input" and d.get("default")), None)
             state["audio"] = {
                 "outputs": [d["description"] for d in audio_devices if d.get("kind") == "output"],
                 "inputs": [d["description"] for d in audio_devices if d.get("kind") == "input"],
-                "outputDefault": next((d["description"] for d in audio_devices
-                                       if d.get("kind") == "output" and d.get("default")), ""),
-                "inputDefault": next((d["description"] for d in audio_devices
-                                      if d.get("kind") == "input" and d.get("default")), ""),
+                "outputDefault": def_out["description"] if def_out else "",
+                "inputDefault": def_in["description"] if def_in else "",
+                "outputVolume": def_out["volume"] if (def_out and def_out.get("volume") is not None) else -1,
+                "outputMuted": bool(def_out.get("muted")) if def_out else False,
             }
             self._snapshot.emit(state)
             if note:
