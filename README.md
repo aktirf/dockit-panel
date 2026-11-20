@@ -1,68 +1,99 @@
+<div align="center">
+
+<img src="data/icons/dockit.svg" width="76" height="76" alt="DOCKIT logo" />
+
 # DOCKIT
 
 **Device and Operational Control Kit for Integrated Tuning**
 
-A control panel for Linux laptops that shows what works on **your** machine, what does not, and how to fix it.
+An open-source Linux laptop control panel — built as a clean, transparent replacement for Windows-only vendor tools (like Gigabyte GiMATE).
 
-> Status: active beta (`0.10.1`). Includes a multilingual (English / Russian / Ukrainian) Qt Quick control panel (Overview, Performance, Battery & Display, Cooling, Peripherals, Profiles, Diagnostics, Settings), USB HID LampArray RGB & kernel LED keyboard backlight control, peripheral battery monitoring (UPower, HID++/sysfs, Bluetooth, optional HeadsetControl), a root polkit daemon, automatic profile rules, GPU sleep inspection, tray icon, and CLI. Tested on Gigabyte Gaming A16 3VH (Ryzen 7 260, RTX 5060).
-> Unofficial project. Not affiliated with Gigabyte, EPOS, Hator or any other manufacturer.
+[![Version](https://img.shields.io/badge/version-0.10.1%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel)
+[![Python](https://img.shields.io/badge/python-3.11%2B-5AB0FF?style=flat-square)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-A78BFA?style=flat-square)](LICENSE)
+[![Languages](https://img.shields.io/badge/UI-EN%20%7C%20RU%20%7C%20UK-F5B942?style=flat-square)](#features)
+[![Tests](https://github.com/aktirf/dockit-panel/actions/workflows/tests.yml/badge.svg)](https://github.com/aktirf/dockit-panel/actions/workflows/tests.yml)
 
-Русская версия: [README.ru.md](README.ru.md)
+**English** · [Русский](README.ru.md)
 
-## Idea
+<br />
 
-Laptop vendors ship control apps (performance modes, fans, lighting, charge limit) for Windows only. On Linux each laptop exposes a different set of interfaces. DOCKIT:
+<img src="docs/screenshots/overview.png" alt="DOCKIT Overview dashboard" width="920" />
 
-- scans the laptop on first run and shows which features are available;
-- explains why a feature does not work and offers a fix, with your confirmation;
-- keeps the logic (core) separate from the interface, so the same core can serve a window, a desktop-shell widget or the terminal;
-- recognizes devices by hardware ID, using a plain-text device database that anyone can extend.
+</div>
 
-## Try it
+---
+
+> **Status:** active beta (`0.10.1`), daily-driven on **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) on CachyOS (Hyprland & KDE Plasma).
+> Unofficial open-source project — not affiliated with Gigabyte, EPOS, Hator, or any other manufacturer.
+
+## Screenshots
+
+| Performance & NVIDIA Sleep Guard | Peripherals, Sound & RGB Backlight |
+| :---: | :---: |
+| <img src="docs/screenshots/performance.png" alt="Performance page" /> | <img src="docs/screenshots/peripherals.png" alt="Peripherals page" /> |
+| **Profiles & Automatic Rules** | **Overview (shown above)** |
+| <img src="docs/screenshots/profiles.png" alt="Profiles page" /> | Live telemetry, quick toggles, brightness, refresh rate, keyboard RGB shortcut, and activity journal. |
+
+## Features
+
+- **Honest hardware detection** — scans your laptop read-only and shows what works, what does not, and how to fix it (no guessing, no silent stubs).
+- **Performance & NVIDIA sleep guard** — platform performance modes (`Quiet`, `Balanced`, `Performance`), CPU Turbo Boost & EPP, GPU power limit, and live **NVIDIA D3 sleep tracking** that never wakes a sleeping GPU with `nvidia-smi` and lists which apps keep it awake.
+- **Keyboard RGB backlight** — native **USB HID LampArray** (Usage Page `0x59`, works out of the box on Gigabyte Gaming A16 `0414:8104` and Windows Dynamic Lighting keyboards with sRGB gamma correction) plus standard `/sys/class/leds/*kbd_backlight*` fallback.
+- **Profiles & automatic rules** — bundle performance mode, refresh rate, screen brightness, webcam, and PipeWire audio devices into profiles (`Games`, `Work`, `Night`, or custom) and auto-switch by running apps/games, AC/battery, idle time, temperature, or time of day.
+- **Peripherals & batteries** — PipeWire volume slider & output/mic switcher, Bluetooth devices, wireless peripheral battery monitoring (`UPower`, `/sys/class/power_supply` HID++, Bluetooth, optional `headsetcontrol`), and a plain-text hardware database (`devices/`).
+- **Safe root daemon (`polkit`)** — reading needs no setup; every system change goes through a minimal Unix-socket service that allows only fixed validated actions and checks the caller's real PID via `polkit`.
+- **Multilingual & tiling-friendly** — instant live switching between **English**, **Русский**, and **Українська**, adaptive icon-rail sidebar for narrow tiled windows, 5 accent colors, cursor-anchored tooltips, and a system tray menu.
+
+## Quick Install (Arch / CachyOS / EndeavourOS)
 
 ```bash
 git clone https://github.com/aktirf/dockit-panel
 cd dockit-panel
-python -m venv .venv && source .venv/bin/activate
+scripts/install.sh
+```
+
+This installs required dependencies, sets up the root `dockit.service` in `/opt/dockit`, installs polkit rules, and adds **DOCKIT** to your application menu. To uninstall cleanly:
+
+```bash
+sudo scripts/uninstall-dev.sh
+```
+
+### Try read-only (no root, changes nothing)
+
+```bash
+git clone https://github.com/aktirf/dockit-panel
+cd dockit-panel
+python -m venv --system-site-packages .venv
+source .venv/bin/activate
 pip install -e .
-dockit scan      # what works on this laptop
-dockit report    # text report to paste into a GitHub issue
+dockit scan              # check what works on your laptop
+dockit report --lang en  # generate a clean report for GitHub Issues
+dockit gui               # open the control panel (view-only without the service)
 ```
 
-The scan only **reads** system files. It does not change anything.
+## CLI Commands
 
-## Changing settings (background service)
+| Command | Description |
+|---|---|
+| `dockit gui` | Open the Qt Quick control panel (single-instance) |
+| `dockit scan [--json]` | Read-only hardware & feature scan |
+| `dockit report [--lang auto\|en\|ru\|uk]` | Plain-text report for GitHub Issues (no serial numbers or hostnames) |
+| `dockit mode [games\|work\|night\|next]` | List profiles, apply one, or cycle (`next` is great for a hotkey) |
+| `dockit auto` | Run automatic profile switching in the background |
+| `dockit profile [low-power\|balanced\|performance]` | Show or switch ACPI platform profile |
+| `dockit backlight [status\|on\|off\|auto] [--color #RRGGBB] [--brightness 0..100]` | Control keyboard RGB / LED backlight |
+| `dockit gpu` | Check whether the NVIDIA GPU is asleep and which apps hold it awake |
+| `dockit camera status\|on\|off` | Toggle the built-in USB webcam |
+| `dockit audio [status\|output\|input\|mic\|volume]` | Control PipeWire audio devices and volume |
 
-Reading works without any setup. Changing a setting needs the small DOCKIT service, which runs as root and can do **only** the actions on a fixed list (switch the performance mode, switch the built-in camera on or off). Each change asks for your confirmation through the normal system password dialog (polkit).
-
-```bash
-sudo scripts/install-dev.sh      # install the service (copy goes to /opt/dockit, owned by root)
-dockit profile                   # show the current performance mode
-dockit profile performance       # change it (asks for confirmation)
-dockit camera status|on|off      # built-in camera
-sudo scripts/uninstall-dev.sh    # remove everything again
-```
-
-Safety: the service accepts only known actions, checks every value (a mode must be in the kernel's own list), never takes a file path from the client, and uses the caller's real process ID from the socket for the polkit check. The installed code in `/opt/dockit` is owned by root so a normal program cannot edit code that runs as root. These scripts are for testing; distribution packages come later.
-
-## Profiles
-
-A profile is a bundle of settings for a task: **Games** (performance), **Work** (balanced), **Night** (low-power).
-
-```bash
-dockit mode               # list profiles
-dockit mode games         # switch to a profile (needs the service)
-dockit mode next          # cycle to the next profile (great for a hotkey, like the GiMATE button)
-dockit auto               # switch profiles by itself using rules
-dockit gpu                # check if the NVIDIA GPU sleeps and which programs keep it awake
-```
-
-Default rules: while a Steam game (`steam_app_*`) or `gamescope` runs, Games; on battery, Work. Your own profiles and rules go in `~/.config/dockit/profiles.toml`:
+Custom profiles and rules are stored in `~/.config/dockit/profiles.toml`:
 
 ```toml
 [profiles.games]
 power = "performance"
-camera = false            # optional: switch the camera off in this profile
+camera = false
+refresh = 165
 
 [[rules]]
 profile = "games"
@@ -70,89 +101,38 @@ processes = ["steam_app_*", "cs2"]
 
 [[rules]]
 profile = "night"
-when = "battery"          # or "ac"
+when = "battery"
 ```
 
-Rules are checked top to bottom, the first match wins. Mistakes in the file are ignored and the defaults are used.
+## Desktops & Window Managers
 
-## Sound
+Most of DOCKIT talks directly to the Linux kernel, PipeWire, BlueZ, and `systemd-logind`, so it works across desktops. Desktop-specific features:
 
-Works through PipeWire (the `pactl` command), no root needed.
+| Desktop / WM | Screen refresh rate | Idle rule (AFK) | Autostart |
+|---|---|---|---|
+| **Hyprland** (0.55+ Lua & `.conf`) | `hyprctl eval` / `keyword` | `swayidle` | `exec-once = dockit gui` |
+| **KDE Plasma (Wayland)** | `kscreen-doctor` | `swayidle` | automatic (`~/.config/autostart`) |
+| **niri** | `niri msg` | `swayidle` | `spawn-at-startup "dockit" "gui"` |
+| **Sway / wlroots** | `swaymsg` | `swayidle` | `exec dockit gui` |
+| **X11 (i3, XFCE, etc.)** | `xrandr` | — | `exec --no-startup-id dockit gui` |
+| **GNOME** | partial | — | automatic (`~/.config/autostart`) |
+
+## Security & Architecture
+
+- **Zero-dependency core** (`src/dockit/core/`): pure Python 3.11+ logic, no Qt imports, unit-tested without real hardware (`pytest`).
+- **Strict root daemon** (`src/dockit/daemon/`): accepts only allowlisted actions (`set_power_profile`, `set_camera`, `set_brightness`, `set_boost`, `set_epp`, `set_gpu_power_limit`, `set_kbd_backlight`), validates every argument, never accepts file paths from clients, and checks real peer credentials (`SO_PEERCRED`) against `polkit`.
+- **Plain-text device database** (`devices/`): one small TOML file per laptop or USB peripheral — easy to extend.
+
+## Help Support More Laptops
+
+Want DOCKIT to recognize your laptop or peripherals? Run:
 
 ```bash
-dockit audio                   # outputs and microphones, * = in use now
-dockit audio output epos       # send sound to the headset (part of the name is enough)
-dockit audio input epos        # headset microphone
-dockit audio mic mute|unmute   # mute or unmute the microphone
-dockit audio volume 50         # volume of the current output, 0-150
+dockit report --lang en
 ```
 
-A profile can include sound: `output = "epos"` and `input = "epos"` in `~/.config/dockit/profiles.toml`. If the device is missing (headset unplugged) the profile only reports it.
-
-## Window
-
-```bash
-sudo pacman -S pyside6 ttf-ibm-plex     # the window (Qt) and the font used in the design
-dockit gui
-```
-
-If you use a virtual environment, create it with access to system packages: `python -m venv --system-site-packages .venv`. The window includes Overview, Performance (modes, Turbo Boost, EPP, GPU limit, NVIDIA sleep state), Battery & Display (brightness slider, refresh rate, 24h charge graph), Cooling, Peripherals & Audio, Profiles & auto-rules, Diagnostics, and Settings (tray icon, notifications, accent color).
-
-## Automatic rules
-
-On the Profiles page each profile can say when it switches on by itself (works with the "Auto" scenario on the Overview page):
-
-- **A program is running**: pick from what is running now, or type a name (for example `cs2` or `steam_app_*`);
-- **Power**: on battery or on the charger;
-- **No activity** with keyboard and mouse for 5-60 minutes (needs `swayidle`: `sudo pacman -S swayidle`).
-
-If several conditions are chosen, all of them must hold. Programs are checked first, then the rest. If no rule matches, the profile set under "If no rule matches" is used ("Work" by default). The chosen scenario ("Auto" and so on) is remembered between runs.
-
-## Layout
-
-| Folder | What it is |
-|---|---|
-| `src/dockit/core/` | statuses, base class for features, scanner |
-| `src/dockit/modules/` | one file per feature |
-| `src/dockit/cli/` | the `dockit` command |
-| `devices/` | device database (one small file per device) |
-| `docs/` | documentation |
-
-## Help us support more laptops
-
-Run `dockit report` and open an issue using the **Device report** template. Your report shows what works on your model and helps others.
-
-## Planned
-
-Background service (root actions with confirmation), profiles (games / work / night), peripherals (mouse, headset), window UI, AUR package.
+and open a GitHub Issue using the **Device report** template (reports never include serial numbers, usernames, or hostnames).
 
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).
-
-## Install
-
-```
-git clone https://github.com/aktirf/dockit-panel
-cd dockit-panel
-scripts/install.sh
-```
-
-Installs the packages DOCKIT needs, the service and an app-menu entry (Arch/EndeavourOS). Undo: `sudo scripts/uninstall-dev.sh`.
-
-## Desktops and window managers
-
-Most of DOCKIT does not care which desktop you use: modes, profiles, temperatures, battery, sound, Bluetooth and notifications talk to the kernel and system services directly. Only a few parts depend on the desktop:
-
-| Desktop | Screen refresh rate | Idle detection (AFK rule) | Autostart line |
-|---|---|---|---|
-| KDE Plasma (Wayland) | `kscreen-doctor` | `swayidle` | automatic (`~/.config/autostart`) |
-| Hyprland | `hyprctl` | `swayidle` | `exec-once = dockit gui` |
-| niri | `niri msg` | `swayidle` | `spawn-at-startup "dockit" "gui"` |
-| Sway / wlroots | `swaymsg` | `swayidle` | `exec dockit gui` |
-| X11 (i3, etc.) | `xrandr` | not yet | `exec --no-startup-id dockit gui` |
-| GNOME | not yet | not yet | automatic (`~/.config/autostart`) |
-
-Tiling window managers should open the DOCKIT window floating, for example in Hyprland: `windowrule = float, class:^(dockit)$`; in Sway/i3: `for_window [app_id="dockit"] floating enable`; in niri: `window-rule { match app-id="dockit"; open-floating true }`.
-
-Only niri was tested by the author so far; for the others the commands follow their documentation. Please report what works for you.
