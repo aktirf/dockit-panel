@@ -8,7 +8,7 @@
 
 An open-source Linux laptop control panel — a clean, lightweight alternative to Windows-only vendor suites like **Gigabyte GiMATE**, **Lenovo Vantage**, **MSI Center**, and others.
 
-[![Version](https://img.shields.io/badge/version-0.10.1%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel)
+[![Version](https://img.shields.io/badge/version-0.10.2%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel)
 [![Python](https://img.shields.io/badge/python-3.11%2B-5AB0FF?style=flat-square)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-A78BFA?style=flat-square)](LICENSE)
 [![Languages](https://img.shields.io/badge/UI-EN%20%7C%20RU%20%7C%20UK-F5B942?style=flat-square)](#features)
@@ -24,7 +24,7 @@ An open-source Linux laptop control panel — a clean, lightweight alternative t
 
 ---
 
-> **Status:** active beta (`0.10.1`), daily-driven on **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) on CachyOS (Hyprland & KDE Plasma).
+> **Status:** active beta (`0.10.2`), daily-driven on **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) on CachyOS (Hyprland & KDE Plasma).
 > Unofficial open-source project — not affiliated with Gigabyte, Lenovo, MSI, EPOS, Hator, or any other manufacturer.
 
 ## Screenshots

@@ -86,9 +86,9 @@ Window {
                     Layout.fillWidth: true
                     Layout.bottomMargin: 18
                     Layout.leftMargin: win.compactNav ? 0 : 10
-                    spacing: 10
+                    spacing: win.compactNav ? 0 : 10
+                    Item { visible: win.compactNav; Layout.fillWidth: true }
                     Rectangle {
-                        Layout.alignment: Qt.AlignHCenter
                         implicitWidth: 34
                         implicitHeight: 34
                         radius: 10
@@ -96,6 +96,7 @@ Window {
                         Icon { anchors.centerIn: parent; name: "gauge"; size: 19; color: Theme.accent }
                         Tip { text: win.compactNav ? ("DOCKIT — " + (d.model || Theme.tr("app_laptop"))) : "" }
                     }
+                    Item { visible: win.compactNav; Layout.fillWidth: true }
                     ColumnLayout {
                         visible: !win.compactNav
                         Layout.fillWidth: true
