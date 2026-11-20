@@ -620,7 +620,7 @@ class Backend(QObject):
             muted = next((d["muted"] for d in audio_devices if d.get("kind") == "input" and d.get("default")), None)
             lang = self._lang()
             available, rules = profiles.load()
-            scenarios = [{"id": p.id, "name": p.name} for p in available.values()]
+            scenarios = [{"id": p.id, "name": viewmodel.profile_display_name(p, lang)} for p in available.values()]
             scenarios.append({"id": "auto", "name": i18n.tr("scenario_auto", lang)})
             note = ""
             if self._scenario == "auto":
@@ -780,7 +780,7 @@ class Backend(QObject):
         """Immediately reflect profile/rule/language edits in the UI without waiting for the next scan."""
         lang = self._lang()
         available, rules = profiles.load()
-        scenarios = [{"id": p.id, "name": p.name} for p in available.values()]
+        scenarios = [{"id": p.id, "name": viewmodel.profile_display_name(p, lang)} for p in available.values()]
         scenarios.append({"id": "auto", "name": i18n.tr("scenario_auto", lang)})
         fb = profiles.load_fallback()
         self._state = dict(

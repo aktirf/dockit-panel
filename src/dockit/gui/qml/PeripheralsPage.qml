@@ -23,10 +23,10 @@ PageFrame {
     }
     function deviceIcon(kindText) {
         var k = String(kindText || "").toLowerCase()
-        if (k.indexOf("мыш") >= 0 || k.indexOf("mouse") >= 0) return "mouse"
+        if (k.indexOf("мыш") >= 0 || k.indexOf("миш") >= 0 || k.indexOf("mouse") >= 0) return "mouse"
         if (k.indexOf("клав") >= 0 || k.indexOf("key") >= 0) return "keyboard"
         if (k.indexOf("кам") >= 0 || k.indexOf("cam") >= 0) return "camera"
-        if (k.indexOf("гарн") >= 0 || k.indexOf("науш") >= 0 || k.indexOf("head") >= 0) return "headphones"
+        if (k.indexOf("гарн") >= 0 || k.indexOf("науш") >= 0 || k.indexOf("навуш") >= 0 || k.indexOf("head") >= 0) return "headphones"
         if (k.indexOf("bluetooth") >= 0) return "bluetooth"
         return "app"
     }

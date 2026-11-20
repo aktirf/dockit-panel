@@ -123,3 +123,26 @@ def test_diagnostics_and_report_localize_across_all_languages():
     assert feat_by_id["battery_limit"]["name"] == "Battery charge limit"
     assert "Update the kernel" in feat_by_id["battery_limit"]["hint"]
     assert feat_by_id["kbd_backlight"]["name"] == "Keyboard backlight"
+
+
+def test_profile_names_and_usb_kinds_translate_across_languages():
+    profs = {
+        "games": pf.Profile("games", "Игры", power="performance"),
+        "work": pf.Profile("work", "Работа", power="balanced"),
+        "night": pf.Profile("night", "Ночь", power="low-power"),
+        "movie": pf.Profile("movie", "Кино", power="low-power"),
+        "study": pf.Profile("study", "Учёба", power="balanced"),
+        "custom1": pf.Profile("custom1", "CS2 Pro", power="performance"),
+    }
+    en_names = [c["name"] for c in vm.profile_cards(profs, [], lang="en")]
+    uk_names = [c["name"] for c in vm.profile_cards(profs, [], lang="uk")]
+    ru_names = [c["name"] for c in vm.profile_cards(profs, [], lang="ru")]
+
+    assert en_names == ["Games", "Work", "Night", "Movie", "Study", "CS2 Pro"]
+    assert uk_names == ["Ігри", "Робота", "Ніч", "Кіно", "Навчання", "CS2 Pro"]
+    assert ru_names == ["Игры", "Работа", "Ночь", "Кино", "Учёба", "CS2 Pro"]
+
+    assert vm.kind_label("mouse", "en") == "Mouse"
+    assert vm.kind_label("mouse", "uk") == "Миша"
+    assert vm.kind_label("headset", "en") == "Headset"
+    assert vm.kind_label("headset", "uk") == "Навушники"

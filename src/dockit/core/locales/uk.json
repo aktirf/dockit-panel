@@ -431,5 +431,36 @@
   "mod_kbd_backlight_setup": "Знайдено підсвітку ({names}, {mode}), але для керування потрібна служба DOCKIT.",
   "mod_kbd_backlight_no": "Підсвітка не видна через HID LampArray або /sys/class/leds.",
   "mod_kbd_backlight_hint_setup": "Встановіть і запустіть службу DOCKIT: sudo scripts/install-dev.sh.",
-  "mod_kbd_backlight_hint_no": "Керується вбудованою прошивкою клавіатури."
+  "mod_kbd_backlight_hint_no": "Керується вбудованою прошивкою клавіатури.",
+
+  "prof_name_games": "Ігри",
+  "prof_name_work": "Робота",
+  "prof_name_night": "Ніч",
+  "prof_name_movie": "Кіно",
+  "prof_name_study": "Навчання",
+  "prof_name_music": "Музика",
+  "prof_name_stream": "Стрім",
+  "prof_name_quiet": "Тиша",
+  "prof_name_balanced": "Баланс",
+  "prof_name_performance": "Продуктивність",
+  "prof_name_power_saver": "Енергозбереження",
+  "prof_name_office": "Офіс",
+  "prof_name_coding": "Програмування",
+  "prof_name_sleep": "Сон",
+  "prof_name_travel": "Подорож",
+  "prof_name_video": "Відео",
+  "prof_name_editing": "Монтаж",
+
+  "kind_mouse": "Миша",
+  "kind_keyboard": "Клавіатура",
+  "kind_headset": "Навушники",
+  "kind_camera": "Камера",
+  "kind_bluetooth": "Bluetooth",
+  "kind_laptop": "Ноутбук",
+  "kind_unknown": "Пристрій",
+
+  "rule_running": "Запущено програму: {procs}",
+  "rule_on_battery": "Ноутбук працює від батареї",
+  "rule_on_ac": "Ноутбук підключено до зарядки",
+  "rule_and": " та "
 }

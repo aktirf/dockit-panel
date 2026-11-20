@@ -431,5 +431,36 @@
   "mod_kbd_backlight_setup": "Backlight found ({names}, {mode}), but controlling it requires the DOCKIT service.",
   "mod_kbd_backlight_no": "Backlight not exposed via HID LampArray or /sys/class/leds.",
   "mod_kbd_backlight_hint_setup": "Install and start the DOCKIT service: sudo scripts/install-dev.sh.",
-  "mod_kbd_backlight_hint_no": "Controlled by built-in keyboard firmware."
+  "mod_kbd_backlight_hint_no": "Controlled by built-in keyboard firmware.",
+
+  "prof_name_games": "Games",
+  "prof_name_work": "Work",
+  "prof_name_night": "Night",
+  "prof_name_movie": "Movie",
+  "prof_name_study": "Study",
+  "prof_name_music": "Music",
+  "prof_name_stream": "Stream",
+  "prof_name_quiet": "Quiet",
+  "prof_name_balanced": "Balanced",
+  "prof_name_performance": "Performance",
+  "prof_name_power_saver": "Power saver",
+  "prof_name_office": "Office",
+  "prof_name_coding": "Coding",
+  "prof_name_sleep": "Sleep",
+  "prof_name_travel": "Travel",
+  "prof_name_video": "Video",
+  "prof_name_editing": "Editing",
+
+  "kind_mouse": "Mouse",
+  "kind_keyboard": "Keyboard",
+  "kind_headset": "Headset",
+  "kind_camera": "Camera",
+  "kind_bluetooth": "Bluetooth",
+  "kind_laptop": "Laptop",
+  "kind_unknown": "Device",
+
+  "rule_running": "App running: {procs}",
+  "rule_on_battery": "Laptop is on battery",
+  "rule_on_ac": "Laptop is plugged in",
+  "rule_and": " and "
 }
