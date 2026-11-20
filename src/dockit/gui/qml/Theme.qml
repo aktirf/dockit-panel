@@ -23,6 +23,11 @@ QtObject {
     readonly property color err: "#FF9E9E"
     readonly property string sans: "IBM Plex Sans"
     readonly property string mono: "IBM Plex Mono"
+    property var t: ({})
+
+    function tr(key) {
+        return (t && t[key] !== undefined) ? String(t[key]) : key
+    }
 
     function statusColor(kind) {
         if (kind === "ok") return okText

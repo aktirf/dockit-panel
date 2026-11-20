@@ -22,7 +22,6 @@ Flickable {
     readonly property string curId: cur ? String(cur.id) : ""
     readonly property int sidePad: page.width < 560 ? 16 : 32
 
-    // SyncModel keeps lists alive across 3-second refreshes so tooltips and clicks do not break.
     SyncModel { id: profilesModel }
     SyncModel { id: ruleProcsModel }
     SyncModel { id: appsModel }
@@ -39,13 +38,13 @@ Flickable {
     }
     function rateOptions() {
         var rates = page.d.display && page.d.display.rates ? page.d.display.rates : []
-        return rates.map(function (r) { return { id: String(r), label: String(r) + " Гц", tip: "" } })
+        return rates.map(function (r) { return { id: String(r), label: String(r) + " " + Theme.tr("unit_hz"), tip: Theme.tr("refresh_tip") } })
     }
     function audioItems(listArr, currentVal) {
         var arr = listArr ? listArr : []
         var res = arr.map(function (t) { return { id: String(t), label: String(t) } })
         if (currentVal && !anyMatch(arr, currentVal))
-            res.unshift({ id: String(currentVal), label: String(currentVal) + " (отключено)" })
+            res.unshift({ id: String(currentVal), label: String(currentVal) + Theme.tr("unplugged_tag") })
         return res
     }
     function matchedAudioId(listArr, query) {
@@ -56,7 +55,7 @@ Flickable {
         return String(query)
     }
     function fallbackItems() {
-        var res = [{ id: "keep", label: "Ничего не менять" }]
+        var res = [{ id: "keep", label: Theme.tr("fallback_keep") }]
         for (var i = 0; i < page.list.length; i++)
             res.push({ id: String(page.list[i].id), label: String(page.list[i].name) })
         return res
@@ -147,8 +146,8 @@ Flickable {
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 4
-            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Профили"; font.pixelSize: page.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
-            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Включите нужные переключатели — выключенные параметры профиль не трогает"; color: Theme.muted }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("prof_title"); font.pixelSize: page.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: Theme.tr("prof_sub"); color: Theme.muted }
         }
 
         GridLayout {
@@ -164,7 +163,7 @@ Flickable {
                 Layout.fillWidth: page.width < 820
                 Layout.minimumWidth: 0
                 Layout.alignment: Qt.AlignTop
-                Txt { text: "Ваши профили"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                Txt { text: Theme.tr("your_profiles"); font.pixelSize: 16; font.weight: Font.DemiBold }
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -174,14 +173,14 @@ Flickable {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         implicitHeight: 38
-                        placeholderText: "Новый профиль…"
+                        placeholderText: Theme.tr("new_profile_ph")
                         placeholderTextColor: Theme.muted
                         color: Theme.text
                         font.family: Theme.sans
                         font.pixelSize: 13
                         leftPadding: 12
                         maximumLength: 30
-                        ToolTip.text: "Назовите профиль, например «Кино» или «Учёба», и нажмите «+»."
+                        ToolTip.text: Theme.tr("new_profile_tip")
                         ToolTip.visible: hovered
                         ToolTip.delay: 450
                         background: Rectangle {
@@ -197,7 +196,7 @@ Flickable {
                         primary: true
                         implicitHeight: 38
                         implicitWidth: 42
-                        tip: "Создать новый профиль"
+                        tip: Theme.tr("create_profile_tip")
                         onClicked: { backend.createProfile(newName.text); newName.text = "" }
                     }
                 }
@@ -216,7 +215,6 @@ Flickable {
                         Behavior on color { ColorAnimation { duration: 150 } }
                         Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                        // Accent left strip for the selected profile
                         Rectangle {
                             visible: profCard.sel
                             width: 3
@@ -256,7 +254,7 @@ Flickable {
                             Chip {
                                 visible: page.d.scenario === model.id
                                 kind: "ok"
-                                text: "Активен"
+                                text: Theme.tr("active")
                             }
                         }
                         MouseArea {
@@ -276,7 +274,6 @@ Flickable {
                 spacing: 16
                 visible: page.cur !== null
 
-                // Header + 2-tab switcher
                 Card {
                     id: editorHeaderCard
                     Layout.fillWidth: true
@@ -312,15 +309,15 @@ Flickable {
                             visible: !!(page.cur !== null && page.d.scenario === page.cur.id)
                             kind: page.dirty ? "setup" : "ok"
                             icon: page.dirty ? "wrench" : "check"
-                            text: page.dirty ? "Есть неприменённые правки" : "Сейчас применён"
+                            text: page.dirty ? Theme.tr("dirty_chip") : Theme.tr("applied_chip")
                         }
                         Btn {
                             visible: page.cur !== null
                             primary: !!(page.cur !== null && (page.d.scenario !== page.cur.id || page.dirty))
                             implicitHeight: 36
                             text: (page.cur !== null && page.d.scenario === page.cur.id)
-                                  ? (page.dirty ? "Применить изменения" : "Применить заново")
-                                  : "Применить сейчас"
+                                  ? (page.dirty ? Theme.tr("apply_changes") : Theme.tr("apply_again"))
+                                  : Theme.tr("apply_now")
                             onClicked: {
                                 page.dirty = false
                                 backend.setScenario(page.cur.id)
@@ -329,8 +326,8 @@ Flickable {
                         Btn {
                             visible: !!(page.cur !== null && page.cur.custom === true)
                             implicitHeight: 36
-                            text: "Удалить"
-                            tip: "Удалить этот профиль и его правила. Встроенные профили удалить нельзя."
+                            text: Theme.tr("delete")
+                            tip: Theme.tr("delete_tip")
                             onClicked: backend.deleteProfile(page.cur.id)
                         }
                     }
@@ -339,8 +336,8 @@ Flickable {
                         id: tabBar
                         current: page.tab
                         options: [
-                            { id: "settings", label: "Настройки" + (page.cur && page.cur.settingsCount ? " (" + page.cur.settingsCount + ")" : ""), tip: "Что этот профиль меняет при включении" },
-                            { id: "rules", label: "Автоправила" + (page.cur && page.cur.rulesCount ? " (" + page.cur.rulesCount + ")" : ""), tip: "Когда профиль включается сам в режиме «Авто»" }
+                            { id: "settings", label: Theme.tr("tab_settings") + (page.cur && page.cur.settingsCount ? " (" + page.cur.settingsCount + ")" : ""), tip: Theme.tr("tab_settings_tip") },
+                            { id: "rules", label: Theme.tr("tab_rules") + (page.cur && page.cur.rulesCount ? " (" + page.cur.rulesCount + ")" : ""), tip: Theme.tr("tab_rules_tip") }
                         ]
                         onPicked: function (val) { page.tab = val }
                     }
@@ -352,14 +349,13 @@ Flickable {
                     Layout.fillWidth: true
                     visible: page.tab === "settings"
 
-                    // 1. Power profile
                     SettingRow {
                         id: powerRow
                         icon: "gauge"
-                        title: "Режим мощности"
+                        title: Theme.tr("power_mode")
                         checked: page.curEdit.power !== "keep"
                         valueText: page.modeLabel(page.curEdit.power)
-                        tip: "Переключает режим производительности ноутбука при активации профиля."
+                        tip: Theme.tr("prof_power_tip")
                         onToggled: function (on) { page.save("power", on ? "balanced" : "keep") }
                         SegmentBar {
                             options: page.modeOptions()
@@ -368,33 +364,31 @@ Flickable {
                         }
                     }
 
-                    // 2. Camera
                     SettingRow {
                         id: cameraRow
                         icon: "camera"
-                        title: "Веб-камера"
+                        title: Theme.tr("toggle_camera")
                         checked: page.curEdit.camera !== "keep"
-                        valueText: page.curEdit.camera === "on" ? "Включить" : "Выключить"
-                        tip: "Включает или аппаратно отключает встроенную камеру."
+                        valueText: page.curEdit.camera === "on" ? Theme.tr("turn_on") : Theme.tr("turn_off")
+                        tip: Theme.tr("prof_cam_tip")
                         onToggled: function (on) { page.save("camera", on ? "off" : "keep") }
                         SegmentBar {
                             options: [
-                                { id: "on", label: "Включить", tip: "" },
-                                { id: "off", label: "Выключить", tip: "" }
+                                { id: "on", label: Theme.tr("turn_on"), tip: "" },
+                                { id: "off", label: Theme.tr("turn_off"), tip: "" }
                             ]
                             current: String(page.curEdit.camera || "")
                             onPicked: function (val) { page.save("camera", val) }
                         }
                     }
 
-                    // 3. Brightness
                     SettingRow {
                         id: brightnessRow
                         icon: "sun"
-                        title: "Яркость экрана"
+                        title: Theme.tr("screen_brightness")
                         checked: Number(page.curEdit.brightness || 0) > 0
                         valueText: profBrightSlider.displayValue + " %"
-                        tip: "Автоматически выставляет выбранную яркость экрана."
+                        tip: Theme.tr("prof_bright_tip")
                         onToggled: function (on) {
                             var defVal = (page.d.display && page.d.display.brightness) ? Number(page.d.display.brightness) : 60
                             page.save("brightness", on ? Math.max(5, Math.min(100, defVal)) : 0)
@@ -421,14 +415,13 @@ Flickable {
                         }
                     }
 
-                    // 4. Refresh rate
                     SettingRow {
                         id: refreshRow
                         icon: "monitor"
-                        title: "Частота экрана"
+                        title: Theme.tr("screen_refresh")
                         checked: Number(page.curEdit.refresh || 0) > 0
-                        valueText: Number(page.curEdit.refresh || 0) + " Гц"
-                        tip: "Меньшая частота экономит батарею, большая даёт более плавную картинку."
+                        valueText: Number(page.curEdit.refresh || 0) + " " + Theme.tr("unit_hz")
+                        tip: Theme.tr("refresh_tip")
                         onToggled: function (on) {
                             var rates = page.d.display && page.d.display.rates ? page.d.display.rates : []
                             page.save("refresh", on ? (rates.length > 0 ? Number(rates[0]) : 60) : 0)
@@ -443,20 +436,19 @@ Flickable {
                             visible: !!(!page.d.display || !page.d.display.rates || page.d.display.rates.length === 0)
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            text: "Список частот не найден в текущем окружении."
+                            text: Theme.tr("prof_rates_missing")
                             color: Theme.muted
                             font.pixelSize: 12
                         }
                     }
 
-                    // 5. Audio output
                     SettingRow {
                         id: outputRow
                         icon: "speaker"
-                        title: "Звук (вывод)"
+                        title: Theme.tr("sound_output")
                         checked: String(page.curEdit.output || "") !== ""
                         valueText: String(page.curEdit.output || "")
-                        tip: "Переключает устройство воспроизведения (динамики, наушники и т. д.)."
+                        tip: Theme.tr("prof_out_tip")
                         onToggled: function (on) {
                             if (!on) { page.save("output", ""); return }
                             var outs = page.d.audio && page.d.audio.outputs ? page.d.audio.outputs : []
@@ -464,33 +456,32 @@ Flickable {
                             if (defOut !== "")
                                 page.save("output", defOut)
                             else
-                                backend.say("Устройства вывода звука не найдены")
+                                backend.say(Theme.tr("sound_output_none"))
                         }
                         SelectBox {
                             id: outputSelect
                             items: page.audioItems(page.d.audio ? page.d.audio.outputs : [], page.curEdit.output)
                             currentId: page.matchedAudioId(page.d.audio ? page.d.audio.outputs : [], page.curEdit.output)
-                            placeholder: "Выберите устройство вывода…"
+                            placeholder: Theme.tr("prof_out_ph")
                             onPicked: function (val) { page.save("output", val) }
                         }
                         Txt {
                             visible: !!(page.curEdit.output !== "" && !page.anyMatch(page.d.audio ? page.d.audio.outputs : [], page.curEdit.output))
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            text: "Сейчас это устройство не подключено — при включении профиля звук останется как есть."
+                            text: Theme.tr("prof_out_unplugged")
                             color: Theme.warn
                             font.pixelSize: 12
                         }
                     }
 
-                    // 6. Microphone
                     SettingRow {
                         id: inputRow
                         icon: "mic"
-                        title: "Микрофон"
+                        title: Theme.tr("microphone")
                         checked: String(page.curEdit.input || "") !== ""
                         valueText: String(page.curEdit.input || "")
-                        tip: "Переключает микрофон по умолчанию при включении профиля."
+                        tip: Theme.tr("prof_in_tip")
                         onToggled: function (on) {
                             if (!on) { page.save("input", ""); return }
                             var ins = page.d.audio && page.d.audio.inputs ? page.d.audio.inputs : []
@@ -498,20 +489,20 @@ Flickable {
                             if (defIn !== "")
                                 page.save("input", defIn)
                             else
-                                backend.say("Микрофоны не найдены")
+                                backend.say(Theme.tr("mic_none"))
                         }
                         SelectBox {
                             id: inputSelect
                             items: page.audioItems(page.d.audio ? page.d.audio.inputs : [], page.curEdit.input)
                             currentId: page.matchedAudioId(page.d.audio ? page.d.audio.inputs : [], page.curEdit.input)
-                            placeholder: "Выберите микрофон…"
+                            placeholder: Theme.tr("prof_in_ph")
                             onPicked: function (val) { page.save("input", val) }
                         }
                         Txt {
                             visible: !!(page.curEdit.input !== "" && !page.anyMatch(page.d.audio ? page.d.audio.inputs : [], page.curEdit.input))
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            text: "Сейчас этот микрофон не подключён — при включении профиля останется текущий."
+                            text: Theme.tr("prof_in_unplugged")
                             color: Theme.warn
                             font.pixelSize: 12
                         }
@@ -527,20 +518,19 @@ Flickable {
                     Txt {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Срабатывает, когда на «Обзоре» выбран сценарий «Авто». Если включено несколько условий — должны совпасть все сразу."
+                        text: Theme.tr("rules_intro")
                         color: Theme.muted
                         font.pixelSize: 12
                     }
 
-                    // Rule 1: Running program
                     SettingRow {
                         id: ruleAppsRow
                         icon: "app"
-                        title: "Запущена программа"
-                        offText: "Не важно"
+                        title: Theme.tr("rule_app_title")
+                        offText: Theme.tr("doesnt_matter")
                         checked: page.curRule.processes.length > 0 || page.procsExpanded
-                        valueText: page.curRule.processes.length > 0 ? page.curRule.processes.join(", ") : "Добавьте программу ниже"
-                        tip: "Профиль включится автоматически, пока запущена любая из указанных программ."
+                        valueText: page.curRule.processes.length > 0 ? page.curRule.processes.join(", ") : Theme.tr("rule_app_empty")
+                        tip: Theme.tr("rule_app_tip")
                         onToggled: function (on) {
                             if (on) {
                                 page.procsExpanded = true
@@ -560,7 +550,7 @@ Flickable {
                                 delegate: Pill {
                                     implicitHeight: 32
                                     text: model.name + "  ✕"
-                                    tip: (backend ? backend.describeProgram(model.name) : "") + "\nНажмите, чтобы убрать."
+                                    tip: (backend ? backend.describeProgram(model.name) : "") + "\n" + Theme.tr("click_remove")
                                     sel: true
                                     onClicked: page.removeProgram(model.name)
                                 }
@@ -574,10 +564,10 @@ Flickable {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
                                 implicitHeight: 38
-                                ToolTip.text: "Имя процесса (можно со звёздочкой: steam_app_* — любая игра из Steam)."
+                                ToolTip.text: Theme.tr("rule_app_input_tip")
                                 ToolTip.visible: hovered
                                 ToolTip.delay: 450
-                                placeholderText: "Например: cs2 или steam_app_*"
+                                placeholderText: Theme.tr("rule_app_ph")
                                 placeholderTextColor: Theme.muted
                                 color: Theme.text
                                 font.family: Theme.sans
@@ -593,15 +583,15 @@ Flickable {
                                 onAccepted: { page.addProgram(text); text = "" }
                             }
                             Btn {
-                                text: "Добавить"
+                                text: Theme.tr("add")
                                 implicitHeight: 38
                                 onClicked: { page.addProgram(nameField.text); nameField.text = "" }
                             }
                         }
                         Pill {
                             implicitHeight: 30
-                            text: page.showRunning ? "Скрыть запущенные" : "Выбрать из запущенных сейчас"
-                            tip: "Покажет открытые сейчас программы — нажмите на любую, чтобы добавить."
+                            text: page.showRunning ? Theme.tr("hide_running") : Theme.tr("pick_running")
+                            tip: Theme.tr("pick_running_tip")
                             onClicked: page.showRunning = !page.showRunning
                         }
                         Flow {
@@ -614,54 +604,52 @@ Flickable {
                                 delegate: Pill {
                                     implicitHeight: 30
                                     text: model.name
-                                    tip: (backend ? backend.describeProgram(model.name) : "") + "\nНажмите, чтобы добавить."
+                                    tip: (backend ? backend.describeProgram(model.name) : "") + "\n" + Theme.tr("click_add")
                                     onClicked: page.addProgram(model.name)
                                 }
                             }
                         }
                     }
 
-                    // Rule 2: Power source
                     SettingRow {
                         id: rulePowerRow
                         icon: "battery"
-                        title: "Питание ноутбука"
-                        offText: "Не важно"
+                        title: Theme.tr("rule_power_title")
+                        offText: Theme.tr("doesnt_matter")
                         checked: String(page.curRule.when || "") !== ""
-                        valueText: page.curRule.when === "battery" ? "Работа от батареи" : "Подключена зарядка"
-                        tip: "Переключает профиль при отключении или подключении зарядки."
+                        valueText: page.curRule.when === "battery" ? Theme.tr("rule_battery") : Theme.tr("rule_ac")
+                        tip: Theme.tr("rule_power_tip")
                         onToggled: function (on) {
                             page.saveRule(page.curRule.processes, on ? "battery" : "", page.curRule.idle)
                         }
                         SegmentBar {
                             options: [
-                                { id: "battery", label: "От батареи", tip: "Когда ноутбук отключён от розетки." },
-                                { id: "ac", label: "От зарядки", tip: "Когда ноутбук подключён к розетке." }
+                                { id: "battery", label: Theme.tr("rule_battery"), tip: Theme.tr("rule_battery_tip") },
+                                { id: "ac", label: Theme.tr("rule_ac"), tip: Theme.tr("rule_ac_tip") }
                             ]
                             current: String(page.curRule.when || "")
                             onPicked: function (val) { page.saveRule(page.curRule.processes, val, page.curRule.idle) }
                         }
                     }
 
-                    // Rule 3: Idle (AFK)
                     SettingRow {
                         id: ruleIdleRow
                         icon: "clock"
-                        title: "Нет действий (AFK)"
-                        offText: "Не важно"
+                        title: Theme.tr("rule_idle_title")
+                        offText: Theme.tr("doesnt_matter")
                         checked: Number(page.curRule.idle || 0) > 0
-                        valueText: "Через " + Number(page.curRule.idle || 0) + " мин"
-                        tip: "Включает профиль, если не трогать клавиатуру и мышь указанное время."
+                        valueText: Theme.tr("rule_idle_val").replace("{m}", String(Number(page.curRule.idle || 0)))
+                        tip: Theme.tr("rule_idle_tip")
                         onToggled: function (on) {
                             page.saveRule(page.curRule.processes, page.curRule.when, on ? 10 : 0)
                         }
                         SegmentBar {
                             options: [
-                                { id: "5", label: "5 мин", tip: "" },
-                                { id: "10", label: "10 мин", tip: "" },
-                                { id: "15", label: "15 мин", tip: "" },
-                                { id: "30", label: "30 мин", tip: "" },
-                                { id: "60", label: "60 мин", tip: "" }
+                                { id: "5", label: "5 " + Theme.tr("unit_min"), tip: "" },
+                                { id: "10", label: "10 " + Theme.tr("unit_min"), tip: "" },
+                                { id: "15", label: "15 " + Theme.tr("unit_min"), tip: "" },
+                                { id: "30", label: "30 " + Theme.tr("unit_min"), tip: "" },
+                                { id: "60", label: "60 " + Theme.tr("unit_min"), tip: "" }
                             ]
                             current: String(page.curRule.idle || "")
                             onPicked: function (val) { page.saveRule(page.curRule.processes, page.curRule.when, Number(val)) }
@@ -670,21 +658,20 @@ Flickable {
                             visible: !page.d.idleAvailable
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            text: "Нужна программа swayidle: sudo pacman -S swayidle"
+                            text: Theme.tr("swayidle_missing")
                             color: Theme.warn
                             font.pixelSize: 12
                         }
                     }
 
-                    // Rule 4: CPU Temperature
                     SettingRow {
                         id: ruleTempRow
                         icon: "flame"
-                        title: "Защита от перегрева (CPU)"
-                        offText: "Не важно"
+                        title: Theme.tr("rule_temp_title")
+                        offText: Theme.tr("doesnt_matter")
                         checked: Number(page.curRule.temp || 0) > 0
-                        valueText: "Выше " + Number(page.curRule.temp || 0) + " °C"
-                        tip: "Срабатывает раньше остальных правил при достижении указанной температуры процессора."
+                        valueText: Theme.tr("rule_temp_val").replace("{t}", String(Number(page.curRule.temp || 0)))
+                        tip: Theme.tr("rule_temp_tip")
                         onToggled: function (on) {
                             page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, on ? 90 : 0)
                         }
@@ -700,23 +687,22 @@ Flickable {
                         }
                     }
 
-                    // Rule 5: Time of day
                     SettingRow {
                         id: ruleHoursRow
                         icon: "sun"
-                        title: "Время суток"
-                        offText: "Не важно"
+                        title: Theme.tr("rule_hours_title")
+                        offText: Theme.tr("doesnt_matter")
                         checked: String(page.curRule.hours || "") !== ""
                         valueText: String(page.curRule.hours || "").replace("-", " – ")
-                        tip: "Ограничивает срабатывание правила часами суток (можно через полночь)."
+                        tip: Theme.tr("rule_hours_tip")
                         onToggled: function (on) {
                             page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, on ? "22:00-07:00" : "")
                         }
                         SegmentBar {
                             options: [
-                                { id: "22:00-07:00", label: "22:00 – 07:00", tip: "Ночь" },
-                                { id: "09:00-18:00", label: "09:00 – 18:00", tip: "День" },
-                                { id: "18:00-23:00", label: "18:00 – 23:00", tip: "Вечер" }
+                                { id: "22:00-07:00", label: "22:00 – 07:00", tip: Theme.tr("night_word") },
+                                { id: "09:00-18:00", label: "09:00 – 18:00", tip: Theme.tr("day_word") },
+                                { id: "18:00-23:00", label: "18:00 – 23:00", tip: Theme.tr("evening_word") }
                             ]
                             current: String(page.curRule.hours || "")
                             onPicked: function (val) { page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, val) }
@@ -730,13 +716,13 @@ Flickable {
                                 Layout.maximumWidth: 200
                                 Layout.minimumWidth: 0
                                 implicitHeight: 38
-                                placeholderText: "ЧЧ:ММ-ЧЧ:ММ"
+                                placeholderText: Theme.tr("hours_ph")
                                 placeholderTextColor: Theme.muted
                                 color: Theme.text
                                 font.family: Theme.mono
                                 font.pixelSize: 13
                                 leftPadding: 12
-                                ToolTip.text: "Свой интервал, например 23:30-06:45."
+                                ToolTip.text: Theme.tr("hours_tip")
                                 ToolTip.visible: hovered
                                 ToolTip.delay: 450
                                 background: Rectangle {
@@ -748,7 +734,7 @@ Flickable {
                                 onAccepted: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, text)
                             }
                             Btn {
-                                text: "Применить"
+                                text: Theme.tr("apply")
                                 implicitHeight: 38
                                 onClicked: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, hoursField.text)
                             }
@@ -756,16 +742,15 @@ Flickable {
                     }
                 }
 
-                // Fallback card (shown on the rules tab)
                 Card {
                     id: fallbackCard
                     Layout.fillWidth: true
                     visible: page.tab === "rules"
-                    Txt { text: "Если ни одно правило не подошло"; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    Txt { text: Theme.tr("fallback_title"); font.pixelSize: 15; font.weight: Font.DemiBold }
                     Txt {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Например, вы закрыли игру или подключили зарядку — в режиме «Авто» включится этот профиль."
+                        text: Theme.tr("fallback_desc")
                         color: Theme.muted
                         font.pixelSize: 12
                     }
@@ -778,7 +763,7 @@ Flickable {
                     Txt {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Конфиг: ~/.config/dockit/profiles.toml"
+                        text: Theme.tr("config_path_label")
                         color: Theme.muted
                         font.family: Theme.mono
                         font.pixelSize: 11

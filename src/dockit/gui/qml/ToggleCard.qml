@@ -49,7 +49,7 @@ Rectangle {
         Txt {
             width: parent.width
             elide: Text.ElideRight
-            text: (root.on ? "Включено" : "Выключено") + (root.can ? "" : " · только просмотр")
+            text: (root.on ? Theme.tr("toggle_on") : Theme.tr("toggle_off")) + (root.can ? "" : Theme.tr("toggle_view_only"))
             font.pixelSize: 12
             color: root.on ? Theme.accent : Theme.muted
             Behavior on color { ColorAnimation { duration: 180 } }
