@@ -4,7 +4,7 @@
 
 A control panel for Linux laptops that shows what works on **your** machine, what does not, and how to fix it.
 
-> Status: active beta (`0.5.0`). Includes a Qt Quick control panel (Overview, Performance, Battery & Display, Cooling, Peripherals, Profiles, Diagnostics, Settings), a root polkit daemon, automatic profile rules, GPU sleep inspection, tray icon, and CLI. Tested on Gigabyte Gaming A16 3VH (Ryzen 7 260, RTX 5060).
+> Status: active beta (`0.5.1`). Includes a Qt Quick control panel (Overview, Performance, Battery & Display, Cooling, Peripherals, Profiles, Diagnostics, Settings), a root polkit daemon, automatic profile rules, GPU sleep inspection, tray icon, and CLI. Tested on Gigabyte Gaming A16 3VH (Ryzen 7 260, RTX 5060).
 > Unofficial project. Not affiliated with Gigabyte, EPOS, Hator or any other manufacturer.
 
 Русская версия: [README.ru.md](README.ru.md)
