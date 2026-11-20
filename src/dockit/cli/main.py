@@ -206,6 +206,26 @@ def cmd_auto(args: argparse.Namespace) -> int:
         watcher.stop()
 
 
+def cmd_gpu(args: argparse.Namespace) -> int:
+    """Read-only, never starts nvidia-smi (that would wake the card)."""
+    from ..core import gpu_power
+    from ..gui.viewmodel import gpu_sleep_view
+
+    info = gpu_power.summary()
+    if info is None:
+        print("Видеокарта NVIDIA не найдена.")
+        return 0
+    view = gpu_sleep_view({"sleep": info})
+    print(f"Видеокарта: {view['sleepText']} (runtime_status={info['runtime']}, control={info['control']})")
+    print(view["sleepTip"])
+    if info["users"]:
+        print("Программы с открытой видеокартой:")
+        for u in info["users"]:
+            mark = "держит карту" if u["card"] else "только служебные файлы"
+            print(f"  {u['pid']:>7}  {u['name']:<20} {mark}")
+    return 0
+
+
 def cmd_audio(args: argparse.Namespace) -> int:
     from ..core import audio
 
@@ -292,6 +312,9 @@ def main(argv: list[str] | None = None) -> int:
                          choices=["status", "output", "input", "mic", "volume"])
     p_audio.add_argument("value", nargs="?")
     p_audio.set_defaults(func=cmd_audio)
+
+    p_gpu = sub.add_parser("gpu", help="is the NVIDIA card asleep and which programs keep it awake")
+    p_gpu.set_defaults(func=cmd_gpu)
 
     p_gui = sub.add_parser("gui", help="open the window")
     p_gui.set_defaults(func=cmd_gui)

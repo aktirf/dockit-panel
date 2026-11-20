@@ -19,7 +19,7 @@ from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from ..core import audio, processes, profiles, sysfs
 from ..core import idle
-from ..core import bluetooth, tuning
+from ..core import bluetooth, gpu_power, tuning
 from ..core.cpu import CpuMonitor
 from ..core.scanner import scan
 from ..daemon import client
@@ -267,10 +267,11 @@ class Backend(QObject):
         if now - getattr(self, "_tuning_at", 0) > 10 or not hasattr(self, "_tuning_cache"):
             self._tuning_at = now
             data = {"boost": tuning.read_boost(), "epp": tuning.read_epp(), "eppChoices": tuning.epp_choices()}
-            if now - getattr(self, "_gpu_lim_at", -999) > 60:
+            if now - getattr(self, "_gpu_lim_at", -999) > 60 and not gpu_power.gpu_asleep():
+                # nvidia-smi would wake a sleeping card: keep the old value meanwhile
                 self._gpu_lim_at = now
                 self._gpu_lim = tuning.gpu_power_limits()
-            data["gpuLimit"] = self._gpu_lim
+            data["gpuLimit"] = getattr(self, "_gpu_lim", None)
             self._tuning_cache = data
         return dict(self._tuning_cache)
 
