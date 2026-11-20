@@ -2,7 +2,7 @@
 pkgname=dockit-panel
 pkgver=0.10.1
 pkgrel=1
-pkgdesc='Control panel for Gigabyte laptops and peripherals on Linux (GiMATE replacement)'
+pkgdesc='Open-source Linux laptop control panel (alternative to GiMATE, Lenovo Vantage, etc.)'
 arch=('any')
 url='https://github.com/aktirf/dockit-panel'
 license=('GPL-3.0-or-later')
