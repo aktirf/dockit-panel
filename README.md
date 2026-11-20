@@ -6,7 +6,7 @@
 
 **Device and Operational Control Kit for Integrated Tuning**
 
-An open-source Linux laptop control panel — built as a clean, transparent replacement for Windows-only vendor tools (like Gigabyte GiMATE).
+An open-source Linux laptop control panel — a clean, lightweight alternative to Windows-only vendor suites like **Gigabyte GiMATE**, **Lenovo Vantage**, **MSI Center**, and others.
 
 [![Version](https://img.shields.io/badge/version-0.10.1%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel)
 [![Python](https://img.shields.io/badge/python-3.11%2B-5AB0FF?style=flat-square)](https://www.python.org/)
@@ -25,7 +25,7 @@ An open-source Linux laptop control panel — built as a clean, transparent repl
 ---
 
 > **Status:** active beta (`0.10.1`), daily-driven on **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) on CachyOS (Hyprland & KDE Plasma).
-> Unofficial open-source project — not affiliated with Gigabyte, EPOS, Hator, or any other manufacturer.
+> Unofficial open-source project — not affiliated with Gigabyte, Lenovo, MSI, EPOS, Hator, or any other manufacturer.
 
 ## Screenshots
 

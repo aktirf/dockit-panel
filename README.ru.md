@@ -6,7 +6,7 @@
 
 **Device and Operational Control Kit for Integrated Tuning**
 
-Открытая панель управления для ноутбуков на Linux — честная и понятная замена фирменным Windows-программам вроде Gigabyte GiMATE.
+Открытая панель управления для ноутбуков на Linux — лёгкая и честная альтернатива фирменным Windows-программам вроде **Gigabyte GiMATE**, **Lenovo Vantage**, **MSI Center** и не только.
 
 [![Версия](https://img.shields.io/badge/version-0.10.1%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel)
 [![Python](https://img.shields.io/badge/python-3.11%2B-5AB0FF?style=flat-square)](https://www.python.org/)
@@ -25,7 +25,7 @@
 ---
 
 > **Статус:** активная бета (`0.10.1`), ежедневно тестируется на **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) под CachyOS (Hyprland и KDE Plasma).
-> Неофициальный открытый проект — не связан с Gigabyte, EPOS, Hator и другими производителями.
+> Неофициальный открытый проект — не связан с Gigabyte, Lenovo, MSI, EPOS, Hator и другими производителями.
 
 ## Скриншоты
 
