@@ -1,6 +1,6 @@
 # Maintainer: AkTirF <semenburlacenko3@gmail.com>
 pkgname=dockit-panel
-pkgver=0.9.0
+pkgver=0.9.1
 pkgrel=1
 pkgdesc='Control panel for Gigabyte laptops and peripherals on Linux (GiMATE replacement)'
 arch=('any')
