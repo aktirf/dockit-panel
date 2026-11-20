@@ -32,3 +32,17 @@ def test_tray_tooltip_formats_mode_and_temps():
     assert tip_awake == "DOCKIT · Производительность · CPU 72 °C · GPU 64 °C"
 
     assert tray.format_tooltip({}, modes) == "DOCKIT"
+
+
+def test_version_matches_across_package_files():
+    import re
+    import tomllib
+    from pathlib import Path
+    import dockit
+
+    root = Path(__file__).resolve().parents[1]
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    pkgbuild = (root / "packaging/arch/PKGBUILD").read_text(encoding="utf-8")
+    m = re.search(r"^pkgver=([^\s]+)", pkgbuild, re.M)
+    assert m is not None
+    assert dockit.__version__ == pyproject["project"]["version"] == m.group(1)

@@ -20,6 +20,9 @@ Rectangle {
     Txt {
         id: label
         anchors.centerIn: parent
+        width: Math.max(0, root.width - 20)
+        horizontalAlignment: Text.AlignHCenter
+        elide: Text.ElideRight
         text: root.text
         color: root.primary ? "#0B1218" : Theme.text
         font.weight: Font.DemiBold

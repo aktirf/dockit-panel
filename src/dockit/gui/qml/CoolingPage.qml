@@ -20,12 +20,15 @@ PageFrame {
     Card {
         Layout.fillWidth: true
         visible: cool.hot === true
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: 12
+            columns: root.width >= 620 ? 3 : 1
+            columnSpacing: 12
+            rowSpacing: 10
             Chip { kind: "setup"; text: "Горячо" }
             Txt {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 wrapMode: Text.WordWrap
                 color: Theme.warn
                 text: "Температура выше " + cool.warn + " °C. Включите режим «Баланс» или «Тишина», проверьте, не закрыты ли вентиляционные отверстия."
@@ -36,7 +39,7 @@ PageFrame {
 
     GridLayout {
         Layout.fillWidth: true
-        columns: width >= 700 ? 3 : 1
+        columns: width >= 720 ? 3 : (width >= 480 ? 2 : 1)
         columnSpacing: 16
         rowSpacing: 16
 

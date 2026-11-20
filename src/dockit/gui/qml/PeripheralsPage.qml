@@ -19,9 +19,10 @@ PageFrame {
                 spacing: 12
                 ColumnLayout {
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                     spacing: 2
-                    Txt { text: model.name; font.pixelSize: 15; font.weight: Font.DemiBold }
-                    Txt { text: model.kind + "  ·  USB " + model.usbId; color: Theme.muted; font.pixelSize: 12 }
+                    Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: model.name; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: model.kind + "  ·  USB " + model.usbId; color: Theme.muted; font.pixelSize: 12 }
                 }
                 Chip {
                     kind: model.known ? "ok" : "no"

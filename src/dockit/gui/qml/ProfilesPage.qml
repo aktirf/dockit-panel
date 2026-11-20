@@ -92,6 +92,7 @@ Flickable {
         saveRule(cur.rule.processes.filter(function (x) { return x !== name }), cur.rule.when, cur.rule.idle)
     }
 
+    readonly property int sidePad: page.width < 560 ? 16 : 32
     clip: true
     contentWidth: width
     contentHeight: content.implicitHeight + 68
@@ -100,28 +101,29 @@ Flickable {
 
     ColumnLayout {
         id: content
-        x: 32
+        width: Math.min(Math.max(200, page.width - page.sidePad * 2), 1020)
+        x: Math.max(page.sidePad, (page.width - width) / 2)
         y: 28
-        width: page.width - 64
         spacing: 24
 
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 4
-            Txt { text: "Профили"; font.pixelSize: 28; font.weight: Font.DemiBold }
-            Txt { text: "Набор настроек под задачу и правила, когда его включать"; color: Theme.muted }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Профили"; font.pixelSize: page.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Набор настроек под задачу и правила, когда его включать"; color: Theme.muted }
         }
 
         GridLayout {
             Layout.fillWidth: true
-            columns: page.width >= 860 ? 2 : 1
+            columns: page.width >= 820 ? 2 : 1
             columnSpacing: 16
             rowSpacing: 16
 
             // ----- profile list -----
             Card {
-                Layout.preferredWidth: page.width >= 860 ? 300 : -1
-                Layout.fillWidth: page.width < 860
+                Layout.preferredWidth: page.width >= 820 ? 290 : -1
+                Layout.fillWidth: page.width < 820
+                Layout.minimumWidth: 0
                 Layout.alignment: Qt.AlignTop
                 Txt { text: "Ваши профили"; font.pixelSize: 16; font.weight: Font.DemiBold }
                 RowLayout {
@@ -130,6 +132,7 @@ Flickable {
                     TextField {
                         id: newName
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         implicitHeight: 40
                         placeholderText: "Новый профиль"
                         placeholderTextColor: Theme.muted
@@ -194,38 +197,45 @@ Flickable {
             // ----- selected profile -----
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 Layout.alignment: Qt.AlignTop
                 spacing: 16
 
                 Card {
                     Layout.fillWidth: true
                     visible: page.cur !== null
-                    RowLayout {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 12
+                        spacing: 10
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 2
-                            Txt { text: page.cur ? page.cur.name : ""; font.pixelSize: 20; font.weight: Font.DemiBold }
-                            Txt { text: page.cur ? page.cur.sub : ""; color: Theme.muted; font.pixelSize: 13 }
+                            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: page.cur ? page.cur.name : ""; font.pixelSize: 20; font.weight: Font.DemiBold }
+                            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: page.cur ? page.cur.sub : ""; color: Theme.muted; font.pixelSize: 13 }
                         }
-                        Chip {
-                            visible: !!(page.cur !== null && page.d.scenario === page.cur.id)
-                            kind: "ok"
-                            icon: "check"
-                            text: "Сейчас применён"
-                        }
-                        Btn {
-                            visible: !!(page.cur !== null && page.d.scenario !== page.cur.id)
-                            primary: true
-                            text: "Применить сейчас"
-                            onClicked: backend.setScenario(page.cur.id)
-                        }
-                        Btn {
-                            visible: !!(page.cur !== null && page.cur.custom === true)
-                            text: "Удалить"
-                            tip: "Удалить этот профиль и его правила. Встроенные профили удалить нельзя."
-                            onClicked: backend.deleteProfile(page.cur.id)
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Chip {
+                                visible: !!(page.cur !== null && page.d.scenario === page.cur.id)
+                                kind: "ok"
+                                icon: "check"
+                                text: "Сейчас применён"
+                            }
+                            Btn {
+                                visible: !!(page.cur !== null && page.d.scenario !== page.cur.id)
+                                primary: true
+                                implicitHeight: 38
+                                text: "Применить сейчас"
+                                onClicked: backend.setScenario(page.cur.id)
+                            }
+                            Btn {
+                                visible: !!(page.cur !== null && page.cur.custom === true)
+                                implicitHeight: 38
+                                text: "Удалить"
+                                tip: "Удалить этот профиль и его правила. Встроенные профили удалить нельзя."
+                                onClicked: backend.deleteProfile(page.cur.id)
+                            }
                         }
                     }
                     Txt { text: "Что применяется"; font.pixelSize: 14; font.weight: Font.DemiBold; color: Theme.muted }
@@ -390,6 +400,7 @@ Flickable {
                         TextField {
                             id: nameField
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             implicitHeight: 40
                             ToolTip.text: "Имя процесса, как в системе (команда ps). Можно со звёздочкой: steam_app_* — любая игра из Steam."
                             ToolTip.visible: hovered
@@ -513,8 +524,10 @@ Flickable {
                         spacing: 8
                         TextField {
                             id: hoursField
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 200
+                            Layout.minimumWidth: 0
                             implicitHeight: 40
-                            implicitWidth: 180
                             placeholderText: "ЧЧ:ММ-ЧЧ:ММ"
                             placeholderTextColor: Theme.muted
                             color: Theme.text

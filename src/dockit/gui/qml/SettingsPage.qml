@@ -131,7 +131,7 @@ PageFrame {
     Card {
         Layout.fillWidth: true
         Txt { text: "О программе"; font.pixelSize: 16; font.weight: Font.DemiBold }
-        Row2 { label: "Версия"; value: backend.version + " (альфа)" }
+        Row2 { label: "Версия"; value: backend.version + " (бета)" }
         Row2 { label: "Лицензия"; value: "GPL-3.0-or-later" }
         Row2 { label: "Проект"; value: "github.com/aktirf/dockit-panel" }
         Txt {

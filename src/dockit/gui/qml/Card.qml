@@ -6,8 +6,9 @@ Rectangle {
     default property alias content: col.data
     property int pad: 20
 
-    implicitWidth: 260
+    implicitWidth: 200
     implicitHeight: col.implicitHeight + pad * 2
+    Layout.minimumWidth: 0
     color: Theme.card
     radius: 16
     border.width: 1

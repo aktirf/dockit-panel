@@ -7,6 +7,7 @@ Rectangle {
     property string text: ""
     property bool active: false
     property bool ready: true
+    property bool compact: false
     property int badge: 0
     signal clicked()
 
@@ -19,22 +20,27 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 12
-        anchors.rightMargin: 12
-        spacing: 12
+        anchors.leftMargin: root.compact ? 0 : 12
+        anchors.rightMargin: root.compact ? 0 : 12
+        spacing: root.compact ? 0 : 12
         Icon {
+            Layout.alignment: Qt.AlignCenter
+            Layout.fillWidth: root.compact
             name: root.icon
             size: 20
             color: root.active ? Theme.accent : Theme.navText
         }
         Txt {
+            visible: !root.compact
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            elide: Text.ElideRight
             text: root.text
             color: root.active ? "#FFFFFF" : Theme.navText
             font.weight: Font.Medium
         }
         Rectangle {
-            visible: root.badge > 0
+            visible: !root.compact && root.badge > 0
             implicitWidth: Math.max(20, badgeText.implicitWidth + 12)
             implicitHeight: 20
             radius: 10
@@ -49,6 +55,18 @@ Rectangle {
             }
         }
     }
+    // Compact mode badge dot on top-right of the icon
+    Rectangle {
+        visible: root.compact && root.badge > 0
+        width: 8
+        height: 8
+        radius: 4
+        color: Theme.warn
+        anchors.top: parent.top
+        anchors.topMargin: 8
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+    }
     MouseArea {
         id: mouse
         anchors.fill: parent
@@ -56,4 +74,5 @@ Rectangle {
         cursorShape: Qt.PointingHandCursor
         onClicked: root.clicked()
     }
+    Tip { text: root.compact ? root.text : "" }
 }
