@@ -33,8 +33,16 @@ Window {
         featuresModel.sync(d.features)
         journalModel.sync(d.journal)
     }
-    Connections { target: backend; function onStateChanged() { win.syncAll() } }
-    Component.onCompleted: syncAll()
+    function syncAccent() {
+        if (backend && backend.accentColor)
+            Theme.accent = backend.accentColor
+    }
+    Connections {
+        target: backend
+        function onStateChanged() { win.syncAll() }
+        function onSettingsChanged() { win.syncAccent() }
+    }
+    Component.onCompleted: { syncAll(); syncAccent() }
     readonly property int problems: d.features ? d.features.filter(function (f) { return f.status !== "ok" }).length : 0
 
     function modeName(id) {
@@ -42,7 +50,6 @@ Window {
             if (d.modes[i].id === id) return d.modes[i].name
         return "—"
     }
-    function soon() { backend.say("Эта страница ещё в разработке") }
 
     RowLayout {
         anchors.fill: parent
@@ -90,7 +97,6 @@ Window {
                 NavItem { icon: "gauge"; text: "Производительность"; active: win.page === "performance"; onClicked: win.page = "performance" }
                 NavItem { icon: "battery"; text: "Питание и батарея"; active: win.page === "battery"; onClicked: win.page = "battery" }
                 NavItem { icon: "fan"; text: "Охлаждение"; active: win.page === "cooling"; onClicked: win.page = "cooling" }
-                NavItem { icon: "sun"; text: "Подсветка"; active: win.page === "backlight"; onClicked: win.page = "backlight" }
                 NavItem { icon: "mouse"; text: "Периферия"; active: win.page === "peripherals"; onClicked: win.page = "peripherals" }
                 NavItem { icon: "layers"; text: "Профили"; active: win.page === "profiles"; onClicked: win.page = "profiles" }
 
@@ -210,9 +216,9 @@ Window {
             ColumnLayout {
                 id: content
                 visible: d.ready
-                x: 32
+                width: Math.min(flick.width - 64, 1020)
+                x: Math.max(32, (flick.width - width) / 2)
                 y: 28
-                width: flick.width - 64
                 spacing: 24
 
                 // header
@@ -314,7 +320,7 @@ Window {
                                 Txt { Layout.fillWidth: true; text: d.battery.text || ""; font.pixelSize: 13; color: Theme.muted }
                                 Txt { text: d.battery.source || ""; font.pixelSize: 13 }
                             }
-                            Bar { Layout.fillWidth: true; value: d.battery.percent || 0; fill: Theme.ok }
+                            Bar { Layout.fillWidth: true; value: d.battery.percent || 0; fill: Theme.batteryColor(d.battery.percent) }
                         }
                         RowLayout {
                             Layout.fillWidth: true
@@ -343,26 +349,77 @@ Window {
                     }
 
                     Card {
+                        id: overviewHardwareCard
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         RowLayout {
                             Layout.fillWidth: true
-                            Txt { Layout.fillWidth: true; text: "Режим графики"; font.pixelSize: 15; font.weight: Font.DemiBold }
-                            Chip { kind: "root"; icon: "lock"; text: "Только в BIOS" }
+                            Txt { Layout.fillWidth: true; text: "Процессор и видеокарта"; font.pixelSize: 15; font.weight: Font.DemiBold }
+                            Chip {
+                                id: overviewGpuChip
+                                visible: !!(d.gpu && d.gpu.sleepText && d.gpu.sleepText !== "—")
+                                kind: !!(d.gpu && d.gpu.asleep) ? "ok" : ((d.gpu && d.gpu.sleepText === "не засыпает") ? "setup" : "info")
+                                text: d.gpu ? "GPU: " + String(d.gpu.sleepText || "—") : ""
+                            }
                         }
-                        Txt { text: "Не определяется"; font.pixelSize: 22; font.weight: Font.DemiBold }
-                        Txt {
+                        RowLayout {
                             Layout.fillWidth: true
-                            text: "Переключатель MUX (дискретная или гибридная графика) DOCKIT пока не умеет ни читать, ни менять. Его можно поменять в BIOS или в GiMATE на Windows."
-                            wrapMode: Text.WordWrap
-                            color: Theme.muted
-                            lineHeight: 1.25
+                            spacing: 12
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                Txt { text: "CPU"; color: Theme.muted; font.pixelSize: 12 }
+                                Row {
+                                    spacing: 4
+                                    Txt { text: d.cpu ? String(d.cpu.temp || "—") : "—"; font.family: Theme.mono; font.pixelSize: 30; font.weight: Font.Medium }
+                                    Txt { text: "°C"; color: Theme.muted; anchors.baseline: parent.children[0].baseline }
+                                }
+                                Txt {
+                                    text: (d.cpu && d.cpu.load !== null && d.cpu.load !== undefined) ? ("Загрузка " + String(d.cpu.load) + " %") : "—"
+                                    color: Theme.muted; font.pixelSize: 12; font.family: Theme.mono
+                                }
+                            }
+                            Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                Txt { text: "GPU"; color: Theme.muted; font.pixelSize: 12 }
+                                Row {
+                                    spacing: 4
+                                    Txt {
+                                        text: !!(d.gpu && d.gpu.asleep) ? "Спит" : (d.gpu ? String(d.gpu.temp || "—") : "—")
+                                        color: !!(d.gpu && d.gpu.asleep) ? Theme.okText : Theme.text
+                                        font.family: Theme.mono; font.pixelSize: 30; font.weight: Font.Medium
+                                    }
+                                    Txt {
+                                        visible: !!(d.gpu && !d.gpu.asleep)
+                                        text: "°C"; color: Theme.muted; anchors.baseline: parent.children[0].baseline
+                                    }
+                                }
+                                Txt {
+                                    text: !!(d.gpu && d.gpu.asleep)
+                                          ? "Не тратит батарею"
+                                          : ((d.gpu && d.gpu.power && d.gpu.power !== "—") ? (String(d.gpu.power) + " Вт") : "—")
+                                    color: Theme.muted; font.pixelSize: 12; font.family: Theme.mono
+                                }
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Txt { Layout.fillWidth: true; text: "Частота CPU"; color: Theme.soft }
+                            Txt { text: (d.cpu ? String(d.cpu.freq || "—") : "—") + " ГГц"; font.family: Theme.mono }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: !!(d.gpu && d.gpu.holders && d.gpu.holders.length > 0)
+                            Txt { Layout.fillWidth: true; text: "Держат GPU"; color: Theme.soft }
+                            Txt { text: (d.gpu && d.gpu.holders) ? d.gpu.holders.join(", ") : ""; color: Theme.warn; font.pixelSize: 12; elide: Text.ElideRight }
                         }
                         Item { Layout.fillHeight: true }
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
                         Btn {
-                            text: "Как это изменить"
-                            onClicked: backend.say("MUX меняется в BIOS или в GiMATE (Windows), потом нужна перезагрузка")
+                            text: "Открыть «Производительность»"
+                            onClicked: win.page = "performance"
                         }
                     }
                 }
@@ -381,6 +438,7 @@ Window {
                             model: togglesModel
                             delegate: ToggleCard {
                                 Layout.fillWidth: true
+                                icon: String(model.id || "")
                                 label: model.label
                                 on: model.on
                                 can: model.can

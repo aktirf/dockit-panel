@@ -15,7 +15,7 @@ QtObject {
     readonly property color muted: "#9AA7B4"
     readonly property color navText: "#AEBBC7"
     readonly property color navActive: "#1C2834"
-    readonly property color accent: "#5AB0FF"
+    property color accent: "#5AB0FF"
     readonly property color ok: "#4CC38A"
     readonly property color okText: "#7FE0AE"
     readonly property color warn: "#F5C56B"
@@ -44,5 +44,12 @@ QtObject {
         if (kind === "root") return "lock"
         if (kind === "no") return "x"
         return ""
+    }
+    function batteryColor(percent) {
+        if (percent === null || percent === undefined) return ok
+        var p = Number(percent)
+        if (p < 20) return err
+        if (p < 40) return warn
+        return ok
     }
 }

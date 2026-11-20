@@ -565,3 +565,13 @@ def delete_profile(pid: str, path: Path | None = None) -> None:
     temp = path.with_suffix(".tmp")
     temp.write_text(_dump(data), encoding="utf-8")
     temp.replace(path)
+
+
+def next_profile_id(available: dict[str, Profile], current: str) -> str | None:
+    """Next profile id in order, wrapping around (used by `dockit mode next`)."""
+    ids = list(available.keys())
+    if not ids:
+        return None
+    if current in ids:
+        return ids[(ids.index(current) + 1) % len(ids)]
+    return ids[0]

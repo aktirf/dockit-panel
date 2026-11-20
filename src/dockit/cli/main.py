@@ -166,10 +166,33 @@ def cmd_mode(args: argparse.Namespace) -> int:
             print(f"  {p.id:<8} {p.name:<8} {', '.join(extra)}")
         print(f"Сейчас режим мощности: {sysfs.read_text(PROFILE) or '?'}")
         return 0
+    if args.name == "next":
+        picked = pf.next_profile_id(available, pf.load_scenario())
+        if picked is None:
+            print("Профили не найдены.")
+            return 1
+        profile = available[picked]
+        pf.save_scenario(picked)
+        print(f"Профиль: {profile.name}")
+        for line in pf.apply(profile, _ask_service):
+            print("  " + line)
+        import shutil
+        import subprocess
+        if shutil.which("notify-send"):
+            try:
+                subprocess.Popen(
+                    ["notify-send", "-a", "DOCKIT", "-i", "dockit",
+                     f"DOCKIT: {profile.name}", "Профиль переключён"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+            except OSError:
+                pass
+        return 0
     profile = available.get(args.name)
     if profile is None:
         print("Нет такого профиля. Список: dockit mode")
         return 1
+    pf.save_scenario(profile.id)
     for line in pf.apply(profile, _ask_service):
         print(line)
     return 0
@@ -298,8 +321,8 @@ def main(argv: list[str] | None = None) -> int:
     p_camera.add_argument("state", choices=["status", "on", "off"])
     p_camera.set_defaults(func=cmd_camera)
 
-    p_mode = sub.add_parser("mode", help="list profiles or switch to one (games, work, night)")
-    p_mode.add_argument("name", nargs="?")
+    p_mode = sub.add_parser("mode", help="list profiles, switch to one, or cycle with `next`")
+    p_mode.add_argument("name", nargs="?", help="profile id (games, work, night) or `next`")
     p_mode.set_defaults(func=cmd_mode)
 
     p_auto = sub.add_parser("auto", help="switch profiles automatically by the rules")

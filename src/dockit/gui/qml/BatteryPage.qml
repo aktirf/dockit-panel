@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 
 PageFrame {
     title: "Питание и батарея"
@@ -16,7 +17,7 @@ PageFrame {
             Txt { text: (d.battery && d.battery.percent !== null && d.battery.percent !== undefined) ? String(d.battery.percent) : "—"; font.pixelSize: 44; font.family: Theme.mono }
             Txt { text: "%"; color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 10 }
         }
-        Bar { Layout.fillWidth: true; value: d.battery && d.battery.percent ? d.battery.percent : 0; fill: Theme.ok }
+        Bar { Layout.fillWidth: true; value: d.battery && d.battery.percent ? d.battery.percent : 0; fill: Theme.batteryColor(d.battery ? d.battery.percent : 100) }
         Row2 { label: "Состояние"; value: d.battery ? d.battery.text : "—" }
         Row2 { label: "Питание"; value: d.battery && d.battery.source ? d.battery.source : "—" }
         Row2 { label: "Износ (остаток ёмкости)"; value: d.battery ? d.battery.health + " %" : "—" }
@@ -81,7 +82,49 @@ PageFrame {
     Card {
         Layout.fillWidth: true
         Txt { text: "Экран"; font.pixelSize: 16; font.weight: Font.DemiBold }
-        Row2 { label: "Яркость сейчас"; value: d.display && d.display.brightness !== null && d.display.brightness !== undefined ? d.display.brightness + " %" : "—" }
+        Row2 {
+            label: "Яркость сейчас"
+            value: brightnessSlider.pressed
+                   ? Math.round(brightnessSlider.value) + " %"
+                   : (d.display && d.display.brightness !== null && d.display.brightness !== undefined ? d.display.brightness + " %" : "—")
+        }
+        Slider {
+            id: brightnessSlider
+            Layout.fillWidth: true
+            visible: !!(d.display && d.display.brightness !== null && d.display.brightness !== undefined)
+            from: 5
+            to: 100
+            stepSize: 1
+            value: (d.display && d.display.brightness !== null && d.display.brightness !== undefined) ? Number(d.display.brightness) : 50
+            onPressedChanged: {
+                if (!pressed)
+                    backend.setBrightness(Math.round(value))
+            }
+            background: Rectangle {
+                x: brightnessSlider.leftPadding
+                y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                width: brightnessSlider.availableWidth
+                height: 6
+                radius: 3
+                color: Theme.border2
+                Rectangle {
+                    width: brightnessSlider.visualPosition * parent.width
+                    height: parent.height
+                    radius: 3
+                    color: Theme.accent
+                }
+            }
+            handle: Rectangle {
+                x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
+                y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                width: 18
+                height: 18
+                radius: 9
+                color: brightnessSlider.pressed ? "#FFFFFF" : Theme.accent
+                border.width: 2
+                border.color: Theme.card
+            }
+        }
         Flow {
             Layout.fillWidth: true
             spacing: 8

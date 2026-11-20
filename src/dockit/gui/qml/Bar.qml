@@ -13,6 +13,7 @@ Rectangle {
     Rectangle {
         width: root.width * Math.max(0, Math.min(100, root.value)) / 100
         height: parent.height
+        radius: root.radius
         color: root.fill
         Behavior on width { NumberAnimation { duration: 300 } }
     }

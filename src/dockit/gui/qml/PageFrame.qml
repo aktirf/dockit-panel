@@ -19,9 +19,9 @@ Flickable {
 
     ColumnLayout {
         id: col
-        x: 32
+        width: Math.min(page.width - 64, 1020)
+        x: Math.max(32, (page.width - width) / 2)
         y: 28
-        width: page.width - 64
         spacing: 20
 
         ColumnLayout {
