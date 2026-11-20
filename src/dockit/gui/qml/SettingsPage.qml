@@ -137,9 +137,14 @@ PageFrame {
                     height: 36
                     width: accentRow.implicitWidth + 24
                     radius: 18
-                    color: sel ? Theme.navActive : Theme.btn
+                    color: sel ? Theme.navActive : (accHover.hovered ? Theme.cardInner : Theme.btn)
                     border.width: 1
-                    border.color: sel ? modelData.hex : Theme.border3
+                    border.color: sel ? modelData.hex : (accHover.hovered ? modelData.hex : Theme.border3)
+                    scale: accMouse.pressed ? 0.95 : 1.0
+                    Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                    Behavior on border.color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+                    HoverHandler { id: accHover }
                     RowLayout {
                         id: accentRow
                         anchors.centerIn: parent
@@ -148,6 +153,7 @@ PageFrame {
                         Txt { text: Theme.tr(modelData.key); font.pixelSize: 13; color: sel ? "#FFFFFF" : Theme.soft }
                     }
                     MouseArea {
+                        id: accMouse
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         onClicked: backend.setAccent(modelData.id)

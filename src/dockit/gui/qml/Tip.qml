@@ -44,6 +44,15 @@ Item {
             parent: root
             visible: true
             timeout: 8000
+            enter: Transition {
+                ParallelAnimation {
+                    NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 140; easing.type: Easing.OutCubic }
+                    NumberAnimation { property: "scale"; from: 0.95; to: 1.0; duration: 140; easing.type: Easing.OutCubic }
+                }
+            }
+            exit: Transition {
+                NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 100; easing.type: Easing.OutCubic }
+            }
             x: {
                 var w = root.Window.window
                 var mapped = root.mapToItem(null, root.anchorX, 0)

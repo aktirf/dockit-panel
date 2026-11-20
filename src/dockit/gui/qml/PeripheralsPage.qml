@@ -330,11 +330,15 @@ PageFrame {
                         implicitHeight: 32
                         radius: 16
                         color: modelData
+                        scale: swatchMouse.pressed ? 0.9 : (chosen ? 1.08 : (swatchHover.hovered ? 1.12 : 1.0))
                         border.width: chosen ? 3 : (swatchHover.hovered ? 2 : 1)
                         border.color: chosen ? "#FFFFFF" : (swatchHover.hovered ? Theme.soft : Theme.border3)
                         opacity: periphPage.kbdCan ? 1.0 : 0.45
+                        Behavior on scale { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
+                        Behavior on border.color { ColorAnimation { duration: 140 } }
                         HoverHandler { id: swatchHover }
                         MouseArea {
+                            id: swatchMouse
                             anchors.fill: parent
                             enabled: periphPage.kbdCan
                             cursorShape: Qt.PointingHandCursor

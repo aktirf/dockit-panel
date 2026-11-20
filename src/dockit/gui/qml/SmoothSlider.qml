@@ -63,8 +63,11 @@ Slider {
             height: parent.height
             radius: 3
             color: root.fillColor
+            Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
         }
     }
+
+    HoverHandler { id: sliderHover }
 
     handle: Rectangle {
         x: root.leftPadding + root.visualPosition * (root.availableWidth - width)
@@ -72,8 +75,11 @@ Slider {
         width: root.handleSize
         height: root.handleSize
         radius: root.handleSize / 2
+        scale: root.pressed ? 1.18 : (sliderHover.hovered ? 1.08 : 1.0)
         color: root.pressed ? "#FFFFFF" : root.handleColor
         border.width: 2
         border.color: Theme.card
+        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
     }
 }

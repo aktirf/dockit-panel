@@ -16,6 +16,7 @@ QtObject {
     readonly property color navText: "#AEBBC7"
     readonly property color navActive: "#1C2834"
     property color accent: "#5AB0FF"
+    Behavior on accent { ColorAnimation { duration: 240; easing.type: Easing.OutCubic } }
     readonly property color ok: "#4CC38A"
     readonly property color okText: "#7FE0AE"
     readonly property color warn: "#F5C56B"
