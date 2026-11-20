@@ -48,7 +48,8 @@ chmod 644 /etc/systemd/system/dockit.service
 
 echo "[4/4] Starting the service ..."
 systemctl daemon-reload
-systemctl enable --now dockit.service
+systemctl enable dockit.service
+systemctl restart dockit.service
 sleep 1
 systemctl --no-pager --lines=5 status dockit.service || true
 

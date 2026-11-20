@@ -318,7 +318,7 @@ def cmd_backlight(args: argparse.Namespace) -> int:
     if result is None:
         return 1
     if result.get("autonomous"):
-        print(f"Подсветка ({result.get('device', '')}): автономный режим клавиатуры (Fn).")
+        print(f"Подсветка ({result.get('device', '')}): встроенный режим клавиатуры.")
     elif not result.get("on"):
         print(f"Подсветка ({result.get('device', '')}): выключена.")
     elif result.get("rgb"):
