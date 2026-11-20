@@ -11,7 +11,8 @@ Window {
     minimumHeight: 460
     visible: true
     title: "DOCKIT"
-    readonly property bool compactNav: win.width < 860
+    readonly property bool compactNav: win.width < 860 || !!(d.settings && d.settings.compact_nav === true)
+    property bool journalExpanded: false
     onClosing: function (close) {
         if (backend.trayActive) { close.accepted = false; win.hide() } else Qt.quit()
     }
@@ -465,10 +466,116 @@ Window {
                     }
                 }
 
+                // quick display strip (brightness slider + refresh rate)
+                Card {
+                    id: overviewDisplayCard
+                    Layout.fillWidth: true
+                    pad: 16
+                    readonly property bool hasBright: !!(d.display && d.display.brightness !== null && d.display.brightness !== undefined)
+                    readonly property bool hasRates: !!(d.display && d.display.rates && d.display.rates.length > 0)
+                    visible: hasBright || hasRates
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: (overviewDisplayCard.hasBright && overviewDisplayCard.hasRates && content.width >= 660) ? 2 : 1
+                        columnSpacing: 20
+                        rowSpacing: 12
+
+                        ColumnLayout {
+                            visible: overviewDisplayCard.hasBright
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            spacing: 6
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Icon { name: "sun"; size: 15; color: Theme.accent }
+                                Txt { Layout.fillWidth: true; text: "Яркость экрана"; font.pixelSize: 13; color: Theme.soft }
+                                Txt {
+                                    text: overviewBrightSlider.pressed
+                                          ? (Math.round(overviewBrightSlider.value) + " %")
+                                          : (overviewDisplayCard.hasBright ? String(d.display.brightness) + " %" : "—")
+                                    font.family: Theme.mono
+                                    font.pixelSize: 13
+                                }
+                            }
+                            Slider {
+                                id: overviewBrightSlider
+                                Layout.fillWidth: true
+                                from: 5
+                                to: 100
+                                stepSize: 1
+                                value: overviewDisplayCard.hasBright ? Number(d.display.brightness) : 50
+                                onPressedChanged: {
+                                    if (!pressed)
+                                        backend.setBrightness(Math.round(value))
+                                }
+                                background: Rectangle {
+                                    x: overviewBrightSlider.leftPadding
+                                    y: overviewBrightSlider.topPadding + overviewBrightSlider.availableHeight / 2 - height / 2
+                                    width: overviewBrightSlider.availableWidth
+                                    height: 6
+                                    radius: 3
+                                    color: Theme.border2
+                                    Rectangle {
+                                        width: overviewBrightSlider.visualPosition * parent.width
+                                        height: parent.height
+                                        radius: 3
+                                        color: Theme.accent
+                                    }
+                                }
+                                handle: Rectangle {
+                                    x: overviewBrightSlider.leftPadding + overviewBrightSlider.visualPosition * (overviewBrightSlider.availableWidth - width)
+                                    y: overviewBrightSlider.topPadding + overviewBrightSlider.availableHeight / 2 - height / 2
+                                    width: 16
+                                    height: 16
+                                    radius: 8
+                                    color: overviewBrightSlider.pressed ? "#FFFFFF" : Theme.accent
+                                    border.width: 2
+                                    border.color: Theme.card
+                                }
+                            }
+                        }
+
+                        ColumnLayout {
+                            visible: overviewDisplayCard.hasRates
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            spacing: 6
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Icon { name: "monitor"; size: 15; color: Theme.accent }
+                                Txt { Layout.fillWidth: true; text: "Частота экрана"; font.pixelSize: 13; color: Theme.soft }
+                                Txt {
+                                    text: (d.display && d.display.refresh) ? String(d.display.refresh) + " Гц" : "—"
+                                    font.family: Theme.mono
+                                    font.pixelSize: 13
+                                }
+                            }
+                            SegmentBar {
+                                id: overviewRatesBar
+                                options: (d.display && d.display.rates ? d.display.rates : []).map(function (r) {
+                                    return { id: String(r), label: String(r) + " Гц", tip: "" }
+                                })
+                                current: (d.display && d.display.refresh) ? String(d.display.refresh) : ""
+                                onPicked: function (val) { backend.setRefresh(Number(val)) }
+                            }
+                        }
+                    }
+                }
+
                 // what the program switched and why
                 Card {
                     Layout.fillWidth: true
-                    Txt { text: "Что переключалось"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Txt { Layout.fillWidth: true; text: "Что переключалось"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                        Btn {
+                            visible: journalModel.count > 3
+                            implicitHeight: 30
+                            text: win.journalExpanded ? "Свернуть" : "Все (" + journalModel.count + ")"
+                            onClicked: win.journalExpanded = !win.journalExpanded
+                        }
+                    }
                     Txt {
                         visible: journalModel.count === 0
                         Layout.fillWidth: true
@@ -480,6 +587,7 @@ Window {
                     Repeater {
                         model: journalModel
                         delegate: RowLayout {
+                            visible: win.journalExpanded || index < 3
                             Layout.fillWidth: true
                             spacing: 12
                             Txt { text: model.time; color: Theme.muted; font.family: Theme.mono; font.pixelSize: 13 }
