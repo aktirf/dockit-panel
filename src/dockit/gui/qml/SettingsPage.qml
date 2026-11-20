@@ -82,6 +82,53 @@ PageFrame {
     }
 
     Card {
+        id: accentCard
+        Layout.fillWidth: true
+        Txt { text: "Акцентный цвет"; font.pixelSize: 16; font.weight: Font.DemiBold }
+        Txt {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: Theme.muted
+            font.pixelSize: 13
+            text: "Цвет активных кнопок, переключателей и графиков — можно подобрать под тему рабочего стола."
+        }
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            Repeater {
+                model: [
+                    { id: "blue", name: "Синий", hex: "#5AB0FF" },
+                    { id: "mint", name: "Мятный", hex: "#4CC38A" },
+                    { id: "purple", name: "Фиолетовый", hex: "#A78BFA" },
+                    { id: "amber", name: "Янтарный", hex: "#F5B942" },
+                    { id: "coral", name: "Коралловый", hex: "#FF7A7A" }
+                ]
+                delegate: Rectangle {
+                    readonly property bool sel: !!(d.settings && (d.settings.accent || "blue") === modelData.id)
+                    height: 36
+                    width: accentRow.implicitWidth + 24
+                    radius: 18
+                    color: sel ? Theme.navActive : Theme.btn
+                    border.width: 1
+                    border.color: sel ? modelData.hex : Theme.border3
+                    RowLayout {
+                        id: accentRow
+                        anchors.centerIn: parent
+                        spacing: 8
+                        Rectangle { width: 10; height: 10; radius: 5; color: modelData.hex }
+                        Txt { text: modelData.name; font.pixelSize: 13; color: sel ? "#FFFFFF" : Theme.soft }
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: backend.setAccent(modelData.id)
+                    }
+                }
+            }
+        }
+    }
+
+    Card {
         Layout.fillWidth: true
         Txt { text: "О программе"; font.pixelSize: 16; font.weight: Font.DemiBold }
         Row2 { label: "Версия"; value: backend.version + " (альфа)" }

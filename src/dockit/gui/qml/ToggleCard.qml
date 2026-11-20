@@ -3,6 +3,7 @@ import QtQuick
 Rectangle {
     id: root
     property string label: ""
+    property string icon: ""
     property bool on: false
     property bool can: true
     property string tip: ""
@@ -13,14 +14,33 @@ Rectangle {
     radius: 14
     color: Theme.card
     border.width: 1
-    border.color: on ? "#2F5A80" : Theme.border2
+    border.color: on ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45) : Theme.border2
     opacity: can ? 1 : 0.6
     Behavior on border.color { ColorAnimation { duration: 180 } }
 
+    Rectangle {
+        id: iconBadge
+        visible: root.icon !== ""
+        width: 34
+        height: 34
+        radius: 10
+        anchors.left: parent.left
+        anchors.leftMargin: 14
+        anchors.verticalCenter: parent.verticalCenter
+        color: root.on ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16) : Theme.cardInner
+        Behavior on color { ColorAnimation { duration: 180 } }
+        Icon {
+            anchors.centerIn: parent
+            name: root.icon
+            size: 18
+            color: root.on ? Theme.accent : Theme.muted
+        }
+    }
+
     // text sits on the left, the switch always on the same spot at the right edge
     Column {
-        anchors.left: parent.left
-        anchors.leftMargin: 16
+        anchors.left: iconBadge.visible ? iconBadge.right : parent.left
+        anchors.leftMargin: iconBadge.visible ? 12 : 16
         anchors.right: sw.left
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
@@ -31,7 +51,7 @@ Rectangle {
             elide: Text.ElideRight
             text: (root.on ? "Включено" : "Выключено") + (root.can ? "" : " · только просмотр")
             font.pixelSize: 12
-            color: root.on ? "#7FC4FF" : Theme.muted
+            color: root.on ? Theme.accent : Theme.muted
             Behavior on color { ColorAnimation { duration: 180 } }
         }
     }

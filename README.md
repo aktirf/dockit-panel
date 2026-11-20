@@ -4,7 +4,7 @@
 
 A control panel for Linux laptops that shows what works on **your** machine, what does not, and how to fix it.
 
-> Status: early development. Right now there is a scanner (read-only), USB device recognition with a device database, a background service for two changes (performance mode, camera) and a command line. The window (UI) is planned.
+> Status: active alpha (`0.1.0`). Includes a Qt Quick control panel (Overview, Performance, Battery & Display, Cooling, Peripherals, Profiles, Diagnostics, Settings), a root polkit daemon, automatic profile rules, GPU sleep inspection, tray icon, and CLI. Tested on Gigabyte Gaming A16 3VH (Ryzen 7 260, RTX 5060).
 > Unofficial project. Not affiliated with Gigabyte, EPOS, Hator or any other manufacturer.
 
 Русская версия: [README.ru.md](README.ru.md)
@@ -52,7 +52,9 @@ A profile is a bundle of settings for a task: **Games** (performance), **Work** 
 ```bash
 dockit mode               # list profiles
 dockit mode games         # switch to a profile (needs the service)
+dockit mode next          # cycle to the next profile (great for a hotkey, like the GiMATE button)
 dockit auto               # switch profiles by itself using rules
+dockit gpu                # check if the NVIDIA GPU sleeps and which programs keep it awake
 ```
 
 Default rules: while a Steam game (`steam_app_*`) or `gamescope` runs, Games; on battery, Work. Your own profiles and rules go in `~/.config/dockit/profiles.toml`:
@@ -94,7 +96,7 @@ sudo pacman -S pyside6 ttf-ibm-plex     # the window (Qt) and the font used in t
 dockit gui
 ```
 
-If you use a virtual environment, create it with access to system packages: `python -m venv --system-site-packages .venv`. The window reads data every 3 seconds and changes nothing by itself: modes, scenarios and the camera and microphone switches go through the background service. The Overview page is ready, the other sections are in progress.
+If you use a virtual environment, create it with access to system packages: `python -m venv --system-site-packages .venv`. The window includes Overview, Performance (modes, Turbo Boost, EPP, GPU limit, NVIDIA sleep state), Battery & Display (brightness slider, refresh rate, 24h charge graph), Cooling, Peripherals & Audio, Profiles & auto-rules, Diagnostics, and Settings (tray icon, notifications, accent color).
 
 ## Automatic rules
 

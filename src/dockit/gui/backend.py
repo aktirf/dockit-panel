@@ -100,7 +100,14 @@ class Backend(QObject):
             self.toastChanged.emit()
 
     # ---- settings (saved in ~/.config/dockit/settings.json) ----
-    DEFAULTS = {"interval": 3, "warn_temp": 90, "notify": True, "tray": False}
+    ACCENTS = {
+        "blue": "#5AB0FF",
+        "mint": "#4CC38A",
+        "purple": "#A78BFA",
+        "amber": "#F5B942",
+        "coral": "#FF7A7A",
+    }
+    DEFAULTS = {"interval": 3, "warn_temp": 90, "notify": True, "tray": False, "accent": "blue"}
 
     @staticmethod
     def _settings_path() -> str:
@@ -121,6 +128,8 @@ class Backend(QObject):
                 data["interval"] = loaded["interval"]
             if loaded.get("warn_temp") in (0, 80, 85, 90, 95):
                 data["warn_temp"] = loaded["warn_temp"]
+            if loaded.get("accent") in self.ACCENTS:
+                data["accent"] = loaded["accent"]
             for key in ("notify", "tray"):
                 if isinstance(loaded.get(key), bool):
                     data[key] = loaded[key]
@@ -151,6 +160,10 @@ class Backend(QObject):
     @Property(bool, notify=trayChanged)
     def trayActive(self) -> bool:
         return self._tray_available and self._settings["tray"]
+
+    @Property(str, notify=settingsChanged)
+    def accentColor(self) -> str:
+        return self.ACCENTS.get(self._settings.get("accent", "blue"), "#5AB0FF")
 
     @Property(str, constant=True)
     def version(self) -> str:
@@ -195,6 +208,14 @@ class Backend(QObject):
     @Slot(bool)
     def setNotify(self, value: bool) -> None:
         self._settings["notify"] = bool(value)
+        self._save_settings()
+        self.refresh()
+
+    @Slot(str)
+    def setAccent(self, accent: str) -> None:
+        if accent not in self.ACCENTS:
+            return
+        self._settings["accent"] = accent
         self._save_settings()
         self.refresh()
 
