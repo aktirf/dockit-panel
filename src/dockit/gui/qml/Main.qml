@@ -7,10 +7,11 @@ Window {
     id: win
     width: 1280
     height: 900
-    minimumWidth: 760
-    minimumHeight: 520
+    minimumWidth: 500
+    minimumHeight: 460
     visible: true
     title: "DOCKIT"
+    readonly property bool compactNav: win.width < 860
     onClosing: function (close) {
         if (backend.trayActive) { close.accepted = false; win.hide() } else Qt.quit()
     }
@@ -57,7 +58,7 @@ Window {
 
         // ---------- sidebar ----------
         Rectangle {
-            Layout.preferredWidth: 240
+            Layout.preferredWidth: win.compactNav ? 68 : 232
             Layout.fillHeight: true
             color: Theme.panel
 
@@ -70,40 +71,46 @@ Window {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 14
+                anchors.margins: win.compactNav ? 10 : 14
                 anchors.topMargin: 24
                 anchors.bottomMargin: 24
                 spacing: 4
 
                 RowLayout {
+                    Layout.fillWidth: true
                     Layout.bottomMargin: 18
-                    Layout.leftMargin: 10
+                    Layout.leftMargin: win.compactNav ? 0 : 10
                     spacing: 10
                     Rectangle {
+                        Layout.alignment: Qt.AlignHCenter
                         implicitWidth: 34
                         implicitHeight: 34
                         radius: 10
                         color: "#1B2A3A"
                         Icon { anchors.centerIn: parent; name: "gauge"; size: 19; color: Theme.accent }
+                        Tip { text: win.compactNav ? ("DOCKIT — " + (d.model || "Ноутбук")) : "" }
                     }
                     ColumnLayout {
+                        visible: !win.compactNav
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         spacing: 0
-                        Txt { text: "DOCKIT"; font.pixelSize: 15; font.weight: Font.DemiBold }
-                        Txt { text: d.model || "Ноутбук"; font.pixelSize: 12; color: Theme.muted }
+                        Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: "DOCKIT"; font.pixelSize: 15; font.weight: Font.DemiBold }
+                        Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: d.model || "Ноутбук"; font.pixelSize: 12; color: Theme.muted }
                     }
                 }
 
-                NavItem { icon: "grid"; text: "Обзор"; active: win.page === "overview"; onClicked: win.page = "overview" }
-                NavItem { icon: "gauge"; text: "Производительность"; active: win.page === "performance"; onClicked: win.page = "performance" }
-                NavItem { icon: "battery"; text: "Питание и батарея"; active: win.page === "battery"; onClicked: win.page = "battery" }
-                NavItem { icon: "fan"; text: "Охлаждение"; active: win.page === "cooling"; onClicked: win.page = "cooling" }
-                NavItem { icon: "mouse"; text: "Периферия"; active: win.page === "peripherals"; onClicked: win.page = "peripherals" }
-                NavItem { icon: "layers"; text: "Профили"; active: win.page === "profiles"; onClicked: win.page = "profiles" }
+                NavItem { compact: win.compactNav; icon: "grid"; text: "Обзор"; active: win.page === "overview"; onClicked: win.page = "overview" }
+                NavItem { compact: win.compactNav; icon: "gauge"; text: "Производительность"; active: win.page === "performance"; onClicked: win.page = "performance" }
+                NavItem { compact: win.compactNav; icon: "battery"; text: "Питание и батарея"; active: win.page === "battery"; onClicked: win.page = "battery" }
+                NavItem { compact: win.compactNav; icon: "fan"; text: "Охлаждение"; active: win.page === "cooling"; onClicked: win.page = "cooling" }
+                NavItem { compact: win.compactNav; icon: "mouse"; text: "Периферия"; active: win.page === "peripherals"; onClicked: win.page = "peripherals" }
+                NavItem { compact: win.compactNav; icon: "layers"; text: "Профили"; active: win.page === "profiles"; onClicked: win.page = "profiles" }
 
                 Item { Layout.fillHeight: true }
 
-                NavItem { icon: "pulse"; text: "Диагностика"; badge: win.problems; active: win.page === "diagnostics"; onClicked: win.page = "diagnostics" }
-                NavItem { icon: "sliders"; text: "Настройки"; active: win.page === "settings"; onClicked: win.page = "settings" }
+                NavItem { compact: win.compactNav; icon: "pulse"; text: "Диагностика"; badge: win.problems; active: win.page === "diagnostics"; onClicked: win.page = "diagnostics" }
+                NavItem { compact: win.compactNav; icon: "sliders"; text: "Настройки"; active: win.page === "settings"; onClicked: win.page = "settings" }
             }
         }
 
@@ -194,6 +201,7 @@ Window {
 
         Flickable {
             id: flick
+            readonly property int sidePad: flick.width < 560 ? 16 : 32
             visible: win.page === "overview"
             onVisibleChanged: if (visible) fadeOverview.restart()
             NumberAnimation on opacity { id: fadeOverview; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
@@ -216,29 +224,33 @@ Window {
             ColumnLayout {
                 id: content
                 visible: d.ready
-                width: Math.min(flick.width - 64, 1020)
-                x: Math.max(32, (flick.width - width) / 2)
+                width: Math.min(Math.max(200, flick.width - flick.sidePad * 2), 1020)
+                x: Math.max(flick.sidePad, (flick.width - width) / 2)
                 y: 28
                 spacing: 24
 
-                // header
-                RowLayout {
+                // header (wraps chips cleanly on narrow tiled windows)
+                ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 16
+                    spacing: 12
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Txt { text: "Обзор"; font.pixelSize: 28; font.weight: Font.DemiBold }
-                        Txt { text: "Всё важное о ноутбуке на одном экране"; color: Theme.muted }
+                        Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Обзор"; font.pixelSize: flick.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
+                        Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Всё важное о ноутбуке на одном экране"; color: Theme.muted }
                     }
-                    Chip {
-                        big: true
-                        kind: d.service ? "ok" : "no"
-                        text: d.service ? "Фоновая служба работает" : "Фоновая служба не запущена"
-                    }
-                    Chip {
-                        big: true
-                        text: d.okCount + " из " + d.total + " функций работают"
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Chip {
+                            big: true
+                            kind: d.service ? "ok" : "no"
+                            text: d.service ? "Фоновая служба работает" : "Фоновая служба не запущена"
+                        }
+                        Chip {
+                            big: true
+                            text: d.okCount + " из " + d.total + " функций работают"
+                        }
                     }
                 }
 
@@ -247,8 +259,9 @@ Window {
                     Layout.fillWidth: true
                     RowLayout {
                         Layout.fillWidth: true
-                        Txt { Layout.fillWidth: true; text: "Сценарий"; font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Txt { text: "Режим сейчас: " + win.modeName(d.currentMode); color: Theme.muted; font.pixelSize: 13 }
+                        spacing: 12
+                        Txt { Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight; text: "Сценарий"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                        Txt { text: "Режим: " + win.modeName(d.currentMode); color: Theme.muted; font.pixelSize: 13; elide: Text.ElideRight }
                     }
                     Flow {
                         Layout.fillWidth: true
@@ -257,9 +270,9 @@ Window {
                             model: scenariosModel
                             delegate: Rectangle {
                                 readonly property bool sel: model.id === d.scenario
-                                height: 44
-                                width: pillText.implicitWidth + 36
-                                radius: 22
+                                height: 40
+                                width: parent && parent.width > 0 ? Math.min(pillText.implicitWidth + 32, Math.max(72, parent.width)) : pillText.implicitWidth + 32
+                                radius: 20
                                 color: sel ? Theme.accent : Theme.btn
                                 border.width: 1
                                 border.color: sel ? Theme.accent : Theme.border3
@@ -267,6 +280,9 @@ Window {
                                 Txt {
                                     id: pillText
                                     anchors.centerIn: parent
+                                    width: Math.max(0, parent.width - 24)
+                                    horizontalAlignment: Text.AlignHCenter
+                                    elide: Text.ElideRight
                                     text: model.name
                                     color: sel ? "#0B1218" : Theme.soft
                                     font.weight: sel ? Font.DemiBold : Font.Medium
@@ -281,10 +297,10 @@ Window {
                     }
                 }
 
-                // battery and graphics mode
+                // battery and hardware status
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: Math.max(1, Math.min(2, Math.floor((width + 16) / 296)))
+                    columns: width >= 660 ? 2 : 1
                     columnSpacing: 16
                     rowSpacing: 16
 
@@ -475,12 +491,15 @@ Window {
                 // problems: details are on the Diagnostics page
                 Card {
                     Layout.fillWidth: true
-                    RowLayout {
+                    GridLayout {
                         Layout.fillWidth: true
-                        spacing: 12
+                        columns: content.width >= 600 ? 3 : 1
+                        columnSpacing: 12
+                        rowSpacing: 10
                         Chip { kind: win.problems > 0 ? "setup" : "ok"; text: win.problems > 0 ? "Не работает: " + win.problems : "Всё работает" }
                         Txt {
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             wrapMode: Text.WordWrap
                             color: Theme.muted
                             text: win.problems > 0 ? "Некоторые функции недоступны. Что именно и как исправить, написано в «Диагностике»." : "Все функции этого ноутбука, которые знает DOCKIT, работают."

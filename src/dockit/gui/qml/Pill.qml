@@ -7,8 +7,10 @@ Rectangle {
     property string tip: ""
     signal clicked()
 
-    height: 36
-    width: label.implicitWidth + 28
+    implicitHeight: 36
+    implicitWidth: parent && parent.width > 0 ? Math.min(label.implicitWidth + 28, Math.max(64, parent.width)) : label.implicitWidth + 28
+    height: implicitHeight
+    width: implicitWidth
     radius: 18
     color: sel ? Theme.accent : Theme.btn
     border.width: 1
@@ -20,6 +22,9 @@ Rectangle {
     Txt {
         id: label
         anchors.centerIn: parent
+        width: Math.max(0, root.width - 24)
+        horizontalAlignment: Text.AlignHCenter
+        elide: Text.ElideRight
         text: root.text
         font.pixelSize: 13
         color: root.sel ? "#0B1218" : Theme.soft

@@ -20,6 +20,7 @@ Flickable {
     Connections { target: backend; function onStateChanged() { modesModel.sync(page.d.modes); topModel.sync(page.d.top) } }
     Component.onCompleted: { modesModel.sync(d.modes); topModel.sync(d.top) }
 
+    readonly property int sidePad: page.width < 560 ? 16 : 32
     contentWidth: width
     contentHeight: col.implicitHeight + 68
     clip: true
@@ -28,15 +29,16 @@ Flickable {
 
     ColumnLayout {
         id: col
-        width: Math.min(page.width - 64, 1020)
-        x: Math.max(32, (page.width - width) / 2)
+        width: Math.min(Math.max(200, page.width - page.sidePad * 2), 1020)
+        x: Math.max(page.sidePad, (page.width - width) / 2)
         y: 28
         spacing: 20
 
         ColumnLayout {
+            Layout.fillWidth: true
             spacing: 4
-            Txt { text: "Производительность"; font.pixelSize: 28; font.weight: Font.DemiBold }
-            Txt { text: "Режим работы ноутбука и нагрузка прямо сейчас"; color: Theme.muted }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Производительность"; font.pixelSize: page.width < 560 ? 22 : 28; font.weight: Font.DemiBold }
+            Txt { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "Режим работы ноутбука и нагрузка прямо сейчас"; color: Theme.muted }
         }
 
         Card {
@@ -83,7 +85,7 @@ Flickable {
 
         GridLayout {
             Layout.fillWidth: true
-            columns: width >= 520 ? 2 : 1
+            columns: width >= 560 ? 2 : 1
             columnSpacing: 16
             rowSpacing: 16
 

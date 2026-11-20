@@ -72,7 +72,8 @@ PageFrame {
             color: Theme.muted
             text: "Режим «Тишина» экономит заряд. Профили могут переключать его сами при отключении зарядки."
         }
-        RowLayout {
+        Flow {
+            Layout.fillWidth: true
             spacing: 10
             Btn { text: "Режимы мощности"; onClicked: goto("performance") }
             Btn { text: "Автопереключение"; onClicked: goto("profiles") }
