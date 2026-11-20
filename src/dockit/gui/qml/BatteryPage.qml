@@ -89,7 +89,10 @@ PageFrame {
                 model: [20, 40, 60, 80, 100]
                 delegate: Pill {
                     text: modelData + " %"
-                    sel: !!(d.display && d.display.brightness !== null && Math.abs(d.display.brightness - modelData) < 10)
+                    sel: !!(d.display && d.display.brightness !== null && d.display.brightness !== undefined
+                            && d.display.brightness >= modelData - 10 && d.display.brightness < modelData + 10
+                            || (modelData === 20 && d.display && d.display.brightness !== null && d.display.brightness !== undefined && d.display.brightness < 10)
+                            || (modelData === 100 && d.display && d.display.brightness === 100))
                     tip: "Меньше яркость — дольше работа от батареи."
                     onClicked: backend.setBrightness(modelData)
                 }

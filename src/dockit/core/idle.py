@@ -59,8 +59,22 @@ class IdleWatcher:
         return {m for m in self._minutes if (self.directory / str(m)).exists()}
 
     def stop(self) -> None:
-        if self._proc is not None and self._proc.poll() is None:
-            self._proc.terminate()
+        if self._proc is not None:
+            if self._proc.poll() is None:
+                self._proc.terminate()
+                try:
+                    self._proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    self._proc.kill()
+                    try:
+                        self._proc.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        pass
+            else:
+                try:
+                    self._proc.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    pass
         self._proc = None
         self._minutes = []
         for old in self.directory.glob("*"):

@@ -61,6 +61,10 @@ class Backend(QObject):
         self._idle = idle.IdleWatcher()
         self._auto_last: str | None = None
         self._busy = False
+        self._window_visible = True
+        self._toggle_busy: set[str] = set()
+        self._periph_at = -999.0
+        self._periph_cache: tuple[list, object] = ([], None)
         self._hist_at = 0.0
         self._snapshot.connect(self._apply)
         self._finished.connect(self._done)
@@ -157,12 +161,27 @@ class Backend(QObject):
         self._tray_available = value
         self.trayChanged.emit()
 
+    def _sync_timer_interval(self) -> None:
+        base = self._settings["interval"]
+        # When hidden in tray, slow down polling so DOCKIT saves battery while still running auto rules.
+        secs = base if self._window_visible else max(10, base)
+        self._timer.setInterval(secs * 1000)
+
+    def setWindowVisible(self, visible: bool) -> None:
+        visible = bool(visible)
+        if visible == self._window_visible:
+            return
+        self._window_visible = visible
+        self._sync_timer_interval()
+        if visible:
+            self.refresh()
+
     @Slot(int)
     def setInterval(self, seconds: int) -> None:
         if seconds not in (1, 3, 5, 10):
             return
         self._settings["interval"] = seconds
-        self._timer.setInterval(seconds * 1000)
+        self._sync_timer_interval()
         self._save_settings()
         self.refresh()
 
@@ -419,13 +438,20 @@ class Backend(QObject):
 
     def _collect(self) -> None:
         try:
-            result = scan()
+            now = time.monotonic()
+            need_periph = (now - self._periph_at >= 20) or not self._periph_cache[0]
+            result = scan(peripherals=need_periph)
+            if need_periph:
+                self._periph_at = now
+                self._periph_cache = (result.peripherals, result.laptop)
+            else:
+                result.peripherals, result.laptop = self._periph_cache
             mode = sysfs.read_text(PROFILE)
             cpu = self._cpu.sample()
             sensors = next((i for i in result.items if i.id == "sensors"), None)
             temp = viewmodel.cpu_temperature(sensors.state if sensors else None)
-            now = time.monotonic()
-            fresh = now - self._hist_at >= 2.5
+            min_gap = max(0.8, self._settings["interval"] - 0.3)
+            fresh = now - self._hist_at >= min_gap
             if fresh:
                 self._hist_at = now
             if temp is not None and fresh:
@@ -442,10 +468,9 @@ class Backend(QObject):
                     self._max_temp[key] = max(self._max_temp.get(key, value), value)
             cooling = self._cooling(cpu, temp, gpu_temp, ssd_temp,
                                     bool(gpu_item and gpu_item.state and gpu_item.state.get("throttled")))
-            try:
-                muted = next((d.muted for d in audio.list_devices() if d.kind == "input" and d.default), None)
-            except audio.AudioError:
-                muted = None
+            audio_item = next((i for i in result.items if i.id == "audio"), None)
+            audio_devices = audio_item.state if audio_item and isinstance(audio_item.state, list) else []
+            muted = next((d["muted"] for d in audio_devices if d.get("kind") == "input" and d.get("default")), None)
             available, rules = profiles.load()
             scenarios = [{"id": p.id, "name": p.name} for p in available.values()]
             scenarios.append({"id": "auto", "name": "Авто"})
@@ -488,15 +513,13 @@ class Backend(QObject):
             state["idleAvailable"] = idle.available()
             fb = profiles.load_fallback()
             state["fallback"] = fb if fb in available else ""
-            try:
-                devices = audio.list_devices()
-            except audio.AudioError:
-                devices = []
             state["audio"] = {
-                "outputs": [d.description for d in devices if d.kind == "output"],
-                "inputs": [d.description for d in devices if d.kind == "input"],
-                "outputDefault": next((d.description for d in devices if d.kind == "output" and d.default), ""),
-                "inputDefault": next((d.description for d in devices if d.kind == "input" and d.default), ""),
+                "outputs": [d["description"] for d in audio_devices if d.get("kind") == "output"],
+                "inputs": [d["description"] for d in audio_devices if d.get("kind") == "input"],
+                "outputDefault": next((d["description"] for d in audio_devices
+                                       if d.get("kind") == "output" and d.get("default")), ""),
+                "inputDefault": next((d["description"] for d in audio_devices
+                                      if d.get("kind") == "input" and d.get("default")), ""),
             }
             self._snapshot.emit(state)
             if note:
@@ -540,7 +563,7 @@ class Backend(QObject):
                 errors.append(error)
             return result
 
-        profiles.apply(profile, ask)
+        profiles.apply(profile, ask, errors=errors)
         if errors:
             return f"Профиль «{profile.name}»: {errors[0]}"
         return f"Профиль «{profile.name}» включён"
@@ -662,10 +685,13 @@ class Backend(QObject):
 
     @Slot(str)
     def toggle(self, what: str) -> None:
+        if what in self._toggle_busy:
+            return
         items = {t["id"]: t for t in self._state.get("toggles", [])}
         item = items.get(what)
         if item is None or not item.get("can"):
             return
+        self._toggle_busy.add(what)
         if what == "camera":
             def work() -> str:
                 result, error = client.ask({"action": "set_camera", "value": not item["on"]})
@@ -680,6 +706,12 @@ class Backend(QObject):
             def work() -> str:
                 turn_on = not item["on"]
                 word = "on" if turn_on else "off"
+                if what == "bluetooth" and turn_on and shutil.which("rfkill"):
+                    # Best-effort unblock in case Bluetooth was soft-blocked via rfkill.
+                    try:
+                        subprocess.run(["rfkill", "unblock", "bluetooth"], capture_output=True, timeout=5)
+                    except (OSError, subprocess.TimeoutExpired):
+                        pass
                 command = (["nmcli", "radio", "wifi", word] if what == "wifi"
                            else ["bluetoothctl", "power", word])
                 try:
@@ -691,5 +723,13 @@ class Backend(QObject):
                     return f"{name}: не удалось переключить"
                 return f"{name} включён" if turn_on else f"{name} выключен"
         else:
+            self._toggle_busy.discard(what)
             return
-        self._run(work)
+
+        def guarded() -> str:
+            try:
+                return work()
+            finally:
+                self._toggle_busy.discard(what)
+
+        self._run(guarded)

@@ -15,6 +15,22 @@ def _run(args: list[str]) -> str:
     return proc.stdout if proc.returncode == 0 else ""
 
 
+def parse_powered(text: str) -> bool | None:
+    """Whether the default Bluetooth adapter is powered on, from `bluetoothctl show`."""
+    match = re.search(r"^\s*Powered:\s*(yes|no)\b", text, re.M | re.I)
+    if not match:
+        return None
+    return match.group(1).lower() == "yes"
+
+
+def adapter_powered() -> bool | None:
+    """True/False from BlueZ (`bluetoothctl show`), or None if unavailable."""
+    if shutil.which("bluetoothctl") is None:
+        return None
+    out = _run(["show"])
+    return parse_powered(out) if out else None
+
+
 def parse_info(text: str) -> dict:
     """Name and battery from the text of `bluetoothctl info`."""
     name = re.search(r"^\s*Name: (.+)$", text, re.M)

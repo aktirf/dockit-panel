@@ -21,9 +21,15 @@ PY="${PYTHON:-python3}"
 
 echo "[1/4] Installing the program into /opt/dockit ..."
 mkdir -p /opt/dockit
+# Stage into a temp copy so running pip as root does not leave root-owned build/ or
+# *.egg-info folders inside the user's git repository.
+STAGE="$(mktemp -d /tmp/dockit-install-XXXXXX)"
+trap 'rm -rf "$STAGE"' EXIT
+cp -a "$REPO/pyproject.toml" "$REPO/README.md" "$REPO/LICENSE" "$REPO/src" "$STAGE/"
+rm -rf "$STAGE/src"/*.egg-info
 # --system-site-packages lets the window use the system PySide6 (the service itself does not need it)
 "$PY" -m venv --system-site-packages /opt/dockit/venv
-/opt/dockit/venv/bin/pip install --quiet --upgrade "$REPO"
+/opt/dockit/venv/bin/pip install --quiet --upgrade "$STAGE"
 ln -sf /opt/dockit/venv/bin/dockit /usr/local/bin/dockit-root
 ln -sf /opt/dockit/venv/bin/dockit /usr/local/bin/dockit
 install -Dm644 "$REPO/data/applications/dockit.desktop" /usr/share/applications/dockit.desktop

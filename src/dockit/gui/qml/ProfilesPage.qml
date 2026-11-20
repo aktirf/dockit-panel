@@ -15,8 +15,52 @@ Flickable {
             if (list[i].id === selId) return list[i]
         return list.length > 0 ? list[0] : null
     }
+    readonly property string curId: cur ? String(cur.id) : ""
 
-    Connections { target: backend; function onProfileCreated(pid) { page.selId = pid } }
+    // SyncModel keeps delegates alive across 3-second refreshes so tooltips and clicks do not break.
+    SyncModel { id: profilesModel }
+    SyncModel { id: modesModel }
+    SyncModel { id: outputsModel }
+    SyncModel { id: inputsModel }
+    SyncModel { id: ratesModel }
+    SyncModel { id: ruleProcsModel }
+    SyncModel { id: appsModel }
+
+    function syncAll() {
+        var profs = page.list.map(function (p) { return { id: p.id, name: p.name, sub: p.sub } })
+        profilesModel.sync(profs)
+        modesModel.sync(page.d.modes ? page.d.modes : [])
+        var outs = page.d.audio && page.d.audio.outputs ? page.d.audio.outputs : []
+        outputsModel.sync(outs.map(function (t) { return { text: t } }))
+        var ins = page.d.audio && page.d.audio.inputs ? page.d.audio.inputs : []
+        inputsModel.sync(ins.map(function (t) { return { text: t } }))
+        var rates = page.d.display && page.d.display.rates ? page.d.display.rates : []
+        ratesModel.sync(rates.map(function (r) { return { hz: r } }))
+        var procs = page.curRule && page.curRule.processes ? page.curRule.processes : []
+        ruleProcsModel.sync(procs.map(function (p) { return { name: p } }))
+        var apps = (page.d.apps ? page.d.apps : []).filter(function (a) { return procs.indexOf(a) < 0 })
+        appsModel.sync(apps.map(function (a) { return { name: a } }))
+    }
+
+    onCurIdChanged: {
+        syncAll()
+        if (hoursField && !hoursField.activeFocus)
+            hoursField.text = page.curRule ? String(page.curRule.hours || "") : ""
+    }
+    Connections {
+        target: backend
+        function onProfileCreated(pid) { page.selId = pid }
+        function onStateChanged() {
+            page.syncAll()
+            if (hoursField && !hoursField.activeFocus)
+                hoursField.text = page.curRule ? String(page.curRule.hours || "") : ""
+        }
+    }
+    Component.onCompleted: {
+        syncAll()
+        if (hoursField)
+            hoursField.text = page.curRule ? String(page.curRule.hours || "") : ""
+    }
 
     function matches(name, query) {
         return query !== "" && name.toLowerCase().indexOf(query.toLowerCase()) >= 0
@@ -103,9 +147,9 @@ Flickable {
                     Btn { text: "Создать"; implicitHeight: 40; onClicked: { backend.createProfile(newName.text); newName.text = "" } }
                 }
                 Repeater {
-                    model: page.list
+                    model: profilesModel
                     delegate: Rectangle {
-                        readonly property bool sel: page.cur !== null && modelData.id === page.cur.id
+                        readonly property bool sel: page.cur !== null && model.id === page.cur.id
                         Layout.fillWidth: true
                         implicitHeight: 64
                         radius: 12
@@ -121,19 +165,19 @@ Flickable {
                                 Layout.fillWidth: true
                                 spacing: 2
                                 Txt {
-                                    text: modelData.name
+                                    text: model.name
                                     font.pixelSize: 15
                                     font.weight: Font.DemiBold
                                     color: sel ? "#FFFFFF" : Theme.text
                                 }
                                 Txt {
-                                    text: modelData.sub
+                                    text: model.sub
                                     font.pixelSize: 12
                                     color: sel ? "#A9D3FF" : Theme.muted
                                 }
                             }
                             Chip {
-                                visible: page.d.scenario === modelData.id
+                                visible: page.d.scenario === model.id
                                 kind: "ok"
                                 text: "Активен"
                             }
@@ -141,7 +185,7 @@ Flickable {
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: page.selId = modelData.id
+                            onClicked: page.selId = model.id
                         }
                     }
                 }
@@ -199,11 +243,11 @@ Flickable {
                         spacing: 8
                         Pill { text: "Не менять"; tip: "Профиль не трогает режим производительности — остаётся тот, что был."; sel: page.curEdit.power === "keep"; onClicked: page.save("power", "keep") }
                         Repeater {
-                            model: page.d.modes ? page.d.modes : []
+                            model: modesModel
                             delegate: Pill {
-                                text: modelData.name
-                                sel: page.curEdit.power === modelData.id
-                                onClicked: page.save("power", modelData.id)
+                                text: model.name
+                                sel: page.curEdit.power === model.id
+                                onClicked: page.save("power", model.id)
                             }
                         }
                     }
@@ -223,11 +267,11 @@ Flickable {
                         spacing: 8
                         Pill { text: "Не менять"; sel: page.curEdit.output === ""; onClicked: page.save("output", "") }
                         Repeater {
-                            model: page.d.audio ? page.d.audio.outputs : []
+                            model: outputsModel
                             delegate: Pill {
-                                text: modelData
-                                sel: page.matches(modelData, page.curEdit.output)
-                                onClicked: page.save("output", modelData)
+                                text: model.text
+                                sel: page.matches(model.text, page.curEdit.output)
+                                onClicked: page.save("output", model.text)
                             }
                         }
                     }
@@ -246,11 +290,11 @@ Flickable {
                         spacing: 8
                         Pill { text: "Не менять"; sel: page.curEdit.input === ""; onClicked: page.save("input", "") }
                         Repeater {
-                            model: page.d.audio ? page.d.audio.inputs : []
+                            model: inputsModel
                             delegate: Pill {
-                                text: modelData
-                                sel: page.matches(modelData, page.curEdit.input)
-                                onClicked: page.save("input", modelData)
+                                text: model.text
+                                sel: page.matches(model.text, page.curEdit.input)
+                                onClicked: page.save("input", model.text)
                             }
                         }
                     }
@@ -288,12 +332,12 @@ Flickable {
                         spacing: 8
                         Pill { text: "Не менять"; sel: page.curEdit.refresh === 0; onClicked: page.save("refresh", 0) }
                         Repeater {
-                            model: page.d.display && page.d.display.rates ? page.d.display.rates : []
+                            model: ratesModel
                             delegate: Pill {
-                                text: modelData + " Гц"
+                                text: model.hz + " Гц"
                                 tip: "Меньшая частота экономит заряд, большая даёт более плавную картинку."
-                                sel: page.curEdit.refresh === modelData
-                                onClicked: page.save("refresh", modelData)
+                                sel: page.curEdit.refresh === model.hz
+                                onClicked: page.save("refresh", model.hz)
                             }
                         }
                     }
@@ -325,12 +369,12 @@ Flickable {
                         spacing: 8
                         visible: page.curRule.processes.length > 0
                         Repeater {
-                            model: page.curRule.processes
+                            model: ruleProcsModel
                             delegate: Pill {
-                                text: modelData + "  ✕"
-                                tip: (backend ? backend.describeProgram(modelData) : "") + "\nНажмите, чтобы убрать из списка."
+                                text: model.name + "  ✕"
+                                tip: (backend ? backend.describeProgram(model.name) : "") + "\nНажмите, чтобы убрать из списка."
                                 sel: true
-                                onClicked: page.removeProgram(modelData)
+                                onClicked: page.removeProgram(model.name)
                             }
                         }
                     }
@@ -391,14 +435,12 @@ Flickable {
                         Behavior on opacity { NumberAnimation { duration: 200 } }
                         Repeater {
                             id: suggestions
-                            model: (page.d.apps ? page.d.apps : []).filter(function (a) {
-                                return page.curRule.processes.indexOf(a) < 0
-                            })
+                            model: appsModel
                             delegate: Pill {
                                 height: 30
-                                text: modelData
-                                tip: (backend ? backend.describeProgram(modelData) : "") + "\nНажмите, чтобы добавить в правило."
-                                onClicked: page.addProgram(modelData)
+                                text: model.name
+                                tip: (backend ? backend.describeProgram(model.name) : "") + "\nНажмите, чтобы добавить в правило."
+                                onClicked: page.addProgram(model.name)
                             }
                         }
                     }
@@ -504,11 +546,11 @@ Flickable {
                         spacing: 8
                         Pill { text: "Ничего не менять"; tip: "Если ни одно правило не подошло, ничего не переключается."; sel: page.d.fallback === ""; onClicked: backend.saveFallback("keep") }
                         Repeater {
-                            model: page.list
+                            model: profilesModel
                             delegate: Pill {
-                                text: modelData.name
-                                sel: page.d.fallback === modelData.id
-                                onClicked: backend.saveFallback(modelData.id)
+                                text: model.name
+                                sel: page.d.fallback === model.id
+                                onClicked: backend.saveFallback(model.id)
                             }
                         }
                     }
