@@ -44,8 +44,8 @@ PageFrame {
     readonly property string kbdColor: kbd && kbd.color ? String(kbd.color) : "#5AB0FF"
     readonly property string kbdDevice: kbd && kbd.deviceName ? String(kbd.deviceName) : ""
     readonly property var kbdPalette: [
-        "#FFFFFF", "#FFE4B5", "#5AB0FF", "#22D3EE", "#4CC38A",
-        "#22C55E", "#F5B942", "#FB923C", "#FF5A5A", "#A78BFA", "#F472B6"
+        "#FFFFFF", "#FFE0A3", "#FF0000", "#FF5500", "#FFD000", "#00FF00",
+        "#00E58A", "#00E5FF", "#3B82F6", "#0033FF", "#9333EA", "#FF0099"
     ]
 
     function applyKbd(on, bright, color, autoMode) {

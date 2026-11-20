@@ -87,17 +87,26 @@ def test_build_control_report():
 
 
 def test_build_range_update_report_scaling():
-    # Full brightness white across 104 lamps
+    # Pure primaries at 100% stay exact (255)
     pkt = kb.build_range_update_report(104, 255, 255, 255, 100, report_id=5)
     assert len(pkt) == 10
     rid, flags, start, end, r, g, b, intensity = struct.unpack("<BBHHBBBB", pkt)
     assert (rid, flags, start, end) == (5, 1, 0, 103)
     assert (r, g, b, intensity) == (255, 255, 255, 255)
 
-    # 50% brightness scales RGB channels proportionally
-    pkt50 = kb.build_range_update_report(1, 200, 100, 50, 50)
+    assert kb.scale_led_rgb(255, 0, 0, 100) == (255, 0, 0)
+    assert kb.scale_led_rgb(0, 255, 0, 100) == (0, 255, 0)
+    assert kb.scale_led_rgb(0, 0, 255, 100) == (0, 0, 255)
+
+    # Gamma correction suppresses minor blue/red channels so emerald green (#22C55E) stays green
+    gr, gg, gb = kb.scale_led_rgb(0x22, 0xC5, 0x5E, 100)
+    assert gg > 120 and gb < 40 and gr < 10
+
+    # 50% brightness applies perceptual curve (lower than linear 128)
+    pkt50 = kb.build_range_update_report(1, 255, 255, 255, 50)
     _, _, start, end, r, g, b, intensity = struct.unpack("<BBHHBBBB", pkt50)
-    assert (start, end, r, g, b, intensity) == (0, 0, 100, 50, 25, 255)
+    assert (start, end, intensity) == (0, 0, 255)
+    assert 60 <= r <= 100 and r == g == b
 
     # 1% brightness keeps non-black color faintly visible instead of rounding to 0
     pkt1 = kb.build_range_update_report(1, 10, 0, 0, 1)
@@ -197,7 +206,7 @@ def test_action_set_kbd_backlight_lamparray_rgb(tmp_path):
     assert calls[1][1] == b"\x06\x00"
     rid, flags, start, end, r, g, b, intensity = struct.unpack("<BBHHBBBB", calls[2][1])
     assert (rid, flags, start, end, intensity) == (5, 1, 0, 3, 255)
-    assert (r, g, b) == (45, 88, 128)
+    assert (r, g, b) == kb.scale_led_rgb(0x5A, 0xB0, 0xFF, 50)
 
 
 def test_action_set_kbd_backlight_lamparray_autonomous(tmp_path):

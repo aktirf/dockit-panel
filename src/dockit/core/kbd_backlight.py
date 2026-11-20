@@ -195,6 +195,41 @@ def build_control_report(autonomous: bool, report_id: int = 6) -> bytes:
     return struct.pack("<BB", report_id & 0xFF, 1 if autonomous else 0)
 
 
+def scale_led_rgb(
+    r: int,
+    g: int,
+    b: int,
+    brightness: int,
+    gamma: float = 2.2,
+    brightness_gamma: float = 1.6,
+) -> tuple[int, int, int]:
+    """Convert sRGB (0..255) + perceptual brightness (0..100) to linear LED PWM values.
+
+    Without sRGB gamma correction, linear RGB keyboard LEDs over-brighten secondary
+    sub-channels (e.g., green #22C55E looks cyan because B=94 is 37% linear power).
+    """
+    brightness = max(0, min(100, int(brightness)))
+    r = max(0, min(255, int(r)))
+    g = max(0, min(255, int(g)))
+    b = max(0, min(255, int(b)))
+
+    if brightness <= 0 or (r == 0 and g == 0 and b == 0):
+        return 0, 0, 0
+
+    b_scale = (brightness / 100.0) ** brightness_gamma
+    sr = round(255 * ((r / 255.0) ** gamma) * b_scale)
+    sg = round(255 * ((g / 255.0) ** gamma) * b_scale)
+    sb = round(255 * ((b / 255.0) ** gamma) * b_scale)
+
+    # Keep non-black colors faintly visible at 1% instead of rounding down to 0.
+    if sr == 0 and sg == 0 and sb == 0:
+        peak = max(r, g, b)
+        sr = 1 if r == peak else 0
+        sg = 1 if g == peak else 0
+        sb = 1 if b == peak else 0
+    return sr, sg, sb
+
+
 def build_range_update_report(
     lamp_count: int,
     r: int,
@@ -203,32 +238,13 @@ def build_range_update_report(
     brightness: int,
     report_id: int = 5,
 ) -> bytes:
-    """Build a 10-byte LampRangeUpdateReport setting all lamps to one scaled RGB color.
+    """Build a 10-byte LampRangeUpdateReport setting all lamps to one gamma-corrected RGB color.
 
     RGB channels are scaled by brightness (0..100) because many laptop LampArray
     firmwares (including Gigabyte Gaming A16) treat the intensity byte as on/off.
     """
-    brightness = max(0, min(100, int(brightness)))
-    r = max(0, min(255, int(r)))
-    g = max(0, min(255, int(g)))
-    b = max(0, min(255, int(b)))
-
-    if brightness <= 0 or (r == 0 and g == 0 and b == 0):
-        sr = sg = sb = 0
-        intensity = 0
-    else:
-        scale = brightness / 100.0
-        sr = round(r * scale)
-        sg = round(g * scale)
-        sb = round(b * scale)
-        # Keep non-black colors faintly visible at 1% instead of rounding down to 0.
-        if sr == 0 and sg == 0 and sb == 0:
-            peak = max(r, g, b)
-            sr = 1 if r == peak else 0
-            sg = 1 if g == peak else 0
-            sb = 1 if b == peak else 0
-        intensity = 255
-
+    sr, sg, sb = scale_led_rgb(r, g, b, brightness)
+    intensity = 255 if (sr or sg or sb) else 0
     end_id = max(0, min(0xFFFF, int(lamp_count) - 1))
     flags = 0x01  # LAMP_UPDATE_COMPLETE
     return struct.pack("<BBHHBBBB", report_id & 0xFF, flags, 0, end_id, sr, sg, sb, intensity)
