@@ -132,6 +132,36 @@ Flickable {
                     Txt { Layout.fillWidth: true; text: "Потребление"; color: Theme.muted }
                     Txt { text: page.d.gpu ? page.d.gpu.power + " Вт" : "—"; font.family: Theme.mono }
                 }
+                // Sleeping or awake, and which programs keep the card awake (hover for details)
+                Item {
+                    id: gpuSleepItem
+                    Layout.fillWidth: true
+                    implicitHeight: gpuSleepRow.implicitHeight
+                    visible: !!(page.d.gpu && page.d.gpu.sleepTip)
+                    RowLayout {
+                        id: gpuSleepRow
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        Txt { Layout.fillWidth: true; text: "Состояние"; color: Theme.muted }
+                        Txt {
+                            id: gpuSleepValue
+                            text: page.d.gpu ? String(page.d.gpu.sleepText || "—") : "—"
+                            font.family: Theme.mono
+                            color: !!(page.d.gpu && page.d.gpu.asleep) ? Theme.okText
+                                   : (page.d.gpu && page.d.gpu.sleepText === "не засыпает") ? Theme.warn : Theme.text
+                        }
+                    }
+                    Tip { id: gpuSleepTip; text: page.d.gpu ? String(page.d.gpu.sleepTip || "") : "" }
+                }
+                Txt {
+                    id: gpuHoldersText
+                    Layout.fillWidth: true
+                    visible: !!(page.d.gpu && page.d.gpu.holders && page.d.gpu.holders.length > 0)
+                    text: visible ? "Держат: " + page.d.gpu.holders.join(", ") : ""
+                    color: Theme.warn
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                }
                 Spark { Layout.fillWidth: true; Layout.preferredHeight: 28; implicitHeight: 28; values: page.d.gpuHistory ? page.d.gpuHistory : [] }
             }
         }

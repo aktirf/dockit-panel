@@ -31,7 +31,7 @@ Hyprland, niri, Sway, KDE Plasma, X11 (GNOME partially).
 - `src/dockit/gui/` — PySide6 + Qt Quick. `backend.py` (QObject, worker threads, signals),
   `viewmodel.py` (pure dicts, testable), `qml/` pages. `SyncModel.qml` updates lists in place
   (replacing a model on every refresh rebuilds delegates and makes the UI jerk).
-- `src/dockit/cli/` — `dockit scan | report | mode | auto | profile | camera | gui | daemon`.
+- `src/dockit/cli/` — `dockit scan | report | mode | auto | profile | camera | gpu | gui | daemon`.
 - `devices/` — plain-text device database (matched by USB ID / BIOS model). See `devices/README.md`.
 - `scripts/` — `install.sh` (deps + install), `install-dev.sh`, `uninstall-dev.sh`, `probe.sh`.
 - `packaging/arch/` — PKGBUILD.
@@ -48,6 +48,8 @@ Hyprland, niri, Sway, KDE Plasma, X11 (GNOME partially).
 5. Unknown hardware: show the state honestly ("not available") with `fix_hint()`; do not guess.
 6. UI text is Russian (English UI is planned); code, comments and commits are English.
 7. Add a unit test for new parsers and rules (tests use sample text, no real hardware).
+8. Never call `nvidia-smi` while the card sleeps (`core/gpu_power.gpu_asleep()`): it wakes the
+   card and drains the battery. Polling code must check this first.
 
 ## Commands
 ```bash

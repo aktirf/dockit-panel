@@ -111,12 +111,43 @@ def _item(result: ScanResult, item_id: str):
     return next((i for i in result.items if i.id == item_id), None)
 
 
+GPU_SLEEP_EMPTY = {"asleep": False, "sleepText": "—", "holders": [], "sleepTip": ""}
+
+
+def gpu_sleep_view(gpu_state: dict | None) -> dict:
+    """Is the NVIDIA card asleep and who keeps it awake, as text for the window."""
+    g = gpu_state or {}
+    s = g.get("sleep") or {}
+    if not s:
+        return {**GPU_SLEEP_EMPTY, "holders": []}
+    holders: list[str] = []
+    for u in s.get("users") or []:
+        if u.get("card") and u.get("name") not in holders:
+            holders.append(str(u.get("name")))
+    holders = holders[:5]
+    if s.get("asleep"):
+        text, tip = "спит", "Видеокарта спит и не тратит батарею."
+    elif s.get("control") == "on":
+        text = "не засыпает"
+        tip = ("Система держит видеокарту всегда включённой (power/control = on), поэтому она "
+               "тратит батарею даже без нагрузки. Как разрешить ей засыпать: ArchWiki, "
+               "статья «PRIME», раздел «PCI-Express Runtime D3 (RTD3) Power Management».")
+    elif holders:
+        text = "работает"
+        tip = ("Видеокарту держат: " + ", ".join(holders) + ". Если они сейчас не нужны, "
+               "закройте их: видеокарта уснёт, и батарея проживёт дольше.")
+    else:
+        text = "работает" if s.get("runtime") == "active" else "—"
+        tip = "Видеокарта работает. Когда её никто не использует, она засыпает сама."
+    return {"asleep": bool(s.get("asleep")), "sleepText": text, "holders": holders, "sleepTip": tip}
+
+
 def empty() -> dict:
     return {"ready": False, "model": "", "service": False, "okCount": 0, "total": 0,
             "modes": MODES, "currentMode": "", "scenarios": [], "scenario": "",
             "cpu": {"name": "", "freq": "—", "load": None, "temp": "—", "fan": "нет данных", "fanUnit": ""},
             "gpu": {"name": "", "clock": "—", "util": None, "temp": "—", "memUsed": "—", "memTotal": "—",
-                    "memPct": 0, "power": "—", "status": "no", "statusText": ""},
+                    "memPct": 0, "power": "—", "status": "no", "statusText": "", **GPU_SLEEP_EMPTY},
             "battery": {"percent": None, "text": "—", "source": "", "health": "—", "cycles": None,
                         "power": "—", "left": "", "status": "no", "statusText": ""},
             "limit": {"status": "no", "statusText": ""}, "toggles": [], "temps": [], "fans": [],
@@ -154,6 +185,7 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "status": STATUS_KEY[gpu_item.status] if gpu_item else "no",
         "statusText": LABELS_RU[gpu_item.status] if gpu_item else "",
     }
+    gpu.update(gpu_sleep_view(g))
 
     bats = ((bat_item.state if bat_item else None) or {}).get("batteries", [])
     ac = ((bat_item.state if bat_item else None) or {}).get("ac_online")

@@ -6,7 +6,7 @@ import glob
 import shutil
 import subprocess
 
-from ..core import sysfs
+from ..core import gpu_power, sysfs
 from ..core.module import Detection, Module
 from ..core.status import Status
 
@@ -102,12 +102,34 @@ def thermal_throttled() -> bool | None:
 
 
 class GpuNvidia(Module):
+    """nvidia-smi wakes a sleeping card, so it is never called while the card sleeps,
+    and at most once per scan (detect() and get_state() share one answer)."""
+
     id = "gpu_nvidia"
     name = "Видеокарта NVIDIA"
     source = "nvidia-smi"
 
+    last_name = ""  # remembered card name, shown while the card sleeps
+
+    def __init__(self, pci_base: str = gpu_power.PCI, proc_base: str = gpu_power.PROC) -> None:
+        self._pci = pci_base
+        self._proc = proc_base
+        self._answer: tuple[list[dict] | None, str] | None = None
+
+    def _asleep(self) -> bool:
+        return gpu_power.gpu_asleep(self._pci)
+
+    def _smi(self) -> tuple[list[dict] | None, str]:
+        if self._answer is None:
+            self._answer = _query()
+            if self._answer[0]:
+                GpuNvidia.last_name = self._answer[0][0].get("name") or GpuNvidia.last_name
+        return self._answer
+
     def detect(self) -> Detection:
-        gpus, error = _query()
+        if self._asleep():
+            return Detection(Status.OK, "Видеокарта спит и не тратит батарею.")
+        gpus, error = self._smi()
         if gpus:
             return Detection(Status.OK, f"{gpus[0]['name']}: данные доступны.")
         if error == "missing":
@@ -123,10 +145,13 @@ class GpuNvidia(Module):
         )
 
     def get_state(self):
-        gpus, _ = _query()
+        sleep = gpu_power.summary(self._pci, self._proc)
+        if sleep and sleep["asleep"]:
+            return {"name": GpuNvidia.last_name or "NVIDIA", "asleep": True, "sleep": sleep}
+        gpus, _ = self._smi()
         if not gpus:
             return None
-        gpu = gpus[0]
+        gpu = dict(gpus[0], asleep=False, sleep=sleep)
         if (gpu.get("temp_c") or 0) >= 75:       # only worth asking when the card is hot
             gpu["throttled"] = thermal_throttled()
         return gpu
