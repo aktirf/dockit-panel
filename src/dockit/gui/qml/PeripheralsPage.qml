@@ -9,9 +9,11 @@ PageFrame {
 
     SyncModel { id: periphModel }
     SyncModel { id: btModel }
+    SyncModel { id: periphBatModel }
     function syncAll() {
         periphModel.sync(d.peripherals)
         btModel.sync(d.bluetooth)
+        periphBatModel.sync(d.periphBatteries)
     }
     Connections { target: backend; function onStateChanged() { syncAll() } }
     Component.onCompleted: syncAll()
@@ -397,7 +399,117 @@ PageFrame {
         }
     }
 
-    // 3. Bluetooth devices with battery bars
+    // 3. Peripheral batteries (UPower / sysfs HID++ / headsetcontrol / Bluetooth)
+    Card {
+        id: periphBatCard
+        Layout.fillWidth: true
+        RowLayout {
+            Layout.fillWidth: true
+            Icon { name: "battery"; size: 17; color: Theme.accent }
+            Txt { Layout.fillWidth: true; text: Theme.tr("periph_bat_title"); font.pixelSize: 16; font.weight: Font.DemiBold }
+            Chip {
+                visible: periphBatModel.count > 0
+                kind: "ok"
+                text: Theme.tr("periph_bat_count").replace("{n}", String(periphBatModel.count))
+                tip: Theme.tr("periph_bat_tip")
+            }
+            Chip {
+                visible: periphBatModel.count === 0
+                kind: "no"
+                text: Theme.tr("no_data")
+                tip: Theme.tr("periph_bat_tip")
+            }
+        }
+        Txt {
+            visible: periphBatModel.count === 0
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: Theme.muted
+            font.pixelSize: 13
+            text: Theme.tr("periph_bat_none")
+        }
+        GridLayout {
+            visible: periphBatModel.count > 0
+            Layout.fillWidth: true
+            columns: periphPage.width >= 660 ? 2 : 1
+            columnSpacing: 12
+            rowSpacing: 10
+            Repeater {
+                model: periphBatModel
+                delegate: Rectangle {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    implicitHeight: pbatCol.implicitHeight + 22
+                    radius: 12
+                    color: Theme.cardInner
+                    border.width: 1
+                    border.color: Theme.border2
+                    ColumnLayout {
+                        id: pbatCol
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 8
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+                            Rectangle {
+                                implicitWidth: 32
+                                implicitHeight: 32
+                                radius: 9
+                                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: periphPage.deviceIcon(model.kind)
+                                    size: 16
+                                    color: Theme.accent
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                spacing: 1
+                                Txt {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    elide: Text.ElideRight
+                                    text: String(model.name || "")
+                                    font.weight: Font.Medium
+                                }
+                                Txt {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    elide: Text.ElideRight
+                                    color: model.charging ? Theme.accent : Theme.muted
+                                    font.pixelSize: 11
+                                    text: {
+                                        var parts = []
+                                        if (model.source) parts.push(String(model.source))
+                                        if (model.statusText) parts.push(String(model.statusText))
+                                        return parts.join(" · ")
+                                    }
+                                }
+                            }
+                            Txt {
+                                text: model.percent >= 0 ? (model.percent + " %") : (model.level ? String(model.level) : Theme.tr("bt_bat_unknown"))
+                                font.family: Theme.mono
+                                font.pixelSize: 14
+                                font.weight: Font.DemiBold
+                                color: model.charging ? Theme.accent : (model.percent >= 0 ? Theme.batteryColor(model.percent) : Theme.muted)
+                            }
+                        }
+                        Bar {
+                            visible: model.percent >= 0
+                            Layout.fillWidth: true
+                            value: model.percent >= 0 ? model.percent : 0
+                            fill: model.charging ? Theme.accent : Theme.batteryColor(model.percent)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Bluetooth devices with battery bars
     Card {
         Layout.fillWidth: true
         RowLayout {

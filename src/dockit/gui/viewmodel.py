@@ -189,6 +189,42 @@ def kbd_backlight_view(kbd_state: dict | None, service_ok: bool, saved: dict | N
     }
 
 
+_PERIPH_BAT_STATUS = {
+    "charging": "periph_bat_charging",
+    "full": "periph_bat_full",
+    "discharging": "periph_bat_discharging",
+}
+
+_PERIPH_BAT_SOURCE = {
+    "upower": "UPower",
+    "sysfs": "HID / sysfs",
+    "headsetcontrol": "HeadsetControl",
+    "bluetooth": "Bluetooth",
+}
+
+
+def periph_batteries_view(items: list[dict] | None, lang: str = "ru") -> list[dict]:
+    """Localized list of wireless peripheral batteries for PeripheralsPage."""
+    out: list[dict] = []
+    for item in items or []:
+        pct = item.get("percent")
+        pct_int = -1 if pct is None else int(pct)
+        st = str(item.get("status") or "unknown")
+        st_key = _PERIPH_BAT_STATUS.get(st, "")
+        status_text = i18n.tr(st_key, lang) if st_key else ""
+        src = str(item.get("source") or "")
+        out.append({
+            "name": str(item.get("name") or ""),
+            "percent": pct_int,
+            "charging": st == "charging",
+            "statusText": status_text,
+            "kind": str(item.get("kind") or "device"),
+            "source": _PERIPH_BAT_SOURCE.get(src, src),
+            "level": str(item.get("level") or ""),
+        })
+    return out
+
+
 def gpu_sleep_view(gpu_state: dict | None, lang: str = "ru") -> dict:
     """Is the NVIDIA card asleep and who keeps it awake, as localized text for the window."""
     g = gpu_state or {}
@@ -222,7 +258,7 @@ def empty() -> dict:
             "battery": {"percent": None, "text": "—", "source": "", "health": "—", "cycles": None,
                         "power": "—", "left": "", "status": "no", "statusText": ""},
             "limit": {"status": "no", "statusText": ""}, "toggles": [], "temps": [], "fans": [],
-            "peripherals": [], "backlight": [], "kbdBacklight": dict(KBD_BACKLIGHT_EMPTY), "system": {},
+            "peripherals": [], "periphBatteries": [], "backlight": [], "kbdBacklight": dict(KBD_BACKLIGHT_EMPTY), "system": {},
             "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "bluetooth": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
             "fallback": ""}

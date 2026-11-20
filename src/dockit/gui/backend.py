@@ -17,7 +17,7 @@ from collections import deque
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from ..core import audio, i18n, kbd_backlight, processes, profiles, sysfs
+from ..core import audio, i18n, kbd_backlight, periph_battery, processes, profiles, sysfs
 from ..core import idle
 from ..core import bluetooth, gpu_power, tuning
 from ..core.cpu import CpuMonitor
@@ -316,13 +316,20 @@ class Backend(QObject):
         self.settingsChanged.emit()
         self.refresh()
 
-    def _bluetooth(self) -> list:
+    def _bluetooth_and_periph_batteries(self, lang: str) -> tuple[list, list]:
         now = time.monotonic()
         if now - getattr(self, "_bt_at", -999) > 20:
             self._bt_at = now
-            self._bt_cache = [{"name": d["name"], "battery": -1 if d["battery"] is None else d["battery"]}
-                              for d in bluetooth.connected_devices()]
-        return list(getattr(self, "_bt_cache", []))
+            raw_bt = bluetooth.connected_devices()
+            bt_list = [{"name": d["name"], "battery": -1 if d["battery"] is None else d["battery"],
+                        "icon": d.get("icon", "")} for d in raw_bt]
+            raw_bats = periph_battery.collect(bluetooth_devices=bt_list)
+            self._bt_cache = [{"name": d["name"], "battery": d["battery"]}
+                              for d in periph_battery.enrich_bluetooth(bt_list, raw_bats)]
+            self._pbat_cache = raw_bats
+        return list(getattr(self, "_bt_cache", [])), viewmodel.periph_batteries_view(
+            getattr(self, "_pbat_cache", []), lang
+        )
 
     @Property(str, notify=logChanged)
     def logText(self) -> str:
@@ -637,7 +644,9 @@ class Backend(QObject):
                 self._idle.stop()
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                                     muted, scenarios, self._scenario, lang=lang, kbd_saved=dict(self._kbd_saved))
-            state["bluetooth"] = self._bluetooth()
+            bt_list, pbat_list = self._bluetooth_and_periph_batteries(lang)
+            state["bluetooth"] = bt_list
+            state["periphBatteries"] = pbat_list
             state["display"] = self._display()
             if fresh:
                 self._top_cache = self._top.sample()
