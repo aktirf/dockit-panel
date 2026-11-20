@@ -9,6 +9,7 @@ Flickable {
     property string tab: "settings"   // "settings" | "rules"
     property bool showRunning: false
     property bool procsExpanded: false
+    property bool dirty: false
 
     readonly property var curEdit: cur ? cur.edit : ({ power: "keep", camera: "keep", output: "", input: "", brightness: 0, refresh: 0 })
     readonly property var curRule: cur ? cur.rule : ({ processes: [], when: "", idle: 0, temp: 0, hours: "" })
@@ -75,6 +76,7 @@ Flickable {
     onCurIdChanged: {
         procsExpanded = false
         showRunning = false
+        dirty = false
         syncAll()
         if (hoursField && !hoursField.activeFocus)
             hoursField.text = page.curRule ? String(page.curRule.hours || "") : ""
@@ -108,6 +110,8 @@ Flickable {
         var v = { power: e.power, camera: e.camera, output: e.output, input: e.input,
                   brightness: e.brightness, refresh: e.refresh }
         v[field] = value
+        if (page.d.scenario === cur.id)
+            page.dirty = true
         backend.saveProfile(cur.id, v.power, v.camera, v.output, v.input, v.brightness, v.refresh)
     }
     function saveRule(procs, when, idle, temp, hours) {
@@ -306,16 +310,21 @@ Flickable {
                         spacing: 8
                         Chip {
                             visible: !!(page.cur !== null && page.d.scenario === page.cur.id)
-                            kind: "ok"
-                            icon: "check"
-                            text: "Сейчас применён"
+                            kind: page.dirty ? "setup" : "ok"
+                            icon: page.dirty ? "wrench" : "check"
+                            text: page.dirty ? "Есть неприменённые правки" : "Сейчас применён"
                         }
                         Btn {
-                            visible: !!(page.cur !== null && page.d.scenario !== page.cur.id)
-                            primary: true
+                            visible: page.cur !== null
+                            primary: !!(page.cur !== null && (page.d.scenario !== page.cur.id || page.dirty))
                             implicitHeight: 36
-                            text: "Применить сейчас"
-                            onClicked: backend.setScenario(page.cur.id)
+                            text: (page.cur !== null && page.d.scenario === page.cur.id)
+                                  ? (page.dirty ? "Применить изменения" : "Применить заново")
+                                  : "Применить сейчас"
+                            onClicked: {
+                                page.dirty = false
+                                backend.setScenario(page.cur.id)
+                            }
                         }
                         Btn {
                             visible: !!(page.cur !== null && page.cur.custom === true)
@@ -384,48 +393,20 @@ Flickable {
                         icon: "sun"
                         title: "Яркость экрана"
                         checked: Number(page.curEdit.brightness || 0) > 0
-                        valueText: profBrightSlider.pressed
-                                   ? (Math.round(profBrightSlider.value) + " %")
-                                   : (Number(page.curEdit.brightness || 0) + " %")
+                        valueText: profBrightSlider.displayValue + " %"
                         tip: "Автоматически выставляет выбранную яркость экрана."
                         onToggled: function (on) {
                             var defVal = (page.d.display && page.d.display.brightness) ? Number(page.d.display.brightness) : 60
                             page.save("brightness", on ? Math.max(5, Math.min(100, defVal)) : 0)
                         }
-                        Slider {
+                        SmoothSlider {
                             id: profBrightSlider
-                            Layout.fillWidth: true
                             from: 5
                             to: 100
-                            stepSize: 1
-                            value: Number(page.curEdit.brightness || 60)
-                            onPressedChanged: {
-                                if (!pressed && page.cur)
-                                    page.save("brightness", Math.round(value))
-                            }
-                            background: Rectangle {
-                                x: profBrightSlider.leftPadding
-                                y: profBrightSlider.topPadding + profBrightSlider.availableHeight / 2 - height / 2
-                                width: profBrightSlider.availableWidth
-                                height: 6
-                                radius: 3
-                                color: Theme.border2
-                                Rectangle {
-                                    width: profBrightSlider.visualPosition * parent.width
-                                    height: parent.height
-                                    radius: 3
-                                    color: Theme.accent
-                                }
-                            }
-                            handle: Rectangle {
-                                x: profBrightSlider.leftPadding + profBrightSlider.visualPosition * (profBrightSlider.availableWidth - width)
-                                y: profBrightSlider.topPadding + profBrightSlider.availableHeight / 2 - height / 2
-                                width: 18
-                                height: 18
-                                radius: 9
-                                color: profBrightSlider.pressed ? "#FFFFFF" : Theme.accent
-                                border.width: 2
-                                border.color: Theme.card
+                            targetValue: Number(page.curEdit.brightness || 60)
+                            onCommitted: function (val) {
+                                if (page.cur)
+                                    page.save("brightness", val)
                             }
                         }
                         SegmentBar {

@@ -491,48 +491,18 @@ Window {
                                 Icon { name: "sun"; size: 15; color: Theme.accent }
                                 Txt { Layout.fillWidth: true; text: "Яркость экрана"; font.pixelSize: 13; color: Theme.soft }
                                 Txt {
-                                    text: overviewBrightSlider.pressed
-                                          ? (Math.round(overviewBrightSlider.value) + " %")
-                                          : (overviewDisplayCard.hasBright ? String(d.display.brightness) + " %" : "—")
+                                    text: overviewDisplayCard.hasBright ? (overviewBrightSlider.displayValue + " %") : "—"
                                     font.family: Theme.mono
                                     font.pixelSize: 13
                                 }
                             }
-                            Slider {
+                            SmoothSlider {
                                 id: overviewBrightSlider
-                                Layout.fillWidth: true
                                 from: 5
                                 to: 100
-                                stepSize: 1
-                                value: overviewDisplayCard.hasBright ? Number(d.display.brightness) : 50
-                                onPressedChanged: {
-                                    if (!pressed)
-                                        backend.setBrightness(Math.round(value))
-                                }
-                                background: Rectangle {
-                                    x: overviewBrightSlider.leftPadding
-                                    y: overviewBrightSlider.topPadding + overviewBrightSlider.availableHeight / 2 - height / 2
-                                    width: overviewBrightSlider.availableWidth
-                                    height: 6
-                                    radius: 3
-                                    color: Theme.border2
-                                    Rectangle {
-                                        width: overviewBrightSlider.visualPosition * parent.width
-                                        height: parent.height
-                                        radius: 3
-                                        color: Theme.accent
-                                    }
-                                }
-                                handle: Rectangle {
-                                    x: overviewBrightSlider.leftPadding + overviewBrightSlider.visualPosition * (overviewBrightSlider.availableWidth - width)
-                                    y: overviewBrightSlider.topPadding + overviewBrightSlider.availableHeight / 2 - height / 2
-                                    width: 16
-                                    height: 16
-                                    radius: 8
-                                    color: overviewBrightSlider.pressed ? "#FFFFFF" : Theme.accent
-                                    border.width: 2
-                                    border.color: Theme.card
-                                }
+                                handleSize: 16
+                                targetValue: overviewDisplayCard.hasBright ? Number(d.display.brightness) : 50
+                                onCommitted: function (val) { backend.setBrightness(val) }
                             }
                         }
 

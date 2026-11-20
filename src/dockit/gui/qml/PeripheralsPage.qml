@@ -42,9 +42,7 @@ PageFrame {
             Txt { Layout.fillWidth: true; text: "Звук"; font.pixelSize: 16; font.weight: Font.DemiBold }
             Txt {
                 visible: periphPage.hasVolume
-                text: periphPage.audioMuted
-                      ? "Без звука"
-                      : (volSlider.pressed ? Math.round(volSlider.value) + " %" : String(d.audio.outputVolume) + " %")
+                text: periphPage.audioMuted ? "Без звука" : (volSlider.displayValue + " %")
                 font.family: Theme.mono
                 font.pixelSize: 13
                 color: periphPage.audioMuted ? Theme.err : Theme.text
@@ -76,41 +74,14 @@ PageFrame {
                 }
                 Tip { text: periphPage.audioMuted ? "Включить звук" : "Выключить звук (Mute)" }
             }
-            Slider {
+            SmoothSlider {
                 id: volSlider
-                Layout.fillWidth: true
                 from: 0
                 to: 150
-                stepSize: 1
-                value: periphPage.hasVolume ? Number(d.audio.outputVolume) : 50
-                onPressedChanged: {
-                    if (!pressed)
-                        backend.setVolume(Math.round(value))
-                }
-                background: Rectangle {
-                    x: volSlider.leftPadding
-                    y: volSlider.topPadding + volSlider.availableHeight / 2 - height / 2
-                    width: volSlider.availableWidth
-                    height: 6
-                    radius: 3
-                    color: Theme.border2
-                    Rectangle {
-                        width: volSlider.visualPosition * parent.width
-                        height: parent.height
-                        radius: 3
-                        color: periphPage.audioMuted ? Theme.muted : (volSlider.value > 100 ? Theme.warn : Theme.accent)
-                    }
-                }
-                handle: Rectangle {
-                    x: volSlider.leftPadding + volSlider.visualPosition * (volSlider.availableWidth - width)
-                    y: volSlider.topPadding + volSlider.availableHeight / 2 - height / 2
-                    width: 18
-                    height: 18
-                    radius: 9
-                    color: volSlider.pressed ? "#FFFFFF" : (periphPage.audioMuted ? Theme.muted : Theme.accent)
-                    border.width: 2
-                    border.color: Theme.card
-                }
+                targetValue: periphPage.hasVolume ? Number(d.audio.outputVolume) : 50
+                fillColor: periphPage.audioMuted ? Theme.muted : (volSlider.displayValue > 100 ? Theme.warn : Theme.accent)
+                handleColor: periphPage.audioMuted ? Theme.muted : Theme.accent
+                onCommitted: function (val) { backend.setVolume(val) }
             }
         }
 

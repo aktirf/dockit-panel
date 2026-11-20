@@ -65,6 +65,8 @@ class Backend(QObject):
         self._toggle_busy: set[str] = set()
         self._periph_at = -999.0
         self._periph_cache: tuple[list, object] = ([], None)
+        self._pending_bright: tuple[float, int] | None = None
+        self._pending_vol: tuple[float, int] | None = None
         self._hist_at = 0.0
         self._snapshot.connect(self._apply)
         self._finished.connect(self._done)
@@ -147,7 +149,9 @@ class Backend(QObject):
                 json.dump(self._settings, f)
         except OSError:
             self._say("Не удалось сохранить настройку")
+        self._state = dict(self._state, settings=self._settings_view())
         self.settingsChanged.emit()
+        self.stateChanged.emit()
 
     def _settings_view(self) -> dict:
         view = dict(self._settings)
@@ -324,6 +328,11 @@ class Backend(QObject):
     @Slot(int)
     def setVolume(self, percent: int) -> None:
         percent = max(0, min(150, int(percent)))
+        self._pending_vol = (time.monotonic() + 2.0, percent)
+        audio_state = dict(self._state.get("audio") or {})
+        audio_state["outputVolume"] = percent
+        self._state = dict(self._state, audio=audio_state)
+        self.stateChanged.emit()
 
         def work() -> str:
             try:
@@ -337,6 +346,10 @@ class Backend(QObject):
     @Slot()
     def toggleMuteOutput(self) -> None:
         cur_muted = bool((self._state.get("audio") or {}).get("outputMuted", False))
+        audio_state = dict(self._state.get("audio") or {})
+        audio_state["outputMuted"] = not cur_muted
+        self._state = dict(self._state, audio=audio_state)
+        self.stateChanged.emit()
 
         def work() -> str:
             try:
@@ -599,6 +612,24 @@ class Backend(QObject):
     def _apply(self, state) -> None:
         self._busy = False
         if state is not None:
+            now = time.monotonic()
+            # Ignore stale brightness/volume from an in-flight scan started before a slider release.
+            if self._pending_bright is not None:
+                until, target = self._pending_bright
+                disp = state.get("display") or {}
+                cur = disp.get("brightness")
+                if now >= until or (cur is not None and abs(int(cur) - target) <= 1):
+                    self._pending_bright = None
+                elif cur is not None:
+                    state["display"] = dict(disp, brightness=target)
+            if self._pending_vol is not None:
+                until, target = self._pending_vol
+                aud = state.get("audio") or {}
+                cur = aud.get("outputVolume")
+                if now >= until or (cur is not None and cur >= 0 and abs(int(cur) - target) <= 1):
+                    self._pending_vol = None
+                elif cur is not None and cur >= 0:
+                    state["audio"] = dict(aud, outputVolume=target)
             self._state = state
             self.stateChanged.emit()
 
@@ -667,6 +698,20 @@ class Backend(QObject):
         self._log(f"Вручную: «{profile.name}»")
         self._run(lambda: self._apply_profile(profile))
 
+    def _sync_profiles_now(self) -> None:
+        """Immediately reflect profile/rule edits in the UI without waiting for the next scan."""
+        available, rules = profiles.load()
+        scenarios = [{"id": p.id, "name": p.name} for p in available.values()]
+        scenarios.append({"id": "auto", "name": "Авто"})
+        fb = profiles.load_fallback()
+        self._state = dict(
+            self._state,
+            profiles=viewmodel.profile_cards(available, rules),
+            scenarios=scenarios,
+            fallback=fb if fb in available else "",
+        )
+        self.stateChanged.emit()
+
     @Slot(str, str, str, str, str, int, int)
     def saveProfile(self, pid: str, power: str, camera: str, output: str, mic: str,
                     brightness: int, refresh: int) -> None:
@@ -678,7 +723,11 @@ class Backend(QObject):
         except (ValueError, OSError):
             self._say("Не удалось сохранить профиль")
             return
-        self._say(f"Профиль «{available[pid].name}» сохранён. Нажмите «Применить сейчас», чтобы включить его.")
+        self._sync_profiles_now()
+        if self._scenario == pid:
+            self._say(f"Профиль «{available[pid].name}» сохранён. Нажмите «Применить изменения», чтобы обновить.")
+        else:
+            self._say(f"Профиль «{available[pid].name}» сохранён.")
         self.refresh()
 
     @Slot(str)
@@ -688,6 +737,7 @@ class Backend(QObject):
         except (ValueError, OSError):
             self._say("Не удалось создать профиль (название от 1 до 30 символов)")
             return
+        self._sync_profiles_now()
         self._say(f"Профиль «{name.strip()}» создан. Настройте его справа.")
         self.profileCreated.emit(pid)
         self.refresh()
@@ -701,23 +751,39 @@ class Backend(QObject):
             return
         if self._scenario == pid:
             self.setScenario("auto")
+        self._sync_profiles_now()
         self._say("Профиль удалён")
         self.refresh()
 
     @Slot(int)
     def setBrightness(self, percent: int) -> None:
+        percent = max(1, min(100, int(percent)))
+        self._pending_bright = (time.monotonic() + 2.0, percent)
+        disp = dict(self._state.get("display") or {})
+        disp["brightness"] = percent
+        self._display_cache = dict(getattr(self, "_display_cache", disp), brightness=percent)
+        self._state = dict(self._state, display=disp)
+        self.stateChanged.emit()
+
         def work() -> str:
             from ..core import display
-            self._display_at = 0
             if display.set_brightness_user(percent) is None:  # logind, no password
+                self._display_at = 0
                 return f"Яркость: {percent} %"
             result, error = client.ask({"action": "set_brightness", "value": percent})
+            self._display_at = 0
             return f"Яркость: {percent} %" if result is not None else error
 
         self._run(work)
 
     @Slot(int)
     def setRefresh(self, hz: int) -> None:
+        disp = dict(self._state.get("display") or {})
+        disp["refresh"] = hz
+        self._display_cache = dict(getattr(self, "_display_cache", disp), refresh=hz)
+        self._state = dict(self._state, display=disp)
+        self.stateChanged.emit()
+
         def work() -> str:
             from ..core import display
             self._display_at = 0
@@ -737,6 +803,7 @@ class Backend(QObject):
             self._say("Не удалось сохранить правило")
             return
         self._auto_last = None
+        self._sync_profiles_now()
         self._say("Правило сохранено")
         self.refresh()
 
@@ -748,6 +815,7 @@ class Backend(QObject):
             self._say("Не удалось сохранить")
             return
         self._auto_last = None
+        self._sync_profiles_now()
         self._say("Сохранено")
         self.refresh()
 

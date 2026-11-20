@@ -38,8 +38,10 @@ Rectangle {
                 height: 34
                 width: evenW >= minNeeded ? Math.floor(evenW) : Math.min(minNeeded, Math.max(64, flowWrap.width))
                 radius: 9
-                color: sel ? Theme.accent : (segMouse.containsMouse ? Theme.btn : "transparent")
+                color: sel ? Theme.accent : (segHover.hovered ? Theme.btn : "transparent")
                 Behavior on color { ColorAnimation { duration: 150 } }
+
+                HoverHandler { id: segHover }
 
                 Txt {
                     id: segLbl
@@ -55,7 +57,6 @@ Rectangle {
                 MouseArea {
                     id: segMouse
                     anchors.fill: parent
-                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.picked(String(segItem.opt.id))
                 }
