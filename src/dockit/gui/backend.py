@@ -546,14 +546,16 @@ class Backend(QObject):
     @Slot()
     def copyReport(self) -> None:
         from PySide6.QtGui import QGuiApplication
+        lang = self._lang()
+        fix_lbl = i18n.tr("report_fix", lang)
         st = self._state
         lines = [f"DOCKIT {self.version}", ", ".join(f"{k}: {v}" for k, v in st.get("system", {}).items()), ""]
         for f in st.get("features", []):
             lines.append(f"[{f['statusText']}] {f['name']}: {f['detail']}")
             if f.get("hint"):
-                lines.append(f"    Как исправить: {f['hint']}")
+                lines.append(f"    {fix_lbl}: {f['hint']}")
         QGuiApplication.clipboard().setText("\n".join(lines))
-        self._say("Отчёт скопирован. Его можно вставить в сообщение об ошибке.")
+        self._say(i18n.tr("report_copied", lang))
 
     @Slot()
     def shutdown(self) -> None:

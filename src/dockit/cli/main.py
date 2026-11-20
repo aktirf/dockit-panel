@@ -72,8 +72,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_report(_: argparse.Namespace) -> int:
-    print(format_report(scan()))
+def cmd_report(args: argparse.Namespace) -> int:
+    print(format_report(scan(), lang=getattr(args, "lang", None)))
     return 0
 
 
@@ -347,6 +347,8 @@ def main(argv: list[str] | None = None) -> int:
     p_scan.set_defaults(func=cmd_scan)
 
     p_report = sub.add_parser("report", help="print a text report for a GitHub issue")
+    p_report.add_argument("--lang", default="auto", choices=["auto", "ru", "en", "uk"],
+                          help="report language (default: system locale)")
     p_report.set_defaults(func=cmd_report)
 
     p_daemon = sub.add_parser("daemon", help="run the root service (started by systemd)")

@@ -360,5 +360,73 @@
   "chip_eth": "Ethernet",
   "prof_sub_mode": "Mode: {mode}",
   "prof_no_changes": "unchanged",
-  "prof_not_configured": "Not configured"
+  "prof_not_configured": "Not configured",
+
+  "report_fix": "How to fix",
+  "report_usb": "USB devices",
+  "report_not_in_db": "not in database",
+  "report_total": "Total",
+  "report_copied": "Report copied. You can paste it into a bug report or GitHub issue.",
+  "report_laptop_db": "laptop in database",
+  "report_yes": "yes",
+  "report_no": "no",
+
+  "mod_service_name": "DOCKIT background service",
+  "mod_service_ok": "Service is running, settings can be changed.",
+  "mod_service_setup": "Service is not running: settings are view-only.",
+  "mod_service_hint": "Install the service: sudo scripts/install-dev.sh (from the project folder).",
+
+  "mod_power_profile_name": "Performance mode",
+  "mod_power_profile_ok": "Mode can be switched via the DOCKIT service.",
+  "mod_power_profile_setup": "Mode can be read, but changing it requires the DOCKIT service.",
+  "mod_power_profile_no": "Kernel does not expose performance modes for this model.",
+  "mod_power_profile_hint_no": "Try a newer kernel. Fallback: power-profiles-daemon and ryzenadj.",
+  "mod_power_profile_hint_setup": "Install and start the DOCKIT service: sudo scripts/install-dev.sh.",
+
+  "mod_sensors_name": "Temperatures and fans",
+  "mod_sensors_ok_fans": "Temperatures and fan speeds are available.",
+  "mod_sensors_ok_nofans": "Temperatures are available. Kernel does not report fan speeds.",
+  "mod_sensors_no": "No temperature sensors found.",
+  "mod_sensors_hint": "Install lm_sensors and run sensors-detect.",
+
+  "mod_gpu_nvidia_name": "NVIDIA GPU",
+  "mod_gpu_nvidia_ok_asleep": "GPU is asleep and not draining battery.",
+  "mod_gpu_nvidia_ok_name": "{name}: data available.",
+  "mod_gpu_nvidia_setup": "NVIDIA GPU detected, but nvidia-smi is missing or the driver is not loaded.",
+  "mod_gpu_nvidia_no": "No NVIDIA GPU found.",
+  "mod_gpu_nvidia_hint": "Install the NVIDIA driver (nvidia-open and nvidia-utils) and reboot.",
+
+  "mod_battery_name": "Battery",
+  "mod_battery_ok": "Charge {pct}%, {status}.",
+  "mod_battery_no": "Battery not found or charge unreadable.",
+
+  "mod_battery_limit_name": "Battery charge limit",
+  "mod_battery_limit_ok": "Charge limit can be read and changed.",
+  "mod_battery_limit_setup": "Charge limit is visible, but write permission is missing (udev rule needed).",
+  "mod_battery_limit_no": "Kernel does not expose a charge limit for this model.",
+  "mod_battery_limit_hint_no": "Update the kernel or check whether the driver supports your model.",
+  "mod_battery_limit_hint_setup": "Add a udev rule granting write access to charge_control_end_threshold.",
+
+  "mod_camera_name": "Webcam (on/off)",
+  "mod_camera_ok": "Camera can be switched on and off.",
+  "mod_camera_setup": "Camera found, but switching requires the DOCKIT service.",
+  "mod_camera_no": "Camera not found among known devices (devices/ database).",
+  "mod_camera_hint": "Install and start the DOCKIT service: sudo scripts/install-dev.sh.",
+
+  "mod_wireless_name": "Wi-Fi and Bluetooth",
+  "mod_wireless_ok": "Modules found: {mods}",
+  "mod_wireless_no": "Wi-Fi and Bluetooth switches not found.",
+  "mod_wireless_hint": "Check that Wi-Fi and Bluetooth drivers are loaded (command: rfkill list).",
+
+  "mod_audio_name": "Sound",
+  "mod_audio_ok": "Outputs: {outs}, microphones: {ins}. Current output: {cur}.",
+  "mod_audio_no": "No audio output devices found.",
+  "mod_audio_hint": "Install PipeWire and libpulse: sudo pacman -S pipewire pipewire-pulse libpulse",
+
+  "mod_kbd_backlight_name": "Keyboard backlight",
+  "mod_kbd_backlight_ok": "{names} ({mode}).",
+  "mod_kbd_backlight_setup": "Backlight found ({names}, {mode}), but controlling it requires the DOCKIT service.",
+  "mod_kbd_backlight_no": "Backlight not exposed via HID LampArray or /sys/class/leds.",
+  "mod_kbd_backlight_hint_setup": "Install and start the DOCKIT service: sudo scripts/install-dev.sh.",
+  "mod_kbd_backlight_hint_no": "Controlled by built-in keyboard firmware."
 }

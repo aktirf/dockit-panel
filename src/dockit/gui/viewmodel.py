@@ -11,7 +11,7 @@ import shutil
 from ..core import i18n
 from ..core.profiles import DEFAULT_PROFILES
 from ..modules.battery import minutes_left
-from ..core.scanner import ScanResult, display_name
+from ..core.scanner import ScanResult, display_name, localize_item
 from ..core.status import LABELS_RU, Status
 from ..peripherals.scan import KIND_RU
 
@@ -330,12 +330,15 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
          "can": shutil.which("bluetoothctl") is not None and "bluetooth" in wireless},
     ]
 
-    features = [
-        {"id": i.id, "name": i.name, "status": STATUS_KEY[i.status], "statusText": status_label(i.status, lang),
-         "detail": i.detail or "", "hint": i.hint or "",
-         "fix": " ".join(FIX_PACKAGES.get(i.id, [])) if i.status is not Status.OK else ""}
-        for i in result.items
-    ]
+    features = []
+    for i in result.items:
+        f_name, f_detail, f_hint = localize_item(i, lang)
+        features.append({
+            "id": i.id, "name": f_name, "status": STATUS_KEY[i.status],
+            "statusText": status_label(i.status, lang),
+            "detail": f_detail or "", "hint": f_hint or "",
+            "fix": " ".join(FIX_PACKAGES.get(i.id, [])) if i.status is not Status.OK else "",
+        })
     order = {"setup": 0, "root": 1, "no": 2, "ok": 3}
     features.sort(key=lambda f: order[f["status"]])
     counts = []

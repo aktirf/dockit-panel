@@ -43,4 +43,4 @@ class KbdBacklight(Module):
     def fix_hint(self) -> str:
         if kbd_backlight.discover():
             return "Установите и запустите службу DOCKIT: sudo scripts/install-dev.sh."
-        return "Используйте клавиши Fn на клавиатуре ноутбука."
+        return "Управляется встроенной прошивкой клавиатуры."
