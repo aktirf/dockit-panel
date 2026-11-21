@@ -42,6 +42,25 @@ def test_set_power_profile_unsupported_model(tmp_path):
         actions.set_power_profile("balanced", str(tmp_path / "none"), str(tmp_path / "none2"))
 
 
+def test_sync_power_state_unlocks_governor_when_ppd_absent(tmp_path):
+    cpu0 = tmp_path / "cpu0" / "cpufreq"
+    cpu1 = tmp_path / "cpu1" / "cpufreq"
+    cpu0.mkdir(parents=True)
+    cpu1.mkdir(parents=True)
+    (cpu0 / "scaling_driver").write_text("amd-pstate-epp\n")
+    (cpu0 / "scaling_available_governors").write_text("performance powersave\n")
+    (cpu0 / "scaling_governor").write_text("performance\n")
+    (cpu1 / "scaling_governor").write_text("performance\n")
+
+    actions._sync_power_state("balanced", cpu_base=str(tmp_path), use_ppd=False)
+    assert (cpu0 / "scaling_governor").read_text() == "powersave"
+    assert (cpu1 / "scaling_governor").read_text() == "powersave"
+
+    actions._sync_power_state("performance", cpu_base=str(tmp_path), use_ppd=False)
+    assert (cpu0 / "scaling_governor").read_text() == "performance"
+    assert (cpu1 / "scaling_governor").read_text() == "performance"
+
+
 # ---------- camera ----------
 
 CAMERA = DeviceEntry(name="Cam", kind="camera", usb_id="3277:00b2")

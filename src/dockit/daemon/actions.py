@@ -7,6 +7,8 @@ the service decides which files to touch.
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 from ..core import display, kbd_backlight, sysfs, tuning
@@ -17,12 +19,44 @@ from ..peripherals.database import DeviceEntry, load_database
 PROFILE = "/sys/firmware/acpi/platform_profile"
 CHOICES = "/sys/firmware/acpi/platform_profile_choices"
 
+_PPD_MAP = {
+    "low-power": "power-saver",
+    "balanced": "balanced",
+    "performance": "performance",
+}
+
 # kernel names of USB ports look like "3-1" or "1-2.4"
 PORT_RE = re.compile(r"^[0-9]+-[0-9]+(\.[0-9]+)*$")
 
 
 class ActionError(Exception):
     """A request was refused. The message is safe to show to the user."""
+
+
+def _sync_power_state(value: str, cpu_base: str = tuning.CPU, use_ppd: bool = True) -> None:
+    """Keep power-profiles-daemon (serpantinum/KDE/GNOME) and amd-pstate-epp governor in sync."""
+    if use_ppd:
+        ppd = shutil.which("powerprofilesctl")
+        ppd_name = _PPD_MAP.get(value)
+        if ppd and ppd_name:
+            try:
+                proc = subprocess.run([ppd, "set", ppd_name], capture_output=True, text=True, timeout=3)
+                if proc.returncode == 0:
+                    return
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+
+    # Fallback when power-profiles-daemon is absent: unlock EPP on amd-pstate-epp / intel_pstate
+    driver = sysfs.read_text(f"{cpu_base}/cpu0/cpufreq/scaling_driver") or ""
+    avail = (sysfs.read_text(f"{cpu_base}/cpu0/cpufreq/scaling_available_governors") or "").split()
+    if driver not in ("amd-pstate-epp", "intel_pstate") or "powersave" not in avail:
+        return
+    gov = "performance" if value == "performance" and "performance" in avail else "powersave"
+    for path in sorted(Path(cpu_base).glob("cpu[0-9]*/cpufreq/scaling_governor")):
+        try:
+            path.write_text(gov, encoding="ascii")
+        except OSError:
+            pass
 
 
 def set_power_profile(value, profile_path: str = PROFILE, choices_path: str = CHOICES) -> dict:
@@ -33,10 +67,13 @@ def set_power_profile(value, profile_path: str = PROFILE, choices_path: str = CH
         raise ActionError("Эта модель не поддерживает смену режима мощности.")
     if value not in choices:
         raise ActionError(f"Недопустимый режим. Доступно: {', '.join(choices)}.")
-    try:
-        Path(profile_path).write_text(value, encoding="ascii")
-    except OSError as exc:
-        raise ActionError(f"Не удалось записать режим: {exc.strerror or 'ошибка'}.") from exc
+    if profile_path == PROFILE:
+        _sync_power_state(value)
+    if sysfs.read_text(profile_path) != value:
+        try:
+            Path(profile_path).write_text(value, encoding="ascii")
+        except OSError as exc:
+            raise ActionError(f"Не удалось записать режим: {exc.strerror or 'ошибка'}.") from exc
     return {"profile": sysfs.read_text(profile_path)}
 
 

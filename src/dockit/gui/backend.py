@@ -63,6 +63,7 @@ class Backend(QObject):
         self._auto_last: str | None = None
         self._busy = False
         self._refresh_queued = False
+        self._last_mode: str | None = None
         self._window_visible = True
         self._toggle_busy: set[str] = set()
         self._periph_at = -999.0
@@ -80,9 +81,22 @@ class Backend(QObject):
         self._timer.setInterval(self._settings["interval"] * 1000)
         self._timer.timeout.connect(self.refresh)
         self._timer.start()
+        self._mode_timer = QTimer(self)
+        self._mode_timer.setInterval(1000)
+        self._mode_timer.timeout.connect(self._watch_mode)
+        self._mode_timer.start()
         self.refresh()
         if session_state.has_saved():
             self._restore_session_on_start()
+
+    def _watch_mode(self) -> None:
+        """Lightweight 1s sysfs check so external mode changes (serpantinum/KDE/Fn) appear promptly even at 10s interval."""
+        if not self._window_visible or self._busy or self._last_mode is None:
+            return
+        cur = sysfs.read_text(PROFILE)
+        if cur is not None and cur != self._last_mode:
+            self._tuning_at = 0
+            self.refresh()
 
     def _restore_session_on_start(self) -> None:
         """Quietly re-apply saved refresh rate, power mode, and keyboard RGB on login/startup."""
@@ -629,6 +643,9 @@ class Backend(QObject):
             else:
                 result.peripherals, result.laptop = self._periph_cache
             mode = sysfs.read_text(PROFILE)
+            if mode != self._last_mode:
+                self._last_mode = mode
+                self._tuning_at = 0
             cpu = self._cpu.sample()
             sensors = next((i for i in result.items if i.id == "sensors"), None)
             temp = viewmodel.cpu_temperature(sensors.state if sensors else None)
