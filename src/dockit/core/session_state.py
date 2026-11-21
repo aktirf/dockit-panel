@@ -55,7 +55,7 @@ def _clean(raw: dict) -> dict:
     if isinstance(refresh, int) and not isinstance(refresh, bool) and 24 <= refresh <= 500:
         out["refresh"] = refresh
     power = raw.get("power")
-    if isinstance(power, str) and power in profiles.POWER_VALUES:
+    if isinstance(power, str) and power in (*profiles.POWER_VALUES, "dynamic"):
         out["power"] = power
     kbd = _validate_kbd(raw.get("kbd_backlight"))
     if kbd is not None:
@@ -112,7 +112,12 @@ def restore(
     if include_power_and_refresh:
         power = saved.get("power")
         if power:
-            cur_power = (current_power_fn() if current_power_fn else sysfs.read_text(PROFILE_PATH))
+            if current_power_fn:
+                cur_power = current_power_fn()
+            else:
+                from . import tuning
+                raw_power = sysfs.read_text(PROFILE_PATH)
+                cur_power = "dynamic" if (raw_power == "balanced" and tuning.read_epp() == "dynamic") else raw_power
             if cur_power != power:
                 res = ask_fn({"action": "set_power_profile", "value": power, "interactive": False})
                 if res is not None:

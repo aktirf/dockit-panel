@@ -190,11 +190,20 @@ PageFrame {
                     Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: "GPL-3.0-or-later · github.com/aktirf/dockit-panel"; color: Theme.muted; font.pixelSize: 12 }
                 }
             }
-            Btn {
+            RowLayout {
                 Layout.alignment: settingsPage.width >= 600 ? Qt.AlignRight | Qt.AlignVCenter : Qt.AlignLeft
-                text: Theme.tr("copy_report")
-                implicitHeight: 34
-                onClicked: backend.copyReport()
+                spacing: 8
+                Btn {
+                    text: Theme.tr("welcome_recheck_btn")
+                    implicitHeight: 34
+                    tip: Theme.tr("welcome_recheck_tip")
+                    onClicked: backend.openWelcome()
+                }
+                Btn {
+                    text: Theme.tr("copy_report")
+                    implicitHeight: 34
+                    onClicked: backend.copyReport()
+                }
             }
         }
         Txt {

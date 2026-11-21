@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-POWER_VALUES = ("low-power", "balanced", "performance")
+POWER_VALUES = ("low-power", "balanced", "dynamic", "performance")
 IDLE_CHOICES = (5, 10, 15, 30, 60)   # what the window offers; the file may use any 1-1440
 MAX_PROCESSES = 20
 

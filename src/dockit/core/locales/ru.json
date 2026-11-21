@@ -26,6 +26,9 @@
   "mode_performance": "Производительность",
   "mode_performance_hint": "Максимум мощности",
   "mode_performance_desc": "Максимум мощности для игр и тяжёлых задач.",
+  "mode_dynamic": "Динамический",
+  "mode_dynamic_hint": "Ядро само подстраивает CPU",
+  "mode_dynamic_desc": "Режим ядра AMD (amd-pstate-epp): процессор сам плавно балансирует скорость и экономию под нагрузку и питание.",
   "scenario_auto": "Авто",
 
   "overview_title": "Обзор",
@@ -573,5 +576,25 @@
   "err_polkit_quiet": "Нужно подтверждение паролем: примените профиль вручную.",
   "err_polkit_timeout": "Время подтверждения истекло.",
   "err_polkit_missing": "В системе нет pkcheck (пакет polkit).",
-  "err_internal": "Внутренняя ошибка службы."
+  "err_internal": "Внутренняя ошибка службы.",
+
+  "welcome_title": "Проверка вашего компьютера",
+  "welcome_sub": "DOCKIT просканировал железо и честно показывает, что будет работать на этой системе, а чего нет",
+  "welcome_scanning": "Сканирую железо вашего компьютера…",
+  "welcome_laptop": "Ноутбук",
+  "welcome_desktop": "Стационарный ПК",
+  "welcome_gpu_integrated": "Встроенная / без NVIDIA",
+  "welcome_working_title": "Будет работать ({n})",
+  "welcome_setup_title": "Нужна настройка ({n})",
+  "welcome_unavail_title": "Не поддерживается этим железом ({n})",
+  "welcome_start_btn": "Начать работу",
+  "welcome_open_diag_btn": "Открыть «Диагностику»",
+  "welcome_recheck_btn": "Проверка совместимости ПК",
+  "welcome_recheck_tip": "Повторно открыть экран первого запуска со списком доступных и недоступных функций.",
+  "welcome_desktop_no_battery": "Это стационарный ПК — батареи нет, вкладка покажет только настройки экрана.",
+  "welcome_dynamic_ok": "Поддерживается вашим процессором AMD (amd-pstate-epp) — доступен отдельный режим «Динамический».",
+  "welcome_dynamic_intel": "Эта функция ядра пока есть только на процессорах AMD (amd-pstate-epp). Обычные режимы EPP на Intel работают.",
+  "welcome_dynamic_no": "Ядро не отдаёт режим dynamic (нужен AMD Ryzen с драйвером amd-pstate-epp и свежее ядро Linux).",
+  "welcome_cpu_tuning": "Тонкая настройка процессора",
+  "welcome_refresh_ok": "Доступно {rates} Гц ({desktop})."
 }

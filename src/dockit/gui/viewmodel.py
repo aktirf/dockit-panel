@@ -54,12 +54,15 @@ def status_label(status: Status, lang: str = "ru") -> str:
     return i18n.tr(f"status_{STATUS_KEY[status]}", lang)
 
 
-def modes_for_lang(lang: str = "ru") -> list[dict]:
-    return [
+def modes_for_lang(lang: str = "ru", has_dynamic: bool = False) -> list[dict]:
+    items = [
         {"id": "low-power", "name": i18n.tr("mode_low_power", lang), "hint": i18n.tr("mode_low_power_hint", lang)},
         {"id": "balanced", "name": i18n.tr("mode_balanced", lang), "hint": i18n.tr("mode_balanced_hint", lang)},
-        {"id": "performance", "name": i18n.tr("mode_performance", lang), "hint": i18n.tr("mode_performance_hint", lang)},
     ]
+    if has_dynamic:
+        items.append({"id": "dynamic", "name": i18n.tr("mode_dynamic", lang), "hint": i18n.tr("mode_dynamic_hint", lang)})
+    items.append({"id": "performance", "name": i18n.tr("mode_performance", lang), "hint": i18n.tr("mode_performance_hint", lang)})
+    return items
 
 
 def num(value: float | int | None, digits: int = 0) -> str:
@@ -261,13 +264,13 @@ def empty() -> dict:
             "peripherals": [], "periphBatteries": [], "backlight": [], "kbdBacklight": dict(KBD_BACKLIGHT_EMPTY), "system": {},
             "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "bluetooth": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
-            "fallback": ""}
+            "fallback": "", "welcome": {}}
 
 
 def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str,
           cpu_history: list, gpu_history: list, mic_muted: bool | None,
           scenarios: list[dict], scenario: str, lang: str = "ru",
-          kbd_saved: dict | None = None) -> dict:
+          kbd_saved: dict | None = None, has_dynamic: bool = False) -> dict:
     service = _item(result, "service")
     sensors = _item(result, "sensors")
     gpu_item = _item(result, "gpu_nvidia")
@@ -353,7 +356,7 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "service": bool(service and service.status is Status.OK),
         "okCount": sum(1 for i in result.items if i.status is Status.OK),
         "total": len(result.items),
-        "modes": modes_for_lang(lang),
+        "modes": modes_for_lang(lang, has_dynamic=has_dynamic),
         "currentMode": current_mode or "",
         "scenarios": scenarios,
         "scenario": scenario,
@@ -499,7 +502,7 @@ def _count_label(n: int, kind: str, lang: str) -> str:
 
 def profile_cards(profiles: dict, rules: list, fallback: str | None = None, lang: str = "ru") -> list[dict]:
     """One dict per profile: what it applies and which rules switch to it."""
-    mode_by_id = {m["id"]: m["name"] for m in modes_for_lang(lang)}
+    mode_by_id = {m["id"]: m["name"] for m in modes_for_lang(lang, has_dynamic=True)}
     unchanged = i18n.tr("unchanged", lang)
     cards = []
     for p in profiles.values():
