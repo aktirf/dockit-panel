@@ -39,7 +39,9 @@ Rectangle {
                 width: evenW >= minNeeded ? Math.floor(evenW) : Math.min(minNeeded, Math.max(64, flowWrap.width))
                 radius: 9
                 color: sel ? Theme.accent : (segHover.hovered ? Theme.btn : "transparent")
-                Behavior on color { ColorAnimation { duration: 150 } }
+                scale: segMouse.pressed ? 0.96 : 1.0
+                Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
                 HoverHandler { id: segHover }
 
@@ -53,6 +55,7 @@ Rectangle {
                     font.pixelSize: 13
                     font.weight: segItem.sel ? Font.DemiBold : Font.Medium
                     color: segItem.sel ? "#0B1218" : Theme.soft
+                    Behavior on color { ColorAnimation { duration: 150 } }
                 }
                 MouseArea {
                     id: segMouse

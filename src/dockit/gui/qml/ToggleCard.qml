@@ -12,11 +12,15 @@ Rectangle {
     implicitHeight: 64
     implicitWidth: 210
     radius: 14
-    color: Theme.card
+    color: tcHover.hovered && can ? Theme.cardInner : Theme.card
     border.width: 1
-    border.color: on ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45) : Theme.border2
+    border.color: on ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, tcHover.hovered ? 0.65 : 0.45) : (tcHover.hovered && can ? Theme.border3 : Theme.border2)
     opacity: can ? 1 : 0.6
-    Behavior on border.color { ColorAnimation { duration: 180 } }
+    scale: can && tcMouse.pressed ? 0.985 : 1.0
+    Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    Behavior on border.color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+    HoverHandler { id: tcHover; enabled: root.can }
 
     Rectangle {
         id: iconBadge
@@ -77,6 +81,7 @@ Rectangle {
         }
     }
     MouseArea {
+        id: tcMouse
         anchors.fill: parent
         enabled: root.can
         cursorShape: Qt.PointingHandCursor

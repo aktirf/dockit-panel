@@ -67,6 +67,8 @@ Window {
             Layout.preferredWidth: win.compactNav ? 68 : 232
             Layout.fillHeight: true
             color: Theme.panel
+            clip: true
+            Behavior on Layout.preferredWidth { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
 
             Rectangle {
                 width: 1
@@ -126,8 +128,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "profiles"
-            onVisibleChanged: if (visible) fadeProfiles.restart()
-            NumberAnimation on opacity { id: fadeProfiles; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             d: win.d
         }
 
@@ -135,8 +135,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "performance"
-            onVisibleChanged: if (visible) fadePerformance.restart()
-            NumberAnimation on opacity { id: fadePerformance; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             d: win.d
         }
 
@@ -145,8 +143,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "battery"
-            onVisibleChanged: if (visible) batteryFade.restart()
-            NumberAnimation on opacity { id: batteryFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             onGoto: function (name) { win.page = name }
             d: win.d
         }
@@ -156,8 +152,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "cooling"
-            onVisibleChanged: if (visible) coolingFade.restart()
-            NumberAnimation on opacity { id: coolingFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             onGoto: function (name) { win.page = name }
             d: win.d
         }
@@ -167,8 +161,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "backlight"
-            onVisibleChanged: if (visible) backlightFade.restart()
-            NumberAnimation on opacity { id: backlightFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             onGoto: function (name) { win.page = name }
             d: win.d
         }
@@ -178,8 +170,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "peripherals"
-            onVisibleChanged: if (visible) peripheralsFade.restart()
-            NumberAnimation on opacity { id: peripheralsFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             onGoto: function (name) { win.page = name }
             d: win.d
         }
@@ -189,8 +179,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "diagnostics"
-            onVisibleChanged: if (visible) diagnosticsFade.restart()
-            NumberAnimation on opacity { id: diagnosticsFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             onGoto: function (name) { win.page = name }
             d: win.d
         }
@@ -200,8 +188,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "settings"
-            onVisibleChanged: if (visible) settingsFade.restart()
-            NumberAnimation on opacity { id: settingsFade; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
             onGoto: function (name) { win.page = name }
             d: win.d
         }
@@ -210,8 +196,13 @@ Window {
             id: flick
             readonly property int sidePad: flick.width < 560 ? 16 : 32
             visible: win.page === "overview"
-            onVisibleChanged: if (visible) fadeOverview.restart()
-            NumberAnimation on opacity { id: fadeOverview; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic; running: false }
+            transform: Translate { id: overviewSlide; y: 0 }
+            onVisibleChanged: if (visible) overviewEnter.restart()
+            ParallelAnimation {
+                id: overviewEnter
+                NumberAnimation { target: flick; property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutCubic }
+                NumberAnimation { target: overviewSlide; property: "y"; from: 10; to: 0; duration: 220; easing.type: Easing.OutCubic }
+            }
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: width
@@ -923,23 +914,28 @@ Window {
     // ---------- message at the bottom ----------
     Rectangle {
         id: toastBox
-        visible: backend.toast !== ""
+        readonly property bool shown: backend.toast !== ""
+        property string lastText: ""
+        visible: opacity > 0.01
+        opacity: shown ? 1.0 : 0.0
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 28
+        anchors.bottomMargin: shown ? 28 : 12
         width: Math.min(parent.width - 48, toastText.implicitWidth + 40)
         height: 44
         radius: 12
         color: "#223140"
         border.width: 1
-        border.color: "#2F5A80"
+        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45)
+        Behavior on opacity { NumberAnimation { duration: 190; easing.type: Easing.OutCubic } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 210; easing.type: Easing.OutCubic } }
         Txt {
             id: toastText
             anchors.centerIn: parent
             width: parent.width - 32
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
-            text: backend.toast
+            text: backend.toast !== "" ? backend.toast : toastBox.lastText
         }
     }
     Timer {
@@ -949,6 +945,10 @@ Window {
     }
     Connections {
         target: backend
-        function onToastChanged() { toastTimer.restart() }
+        function onToastChanged() {
+            if (backend.toast !== "")
+                toastBox.lastText = backend.toast
+            toastTimer.restart()
+        }
     }
 }

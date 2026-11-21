@@ -1,6 +1,6 @@
 # Maintainer: AkTirF <semenburlacenko3@gmail.com>
 pkgname=dockit-panel
-pkgver=0.10.2
+pkgver=0.11.0
 pkgrel=1
 pkgdesc='Open-source Linux laptop control panel (alternative to GiMATE, Lenovo Vantage, etc.)'
 arch=('any')

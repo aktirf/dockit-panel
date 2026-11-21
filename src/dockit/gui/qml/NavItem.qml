@@ -15,10 +15,26 @@ Rectangle {
     implicitHeight: 44
     radius: 10
     color: active ? Theme.navActive : (navHover.hovered ? "#161E26" : "transparent")
-    Behavior on color { ColorAnimation { duration: 160 } }
+    scale: mouse.pressed ? 0.97 : 1.0
+    Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
     opacity: ready ? 1 : 0.55
 
     HoverHandler { id: navHover }
+
+    // Subtle accent indicator pill on the left edge when active
+    Rectangle {
+        width: 3
+        height: root.active ? 20 : 0
+        radius: 2
+        color: Theme.accent
+        anchors.left: parent.left
+        anchors.leftMargin: 3
+        anchors.verticalCenter: parent.verticalCenter
+        opacity: root.active ? 1 : 0
+        Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    }
 
     // Dead-center icon in compact rail mode (never stretched by RowLayout)
     Icon {

@@ -15,6 +15,7 @@ Rectangle {
         height: parent.height
         radius: root.radius
         color: root.fill
-        Behavior on width { NumberAnimation { duration: 300 } }
+        Behavior on width { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: 220; easing.type: Easing.OutCubic } }
     }
 }

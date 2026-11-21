@@ -18,6 +18,14 @@ Flickable {
     boundsBehavior: Flickable.StopAtBounds
     ScrollBar.vertical: ScrollBar {}
 
+    transform: Translate { id: pageSlide; y: 0 }
+    onVisibleChanged: if (visible) pageEnter.restart()
+    ParallelAnimation {
+        id: pageEnter
+        NumberAnimation { target: page; property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutCubic }
+        NumberAnimation { target: pageSlide; property: "y"; from: 10; to: 0; duration: 220; easing.type: Easing.OutCubic }
+    }
+
     ColumnLayout {
         id: col
         width: Math.min(Math.max(200, page.width - page.sidePad * 2), 1020)

@@ -41,7 +41,9 @@ ComboBox {
         y: (root.height - height) / 2
         name: "chevron"
         size: 16
-        color: Theme.muted
+        color: root.popup.visible ? Theme.accent : Theme.muted
+        rotation: root.popup.visible ? 180 : 0
+        Behavior on rotation { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
     }
 
     contentItem: Txt {
@@ -74,6 +76,7 @@ ComboBox {
         background: Rectangle {
             radius: 8
             color: optDel.highlighted ? Theme.navActive : "transparent"
+            Behavior on color { ColorAnimation { duration: 120 } }
         }
     }
 
@@ -82,6 +85,18 @@ ComboBox {
         width: root.width
         implicitHeight: Math.min(contentItem.implicitHeight + 10, 260)
         padding: 4
+        enter: Transition {
+            ParallelAnimation {
+                NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 150; easing.type: Easing.OutCubic }
+                NumberAnimation { property: "scale"; from: 0.96; to: 1.0; duration: 150; easing.type: Easing.OutCubic }
+            }
+        }
+        exit: Transition {
+            ParallelAnimation {
+                NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 110; easing.type: Easing.OutCubic }
+                NumberAnimation { property: "scale"; from: 1.0; to: 0.97; duration: 110; easing.type: Easing.OutCubic }
+            }
+        }
         contentItem: ListView {
             clip: true
             implicitHeight: contentHeight

@@ -18,11 +18,12 @@ Rectangle {
     Layout.minimumWidth: 0
     implicitHeight: mainCol.implicitHeight + 24
     radius: 14
-    color: checked ? "#19222C" : Theme.cardInner
+    color: checked ? "#19222C" : (rowHover.hovered ? Theme.card : Theme.cardInner)
     border.width: 1
-    border.color: checked ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.42) : Theme.border2
-    Behavior on color { ColorAnimation { duration: 160 } }
-    Behavior on border.color { ColorAnimation { duration: 160 } }
+    border.color: checked ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.42) : (rowHover.hovered ? Theme.border3 : Theme.border2)
+    Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    Behavior on border.color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    HoverHandler { id: rowHover; enabled: root.enabledSwitch }
 
     ColumnLayout {
         id: mainCol
@@ -32,7 +33,7 @@ Rectangle {
         anchors.margins: 12
         anchors.leftMargin: 14
         anchors.rightMargin: 14
-        spacing: 12
+        spacing: 0
 
         // Header row (clickable to toggle)
         Item {
@@ -112,19 +113,35 @@ Rectangle {
             Tip { text: root.tip }
         }
 
-        // Expanded control area (only visible when switched ON)
-        Rectangle {
-            visible: root.checked && bodyCol.children.length > 0
-            Layout.fillWidth: true
-            height: 1
-            color: Theme.border
-        }
-        ColumnLayout {
-            id: bodyCol
-            visible: root.checked && children.length > 0
+        // Smoothly expanding/collapsing control area
+        Item {
+            id: bodyWrap
+            readonly property bool hasBody: bodyCol.children.length > 0
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            spacing: 10
+            Layout.preferredHeight: root.checked && hasBody ? (bodyCol.implicitHeight + 25) : 0
+            visible: hasBody && (root.checked || height > 1)
+            clip: true
+            opacity: root.checked ? 1.0 : 0.0
+            Behavior on Layout.preferredHeight { NumberAnimation { duration: 210; easing.type: Easing.OutCubic } }
+            Behavior on opacity { NumberAnimation { duration: 170; easing.type: Easing.OutCubic } }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.topMargin: 12
+                height: 1
+                color: Theme.border
+            }
+            ColumnLayout {
+                id: bodyCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.topMargin: 25
+                spacing: 10
+            }
         }
     }
 }
