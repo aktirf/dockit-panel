@@ -328,6 +328,18 @@ def cmd_backlight(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_restore(_: argparse.Namespace) -> int:
+    from ..core import session_state
+
+    quiet = lambda payload: _ask_service(dict(payload, interactive=False))  # noqa: E731
+    applied = session_state.restore(quiet)
+    if applied:
+        print("Восстановлено: " + ", ".join(applied))
+    else:
+        print("Нечего восстанавливать.")
+    return 0
+
+
 def cmd_gui(_: argparse.Namespace) -> int:
     from ..gui.app import run
 
@@ -386,6 +398,9 @@ def main(argv: list[str] | None = None) -> int:
     p_bl.add_argument("--color", help="RGB color in #RRGGBB format (e.g. #5AB0FF)")
     p_bl.add_argument("--brightness", type=int, help="brightness 0..100")
     p_bl.set_defaults(func=cmd_backlight)
+
+    p_restore = sub.add_parser("restore", help="quietly restore saved refresh rate, power mode, and keyboard RGB")
+    p_restore.set_defaults(func=cmd_restore)
 
     p_gui = sub.add_parser("gui", help="open the window")
     p_gui.set_defaults(func=cmd_gui)
