@@ -115,9 +115,22 @@ def _hypr_internal(monitors: list):
     return next((m for m in monitors if isinstance(m, dict)), None)
 
 
+def _hypr_size(mon: dict) -> str:
+    """Native WxH size matching availableModes, handling 90°/270° rotated monitors (transform 1,3,5,7)."""
+    w, h = mon.get("width"), mon.get("height")
+    primary = f"{w}x{h}"
+    modes = [str(m) for m in (mon.get("availableModes") or [])]
+    if any(m.startswith(primary + "@") for m in modes):
+        return primary
+    swapped = f"{h}x{w}"
+    if any(m.startswith(swapped + "@") for m in modes):
+        return swapped
+    return primary
+
+
 def _hypr_rates(mon: dict) -> list[int]:
     """Refresh rates (Hz) offered at the current resolution; modes look like "2560x1600@165.00Hz"."""
-    size = f"{mon.get('width')}x{mon.get('height')}"
+    size = _hypr_size(mon)
     rates = set()
     for mode in mon.get("availableModes") or []:
         text = str(mode)
@@ -149,7 +162,7 @@ def _niri_hypr_info(outputs: dict | None = None, monitors: list | None = None) -
 
 def _hypr_mode_text(mon: dict, hz: int) -> str:
     """Exact mode string such as "1920x1200@165.01" for the rate closest to `hz` at the current size."""
-    size = f"{mon.get('width')}x{mon.get('height')}"
+    size = _hypr_size(mon)
     best, best_diff = None, None
     for mode in mon.get("availableModes") or []:
         text = str(mode)
@@ -166,8 +179,10 @@ def _hypr_mode_text(mon: dict, hz: int) -> str:
 
 def hypr_lua_command(mon: dict, hz: int) -> str:
     """Lua snippet for `hyprctl eval` (Hyprland 0.55+ with a Lua config)."""
-    return ('hl.monitor({output="%s", mode="%s", position="%sx%s", scale=%s})'
-            % (mon["name"], _hypr_mode_text(mon, hz), mon.get("x", 0), mon.get("y", 0), mon.get("scale", 1)))
+    transform = int(mon.get("transform", 0) or 0)
+    extra = f", transform={transform}" if transform else ""
+    return ('hl.monitor({output="%s", mode="%s", position="%sx%s", scale=%s%s})'
+            % (mon["name"], _hypr_mode_text(mon, hz), mon.get("x", 0), mon.get("y", 0), mon.get("scale", 1), extra))
 
 
 def _hypr_apply(mon: dict, hz: int) -> str | None:
@@ -182,8 +197,10 @@ def _hypr_apply(mon: dict, hz: int) -> str | None:
             proc = subprocess.run([tool, "eval", hypr_lua_command(mon, hz)],
                                   capture_output=True, text=True, timeout=6)
         else:                                                                    # old .conf parser
+            transform = int(mon.get("transform", 0) or 0)
+            extra = f",transform,{transform}" if transform else ""
             spec = (f"{mon['name']},{_hypr_mode_text(mon, hz)},"
-                    f"{mon.get('x', 0)}x{mon.get('y', 0)},{mon.get('scale', 1)}")
+                    f"{mon.get('x', 0)}x{mon.get('y', 0)},{mon.get('scale', 1)}{extra}")
             proc = subprocess.run([tool, "keyword", "monitor", spec],
                                   capture_output=True, text=True, timeout=6)
     except (OSError, subprocess.TimeoutExpired):
@@ -373,12 +390,23 @@ def refresh_info(outputs: dict | None = None, monitors: list | None = None) -> d
     return {"output": None, "current": None, "rates": []}
 
 
-def set_refresh(hz: int, outputs: dict | None = None, monitors: list | None = None) -> str | None:
+def _localize_refresh_error(error: str | None, lang: str = "ru") -> str | None:
+    if error is None or lang == "ru":
+        return error
+    from . import i18n
+    if error == UNSUPPORTED:
+        return i18n.tr("toast_refresh_unsupported", lang)
+    if error == "Частота экрана: не удалось":
+        return i18n.tr("toast_refresh_failed", lang)
+    return error
+
+
+def set_refresh(hz: int, outputs: dict | None = None, monitors: list | None = None, lang: str = "ru") -> str | None:
     """Change the built-in screen to about `hz`. Returns an error text, or None if it worked."""
     error = _niri_hypr_set(hz, outputs, monitors)
     if error != UNSUPPORTED or outputs is not None or monitors is not None:
-        return error
+        return _localize_refresh_error(error, lang)
     for _, find, apply in _OTHERS:
         if find().get("output"):
-            return apply(hz)
-    return UNSUPPORTED
+            return _localize_refresh_error(apply(hz), lang)
+    return _localize_refresh_error(UNSUPPORTED, lang)

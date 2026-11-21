@@ -139,7 +139,7 @@ def load(path: Path | None = None) -> tuple[dict[str, Profile], list[Rule]]:
                 _text(body.get("output", _MISSING), base.output),
                 _text(body.get("input", _MISSING), base.input),
                 _number(body.get("brightness", _MISSING), base.brightness, 1, 100),
-                _number(body.get("refresh", _MISSING), base.refresh, 24, 360),
+                _number(body.get("refresh", _MISSING), base.refresh, 24, 500),
             )
 
     custom_rules = data.get("rules")
@@ -252,22 +252,27 @@ def running_processes() -> set[str]:
     return names
 
 
-def explain(rule: Rule, processes: set[str] = frozenset()) -> str:
+def explain(rule: Rule, processes: set[str] = frozenset(), lang: str = "ru") -> str:
     """Short human reason why a rule matched, for the activity log."""
+    from . import i18n
+
     parts = []
     if rule.temp:
-        parts.append(f"процессор горячее {rule.temp} °C")
+        parts.append(i18n.tr("reason_temp", lang, t=rule.temp))
     if rule.hours:
-        parts.append(f"время {rule.hours}")
+        parts.append(i18n.tr("reason_hours", lang, hours=rule.hours))
     if rule.processes:
         hit = sorted(n for n in processes for pat in rule.processes if fnmatch.fnmatchcase(n, pat))
-        parts.append("запущено: " + ", ".join(hit[:3]) if hit else "запущена нужная программа")
+        parts.append(
+            i18n.tr("reason_procs", lang, procs=", ".join(hit[:3]))
+            if hit else i18n.tr("reason_procs_any", lang)
+        )
     if rule.when == "battery":
-        parts.append("работа от батареи")
+        parts.append(i18n.tr("reason_battery", lang))
     elif rule.when == "ac":
-        parts.append("подключена зарядка")
+        parts.append(i18n.tr("reason_ac", lang))
     if rule.idle:
-        parts.append(f"нет действий {rule.idle} мин")
+        parts.append(i18n.tr("reason_idle", lang, m=rule.idle))
     return ", ".join(parts)
 
 
@@ -313,6 +318,7 @@ def apply(
     ask: Callable[[dict], dict | None],
     set_brightness=None,
     errors: list[str] | None = None,
+    lang: str = "ru",
 ) -> list[str]:
     """Send the profile's settings to the service. Returns lines for the user.
 
@@ -321,10 +327,15 @@ def apply(
     If `errors` list is given, non-daemon errors (display refresh, audio) are also
     appended to it so the GUI can notify the user instead of claiming full success.
     """
+    from . import i18n
+
     lines = []
     if profile.power:
         result = ask({"action": "set_power_profile", "value": profile.power})
-        lines.append(f"Режим мощности: {result['profile']}" if result else "Режим мощности: не удалось")
+        lines.append(
+            i18n.tr("apply_power", lang, mode=result["profile"])
+            if result else i18n.tr("apply_power_err", lang)
+        )
     if profile.brightness is not None:
         if set_brightness is None:
             from . import display
@@ -332,23 +343,28 @@ def apply(
         ok = set_brightness(profile.brightness) is None
         if not ok:
             ok = ask({"action": "set_brightness", "value": profile.brightness}) is not None
-        lines.append(f"Яркость: {profile.brightness} %" if ok else "Яркость: не удалось")
+        lines.append(
+            i18n.tr("apply_brightness", lang, pct=profile.brightness)
+            if ok else i18n.tr("apply_brightness_err", lang)
+        )
     if profile.refresh is not None:
         from . import display  # needs the compositor, so loaded only when a profile asks for it
-        error = display.set_refresh(profile.refresh)
+        error = display._localize_refresh_error(display.set_refresh(profile.refresh), lang)
         if error and errors is not None:
             errors.append(error)
-        lines.append(error or f"Частота экрана: {profile.refresh} Гц")
+        lines.append(error or i18n.tr("apply_refresh", lang, hz=profile.refresh))
     if profile.camera is not None:
         result = ask({"action": "set_camera", "value": profile.camera})
-        lines.append("Камера: " + ("включена" if profile.camera else "выключена") if result is not None
-                     else "Камера: не удалось")
+        if result is not None:
+            lines.append(i18n.tr("apply_cam_on" if profile.camera else "apply_cam_off", lang))
+        else:
+            lines.append(i18n.tr("apply_cam_err", lang))
     for kind, query in (("output", profile.output), ("input", profile.input)):
         if not query:
             continue
         from . import audio  # imported here: profile logic works without sound tools
 
-        label = "Звук (вывод)" if kind == "output" else "Микрофон"
+        label = i18n.tr("apply_out_label" if kind == "output" else "apply_in_label", lang)
         try:
             device = audio.set_default(kind, query)
             lines.append(f"{label}: {device.description}")
@@ -357,6 +373,19 @@ def apply(
                 errors.append(f"{label}: {exc}")
             lines.append(f"{label}: {exc}")
     return lines
+
+
+def _read_raw_toml(path: Path) -> dict:
+    """Read existing TOML before modifying it. Refuses to overwrite a syntax-broken file."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return {}
+    try:
+        data = tomllib.loads(text)
+    except ValueError as exc:
+        raise ValueError("broken profiles.toml") from exc
+    return data if isinstance(data, dict) else {}
 
 
 def _toml_value(value) -> str:
@@ -404,13 +433,10 @@ def save_profile(pid: str, power: str, camera: str, output: str, mic: str,
         raise ValueError("text too long")
     if isinstance(brightness, bool) or not isinstance(brightness, int) or not 0 <= brightness <= 100:
         raise ValueError("bad brightness")
-    if isinstance(refresh, bool) or not isinstance(refresh, int) or not (refresh == 0 or 24 <= refresh <= 360):
+    if isinstance(refresh, bool) or not isinstance(refresh, int) or not (refresh == 0 or 24 <= refresh <= 500):
         raise ValueError("bad refresh rate")
     path = path or config_path()
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = {}
+    data = _read_raw_toml(path)
     section = data.setdefault("profiles", {})
     body = dict(section.get(pid, {})) if isinstance(section.get(pid), dict) else {}
     body["power"] = power
@@ -458,10 +484,7 @@ def save_rule(pid: str, processes: list[str], when: str, idle: int, path: Path |
         raise ValueError("bad hours")
     processes = clean_processes(processes)
     path = path or config_path()
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = {}
+    data = _read_raw_toml(path)
     _, current = load(path)
     new_rule = {"profile": pid}
     if processes:
@@ -500,10 +523,7 @@ def save_fallback(value: str, path: Path | None = None) -> None:
     if value != KEEP and not _safe_id(value):
         raise ValueError("bad profile id")
     path = path or config_path()
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = {}
+    data = _read_raw_toml(path)
     data["fallback"] = value
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
@@ -547,10 +567,7 @@ def create_profile(name: str, path: Path | None = None) -> str:
     while f"custom{n}" in profiles:
         n += 1
     pid = f"custom{n}"
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = {}
+    data = _read_raw_toml(path)
     data.setdefault("profiles", {})[pid] = {"name": name}
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
@@ -564,10 +581,9 @@ def delete_profile(pid: str, path: Path | None = None) -> None:
     if pid in DEFAULT_PROFILES or not _safe_id(pid):
         raise ValueError("this profile cannot be deleted")
     path = path or config_path()
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    if not path.exists():
         return
+    data = _read_raw_toml(path)
     _, current = load(path)
     data.get("profiles", {}).pop(pid, None)
     data["rules"] = [rule_to_dict(r) for r in current if r.profile != pid]

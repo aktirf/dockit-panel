@@ -14,7 +14,7 @@ def instance_socket_name() -> str:
     return f"dockit-gui-{os.getuid()}"
 
 
-def run(argv: list[str] | None = None) -> int:
+def run(argv: list[str] | None = None, minimized: bool = False) -> int:
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     try:
         from PySide6.QtCore import QUrl
@@ -53,9 +53,14 @@ def run(argv: list[str] | None = None) -> int:
 
     engine = QQmlApplicationEngine()
     backend = Backend()
+    tray_avail = QSystemTrayIcon.isSystemTrayAvailable()
+    if tray_avail:
+        backend.set_tray_available(True)
+    start_hidden = bool(minimized and backend.trayActive)
     app.aboutToQuit.connect(backend.shutdown)
     app.aboutToQuit.connect(server.close)
     engine.rootContext().setContextProperty("backend", backend)
+    engine.rootContext().setContextProperty("startHidden", start_hidden)
     engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))
     if not engine.rootObjects():
         print("Не удалось загрузить окно (смотрите сообщения выше).")
@@ -78,11 +83,12 @@ def run(argv: list[str] | None = None) -> int:
 
     server.newConnection.connect(_on_second_instance)
     window.visibleChanged.connect(lambda: backend.setWindowVisible(bool(window.isVisible())))
+    if start_hidden:
+        backend.setWindowVisible(False)
 
     tray = None
-    if QSystemTrayIcon.isSystemTrayAvailable():
+    if tray_avail:
         from .tray import Tray
-        backend.set_tray_available(True)
         tray = Tray(app, window, backend)
     window.destroyed.connect(app.quit)      # closing the window really quits unless the tray keeps it
     result = app.exec()

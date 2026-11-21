@@ -340,10 +340,10 @@ def cmd_restore(_: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_gui(_: argparse.Namespace) -> int:
+def cmd_gui(args: argparse.Namespace) -> int:
     from ..gui.app import run
 
-    return run()
+    return run(minimized=bool(getattr(args, "minimized", False)))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -403,6 +403,8 @@ def main(argv: list[str] | None = None) -> int:
     p_restore.set_defaults(func=cmd_restore)
 
     p_gui = sub.add_parser("gui", help="open the window")
+    p_gui.add_argument("--minimized", action="store_true",
+                       help="start hidden in the system tray if tray is enabled")
     p_gui.set_defaults(func=cmd_gui)
 
     args = parser.parse_args(argv)

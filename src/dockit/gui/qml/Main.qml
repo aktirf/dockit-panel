@@ -9,7 +9,7 @@ Window {
     height: 900
     minimumWidth: 500
     minimumHeight: 460
-    visible: true
+    visible: typeof startHidden === "undefined" ? true : !startHidden
     title: "DOCKIT"
     readonly property bool compactNav: win.width < 860 || !!(d.settings && d.settings.compact_nav === true)
     property bool journalExpanded: false
@@ -152,15 +152,6 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.page === "cooling"
-            onGoto: function (name) { win.page = name }
-            d: win.d
-        }
-
-        BacklightPage {
-            id: backlightPage
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            visible: win.page === "backlight"
             onGoto: function (name) { win.page = name }
             d: win.d
         }
@@ -452,7 +443,7 @@ Window {
                                     anchors.margins: 9
                                     spacing: 2
                                     Txt { text: Theme.tr("battery_health"); color: Theme.muted; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Txt { text: (d.battery.health || "—") + " %"; font.family: Theme.mono; font.pixelSize: 15; font.weight: Font.DemiBold }
+                                    Txt { text: (d.battery && d.battery.health && d.battery.health !== "—") ? String(d.battery.health) + " %" : "—"; font.family: Theme.mono; font.pixelSize: 15; font.weight: Font.DemiBold }
                                 }
                                 Tip { text: Theme.tr("tip_bat_health") }
                             }
@@ -551,7 +542,7 @@ Window {
                                         Layout.fillWidth: true
                                         Txt { Layout.fillWidth: true; text: "CPU"; color: Theme.muted; font.pixelSize: 12; font.weight: Font.DemiBold }
                                         Txt {
-                                            text: (d.cpu ? String(d.cpu.freq || "—") : "—") + " " + Theme.tr("unit_ghz")
+                                            text: (d.cpu && d.cpu.freq && d.cpu.freq !== "—") ? (String(d.cpu.freq) + " " + Theme.tr("unit_ghz")) : "—"
                                             color: Theme.muted
                                             font.family: Theme.mono
                                             font.pixelSize: 11

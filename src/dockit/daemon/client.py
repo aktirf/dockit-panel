@@ -43,12 +43,35 @@ def daemon_running(path: str = SOCKET_PATH) -> bool:
         return False
 
 
-def ask(payload: dict, path: str = SOCKET_PATH) -> tuple[dict | None, str]:
-    """Send a request. Returns (result, "") on success or (None, message in Russian)."""
+_DAEMON_ERROR_KEYS = {
+    "Действие не подтверждено.": "err_polkit_refused",
+    "Нужно подтверждение паролем: примените профиль вручную.": "err_polkit_quiet",
+    "Время подтверждения истекло.": "err_polkit_timeout",
+    "В системе нет pkcheck (пакет polkit).": "err_polkit_missing",
+    "Внутренняя ошибка службы.": "err_internal",
+}
+
+
+def localize_daemon_error(text: str, lang: str = "ru") -> str:
+    """Translate known service/polkit messages when the GUI runs in a non-Russian locale."""
+    if lang == "ru":
+        return text
+    key = _DAEMON_ERROR_KEYS.get(text)
+    if key:
+        from ..core import i18n
+        return i18n.tr(key, lang)
+    return text
+
+
+def ask(payload: dict, path: str = SOCKET_PATH, lang: str = "ru") -> tuple[dict | None, str]:
+    """Send a request. Returns (result, "") on success or (None, localized error message)."""
+    from ..core import i18n
+
     try:
         response = request(payload, path)
     except DaemonUnavailable:
-        return None, "Служба DOCKIT не запущена."
+        return None, i18n.tr("err_daemon_stopped", lang)
     if not response.get("ok"):
-        return None, str(response.get("error", "Неизвестная ошибка."))
+        raw = str(response.get("error") or i18n.tr("err_unknown", lang))
+        return None, localize_daemon_error(raw, lang)
     return response.get("result", {}), ""

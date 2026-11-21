@@ -712,6 +712,7 @@ Flickable {
                             spacing: 8
                             TextField {
                                 id: hoursField
+                                readonly property bool validInput: text.trim() === "" || /^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$/.test(text.trim())
                                 Layout.fillWidth: true
                                 Layout.maximumWidth: 200
                                 Layout.minimumWidth: 0
@@ -729,14 +730,18 @@ Flickable {
                                     radius: 10
                                     color: Theme.panel
                                     border.width: 1
-                                    border.color: hoursField.activeFocus ? Theme.accent : Theme.border2
+                                    border.color: !hoursField.validInput ? Theme.err : (hoursField.activeFocus ? Theme.accent : Theme.border2)
                                 }
-                                onAccepted: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, text)
+                                onActiveFocusChanged: {
+                                    if (!activeFocus && !validInput)
+                                        text = page.curRule ? String(page.curRule.hours || "") : ""
+                                }
+                                onAccepted: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, text.trim())
                             }
                             Btn {
                                 text: Theme.tr("apply")
                                 implicitHeight: 38
-                                onClicked: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, hoursField.text)
+                                onClicked: page.saveRule(page.curRule.processes, page.curRule.when, page.curRule.idle, undefined, hoursField.text.trim())
                             }
                         }
                     }

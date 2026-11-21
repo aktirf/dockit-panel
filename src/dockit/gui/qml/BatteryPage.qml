@@ -68,7 +68,7 @@ PageFrame {
                     ColumnLayout {
                         anchors.fill: parent; anchors.margins: 8; spacing: 2
                         Txt { text: Theme.tr("bat_capacity"); color: Theme.muted; font.pixelSize: 11 }
-                        Txt { text: d.battery ? String(d.battery.health || "—") + " %" : "—"; font.family: Theme.mono; font.pixelSize: 14; font.weight: Font.DemiBold }
+                        Txt { text: (d.battery && d.battery.health && d.battery.health !== "—") ? String(d.battery.health) + " %" : "—"; font.family: Theme.mono; font.pixelSize: 14; font.weight: Font.DemiBold }
                     }
                     Tip { text: Theme.tr("tip_bat_health") }
                 }
@@ -86,7 +86,7 @@ PageFrame {
                     ColumnLayout {
                         anchors.fill: parent; anchors.margins: 8; spacing: 2
                         Txt { text: Theme.tr("bat_power"); color: Theme.muted; font.pixelSize: 11 }
-                        Txt { text: d.battery && d.battery.power !== "—" ? String(d.battery.power) + " " + Theme.tr("unit_w") : "—"; font.family: Theme.mono; font.pixelSize: 14; font.weight: Font.DemiBold }
+                        Txt { text: (d.battery && d.battery.power && d.battery.power !== "—") ? String(d.battery.power) + " " + Theme.tr("unit_w") : "—"; font.family: Theme.mono; font.pixelSize: 14; font.weight: Font.DemiBold }
                     }
                     Tip { text: Theme.tr("tip_bat_power") }
                 }

@@ -187,10 +187,10 @@ Flickable {
                     Txt { text: Theme.tr("unit_ghz"); color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 6 }
                 }
                 Bar { Layout.fillWidth: true; value: (page.d.cpu && page.d.cpu.load) ? Number(page.d.cpu.load) : 0 }
-                Row2 { label: Theme.tr("load"); value: page.d.cpu && page.d.cpu.load !== null ? page.d.cpu.load + " %" : "—" }
+                Row2 { label: Theme.tr("load"); value: page.d.cpu && page.d.cpu.load !== null && page.d.cpu.load !== undefined ? page.d.cpu.load + " %" : "—" }
                 Row2 {
                     label: Theme.tr("temp")
-                    value: page.d.cpu ? page.d.cpu.temp + " °C" : "—"
+                    value: page.d.cpu && page.d.cpu.temp && page.d.cpu.temp !== "—" ? page.d.cpu.temp + " °C" : "—"
                     valueColor: Theme.tempColor(page.d.cpu ? page.d.cpu.temp : null)
                 }
                 Spark {
@@ -237,10 +237,10 @@ Flickable {
                 Row2 { label: Theme.tr("load"); value: page.d.gpu && page.d.gpu.util !== null && page.d.gpu.util !== undefined ? page.d.gpu.util + " %" : "—" }
                 Row2 {
                     label: Theme.tr("temp")
-                    value: page.d.gpu ? page.d.gpu.temp + " °C" : "—"
+                    value: page.d.gpu && page.d.gpu.temp && page.d.gpu.temp !== "—" ? page.d.gpu.temp + " °C" : "—"
                     valueColor: Theme.tempColor(page.d.gpu ? page.d.gpu.temp : null)
                 }
-                Row2 { label: Theme.tr("power_draw"); value: page.d.gpu ? page.d.gpu.power + " " + Theme.tr("unit_w") : "—" }
+                Row2 { label: Theme.tr("power_draw"); value: page.d.gpu && page.d.gpu.power && page.d.gpu.power !== "—" ? page.d.gpu.power + " " + Theme.tr("unit_w") : "—" }
                 Txt {
                     id: gpuHoldersText
                     Layout.fillWidth: true
