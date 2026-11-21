@@ -26,6 +26,9 @@
   "mode_performance": "Performance",
   "mode_performance_hint": "Maximum power",
   "mode_performance_desc": "Maximum power for gaming and heavy workloads.",
+  "mode_dynamic": "Dynamic",
+  "mode_dynamic_hint": "Kernel auto-tunes CPU",
+  "mode_dynamic_desc": "AMD kernel mode (amd-pstate-epp): the CPU dynamically balances speed and efficiency based on workload and power source.",
   "scenario_auto": "Auto",
 
   "overview_title": "Overview",
@@ -573,5 +576,25 @@
   "err_polkit_quiet": "Password confirmation required: apply the profile manually.",
   "err_polkit_timeout": "Authorization timed out.",
   "err_polkit_missing": "pkcheck is missing (install polkit).",
-  "err_internal": "Internal service error."
+  "err_internal": "Internal service error.",
+
+  "welcome_title": "Hardware compatibility check",
+  "welcome_sub": "DOCKIT scanned your system and honestly shows what works on this machine and what won't be available",
+  "welcome_scanning": "Scanning your hardware…",
+  "welcome_laptop": "Laptop",
+  "welcome_desktop": "Desktop PC",
+  "welcome_gpu_integrated": "Integrated / no NVIDIA",
+  "welcome_working_title": "Ready to use ({n})",
+  "welcome_setup_title": "Needs setup ({n})",
+  "welcome_unavail_title": "Not supported on this hardware ({n})",
+  "welcome_start_btn": "Get started",
+  "welcome_open_diag_btn": "Open Diagnostics",
+  "welcome_recheck_btn": "Hardware compatibility check",
+  "welcome_recheck_tip": "Re-open the first-run overview of supported and unsupported features on this PC.",
+  "welcome_desktop_no_battery": "This is a desktop PC — there is no battery; the tab will show display controls only.",
+  "welcome_dynamic_ok": "Supported by your AMD CPU (amd-pstate-epp) — Dynamic mode is enabled.",
+  "welcome_dynamic_intel": "This kernel mode is currently AMD-only (amd-pstate-epp). Standard Intel EPP presets still work.",
+  "welcome_dynamic_no": "Kernel does not expose dynamic EPP (requires an AMD CPU with amd-pstate-epp on a recent Linux kernel).",
+  "welcome_cpu_tuning": "CPU fine tuning",
+  "welcome_refresh_ok": "Available: {rates} Hz ({desktop})."
 }

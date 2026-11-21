@@ -57,18 +57,53 @@ def _sync_power_state(value: str, cpu_base: str = tuning.CPU, use_ppd: bool = Tr
             path.write_text(gov, encoding="ascii")
         except OSError:
             pass
+    # If leaving dynamic EPP without power-profiles-daemon, restore a matching manual EPP.
+    if gov == "powersave" and tuning.read_epp(cpu_base) == "dynamic":
+        choices = tuning.epp_choices(cpu_base)
+        target_epp = "power" if value == "low-power" else "balance_performance"
+        if target_epp not in choices:
+            target_epp = "default" if "default" in choices else ""
+        if target_epp:
+            for f in tuning.epp_files(cpu_base):
+                try:
+                    Path(f).write_text(target_epp, encoding="ascii")
+                except OSError:
+                    pass
 
 
-def set_power_profile(value, profile_path: str = PROFILE, choices_path: str = CHOICES) -> dict:
+def set_power_profile(
+    value,
+    profile_path: str = PROFILE,
+    choices_path: str = CHOICES,
+    cpu_base: str = tuning.CPU,
+) -> dict:
     if not isinstance(value, str):
         raise ActionError("Режим должен быть строкой.")
     choices = (sysfs.read_text(choices_path) or "").split()
     if not choices:
         raise ActionError("Эта модель не поддерживает смену режима мощности.")
+    if value == "dynamic":
+        if "balanced" not in choices or not tuning.has_dynamic_epp(cpu_base):
+            raise ActionError("Динамический режим CPU не поддерживается этим ядром или процессором.")
+        if profile_path == PROFILE:
+            _sync_power_state("balanced", cpu_base=cpu_base)
+        if sysfs.read_text(profile_path) != "balanced":
+            try:
+                Path(profile_path).write_text("balanced", encoding="ascii")
+            except OSError as exc:
+                raise ActionError(f"Не удалось записать режим: {exc.strerror or 'ошибка'}.") from exc
+        # Ensure powersave governor so EPP accepts "dynamic" on amd-pstate-epp.
+        _sync_power_state("balanced", cpu_base=cpu_base, use_ppd=False)
+        try:
+            for f in tuning.epp_files(cpu_base):
+                Path(f).write_text("dynamic", encoding="ascii")
+        except OSError as exc:
+            raise ActionError(f"Не удалось включить динамический режим: {exc.strerror or 'ошибка'}.") from exc
+        return {"profile": sysfs.read_text(profile_path), "epp": tuning.read_epp(cpu_base)}
     if value not in choices:
         raise ActionError(f"Недопустимый режим. Доступно: {', '.join(choices)}.")
     if profile_path == PROFILE:
-        _sync_power_state(value)
+        _sync_power_state(value, cpu_base=cpu_base)
     if sysfs.read_text(profile_path) != value:
         try:
             Path(profile_path).write_text(value, encoding="ascii")

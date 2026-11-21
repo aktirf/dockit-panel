@@ -20,13 +20,23 @@ def read_boost(base: str = CPU) -> bool | None:
     return None if raw not in ("0", "1") else raw == "1"
 
 
+def cpu_driver(base: str = CPU) -> str:
+    return sysfs.read_text(f"{base}/cpu0/cpufreq/scaling_driver") or ""
+
+
 def epp_files(base: str = CPU) -> list[str]:
     return sorted(glob.glob(f"{base}/cpu[0-9]*/cpufreq/energy_performance_preference"))
 
 
 def epp_choices(base: str = CPU) -> list[str]:
     raw = sysfs.read_text(f"{base}/cpu0/cpufreq/energy_performance_available_preferences")
-    return raw.split() if raw else []
+    # "custom" in amd-pstate-epp is a kernel marker meaning raw 0..255 ints are accepted,
+    # not a selectable preset string (writing "custom" returns EINVAL).
+    return [c for c in raw.split() if c != "custom"] if raw else []
+
+
+def has_dynamic_epp(base: str = CPU) -> bool:
+    return "dynamic" in epp_choices(base)
 
 
 def read_epp(base: str = CPU) -> str | None:

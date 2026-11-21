@@ -47,12 +47,21 @@ PageFrame {
             ]
             onPicked: function (val) { diagPage.filter = val }
         }
-        Btn {
+        RowLayout {
             Layout.alignment: diagPage.width >= 660 ? Qt.AlignRight : Qt.AlignLeft
-            text: Theme.tr("copy_report")
-            implicitHeight: 42
-            tip: Theme.tr("copy_report_tip")
-            onClicked: backend.copyReport()
+            spacing: 8
+            Btn {
+                text: Theme.tr("welcome_recheck_btn")
+                implicitHeight: 42
+                tip: Theme.tr("welcome_recheck_tip")
+                onClicked: backend.openWelcome()
+            }
+            Btn {
+                text: Theme.tr("copy_report")
+                implicitHeight: 42
+                tip: Theme.tr("copy_report_tip")
+                onClicked: backend.copyReport()
+            }
         }
     }
 
