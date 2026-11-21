@@ -61,6 +61,7 @@ Window {
     RowLayout {
         anchors.fill: parent
         spacing: 0
+        visible: !(backend && backend.welcomeOpen === true)
 
         // ---------- sidebar ----------
         Rectangle {
@@ -899,6 +900,17 @@ Window {
                     }
                 }
             }
+        }
+    }
+
+    WelcomePage {
+        id: welcomePage
+        anchors.fill: parent
+        visible: !!(backend && backend.welcomeOpen === true)
+        d: win.d
+        onDone: function (nextPage) {
+            backend.completeOnboarding()
+            if (nextPage) win.page = nextPage
         }
     }
 

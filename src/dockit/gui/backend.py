@@ -17,7 +17,7 @@ from collections import deque
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from ..core import audio, i18n, kbd_backlight, periph_battery, processes, profiles, session_state, sysfs
+from ..core import audio, hardware, i18n, kbd_backlight, periph_battery, processes, profiles, session_state, sysfs
 from ..core import idle
 from ..core import bluetooth, gpu_power, tuning
 from ..core.cpu import CpuMonitor
@@ -34,6 +34,7 @@ class Backend(QObject):
     settingsChanged = Signal()
     langChanged = Signal()
     trayChanged = Signal()
+    welcomeChanged = Signal()
     profileCreated = Signal(str)
     logChanged = Signal()
     _snapshot = Signal(object)   # worker thread -> main thread
@@ -77,6 +78,7 @@ class Backend(QObject):
         self._logLoaded.connect(self.logChanged)
         self._timer = QTimer(self)
         self._settings = self._load_settings()
+        self._welcome_open = not self._settings.get("onboarded", False)
         self._timer.setInterval(self._settings["interval"] * 1000)
         self._timer.timeout.connect(self.refresh)
         self._timer.start()
@@ -98,16 +100,22 @@ class Backend(QObject):
 
     def _mode_name(self, mode: str, lang: str | None = None) -> str:
         code = self._lang() if lang is None else lang
-        for m in viewmodel.modes_for_lang(code):
+        for m in viewmodel.modes_for_lang(code, has_dynamic=True):
             if m["id"] == mode:
                 return m["name"]
         return mode
+
+    @staticmethod
+    def _effective_mode(raw_mode: str | None, epp: str | None) -> str | None:
+        if raw_mode == "balanced" and epp == "dynamic":
+            return "dynamic"
+        return raw_mode
 
     def _watch_mode(self) -> None:
         """Lightweight 1s sysfs check so external mode changes (serpantinum/KDE/Fn) appear promptly even at 10s interval."""
         if self._closing or not self._window_visible or self._busy or self._last_mode is None:
             return
-        cur = sysfs.read_text(PROFILE)
+        cur = self._effective_mode(sysfs.read_text(PROFILE), tuning.read_epp())
         if cur is not None and cur != self._last_mode:
             self._tuning_at = 0
             self.refresh()
@@ -165,7 +173,7 @@ class Backend(QObject):
     }
     DEFAULTS = {
         "interval": 3, "warn_temp": 90, "notify": True, "tray": False,
-        "accent": "blue", "compact_nav": False, "lang": "auto",
+        "accent": "blue", "compact_nav": False, "lang": "auto", "onboarded": False,
     }
 
     @staticmethod
@@ -223,7 +231,7 @@ class Backend(QObject):
                 data["accent"] = loaded["accent"]
             if loaded.get("lang") in ("auto", *i18n.SUPPORTED):
                 data["lang"] = loaded["lang"]
-            for key in ("notify", "tray", "compact_nav"):
+            for key in ("notify", "tray", "compact_nav", "onboarded"):
                 if isinstance(loaded.get(key), bool):
                     data[key] = loaded[key]
         except (OSError, ValueError, AttributeError):
@@ -255,6 +263,23 @@ class Backend(QObject):
     @Property(bool, notify=trayChanged)
     def trayActive(self) -> bool:
         return self._tray_available and self._settings["tray"]
+
+    @Property(bool, notify=welcomeChanged)
+    def welcomeOpen(self) -> bool:
+        return self._welcome_open
+
+    @Slot()
+    def completeOnboarding(self) -> None:
+        self._settings["onboarded"] = True
+        self._welcome_open = False
+        self._save_settings()
+        self.welcomeChanged.emit()
+
+    @Slot()
+    def openWelcome(self) -> None:
+        self._welcome_open = True
+        self.welcomeChanged.emit()
+        self.refresh()
 
     def _lang(self) -> str:
         return i18n.resolve_lang(self._settings.get("lang"))
@@ -503,7 +528,14 @@ class Backend(QObject):
         now = time.monotonic()
         if now - getattr(self, "_tuning_at", 0) > 10 or not hasattr(self, "_tuning_cache"):
             self._tuning_at = now
-            data = {"boost": tuning.read_boost(), "epp": tuning.read_epp(), "eppChoices": tuning.epp_choices()}
+            all_epp = tuning.epp_choices()
+            data = {
+                "boost": tuning.read_boost(),
+                "epp": tuning.read_epp(),
+                "eppChoices": [c for c in all_epp if c != "dynamic"],
+                "hasDynamic": "dynamic" in all_epp,
+                "driver": tuning.cpu_driver(),
+            }
             if now - getattr(self, "_gpu_lim_at", -999) > 60 and not gpu_power.gpu_asleep():
                 # nvidia-smi would wake a sleeping card: keep the old value meanwhile
                 self._gpu_lim_at = now
@@ -694,7 +726,9 @@ class Backend(QObject):
                 self._periph_cache = (result.peripherals, result.laptop)
             else:
                 result.peripherals, result.laptop = self._periph_cache
-            mode = sysfs.read_text(PROFILE)
+            raw_mode = sysfs.read_text(PROFILE)
+            cur_epp = tuning.read_epp()
+            mode = self._effective_mode(raw_mode, cur_epp)
             if mode != self._last_mode:
                 self._last_mode = mode
                 self._tuning_at = 0
@@ -749,23 +783,34 @@ class Backend(QObject):
                         self._notify("DOCKIT", i18n.tr("notify_auto_body", lang, name=pname, reason=reason))
             else:
                 self._idle.stop()
-            state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
-                                    muted, scenarios, self._scenario, lang=lang, kbd_saved=dict(self._kbd_saved))
+            tuning_data = self._tuning()
+            disp_data = self._display()
+            mode = self._effective_mode(raw_mode, tuning_data.get("epp"))
+            self._last_mode = mode
+            state = viewmodel.build(
+                result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
+                muted, scenarios, self._scenario, lang=lang, kbd_saved=dict(self._kbd_saved),
+                has_dynamic=bool(tuning_data.get("hasDynamic")),
+            )
             bt_list, pbat_list = self._bluetooth_and_periph_batteries(lang)
             state["bluetooth"] = bt_list
             state["periphBatteries"] = pbat_list
-            state["display"] = self._display()
+            state["display"] = disp_data
             if fresh:
                 self._top_cache = self._top.sample()
             state["top"] = getattr(self, "_top_cache", [])
-            state["tuning"] = self._tuning()
+            state["tuning"] = tuning_data
             state["batteryHistory"] = self._battery_history(state["battery"].get("percent"))
             state["cooling"] = cooling
             state["journal"] = list(reversed(self._journal))[:6]
             state["settings"] = self._settings_view()
             state["profiles"] = viewmodel.profile_cards(available, rules, lang=lang)
             state["apps"] = processes.user_programs()
-            state["idleAvailable"] = idle.available()
+            idle_ok = idle.available()
+            state["idleAvailable"] = idle_ok
+            state["welcome"] = hardware.build_welcome(
+                result, self._cpu_name, tuning_data, disp_data, idle_ok, lang=lang
+            )
             fb = profiles.load_fallback()
             state["fallback"] = fb if fb in available else ""
             def_out = next((d for d in audio_devices if d.get("kind") == "output" and d.get("default")), None)
@@ -871,7 +916,7 @@ class Backend(QObject):
 
     @Slot(str)
     def setMode(self, mode: str) -> None:
-        if mode not in profiles.POWER_VALUES:
+        if mode not in (*profiles.POWER_VALUES, "dynamic"):
             return
         self._state = dict(self._state, currentMode=mode)
         self.stateChanged.emit()
@@ -916,9 +961,10 @@ class Backend(QObject):
         scenarios = [{"id": p.id, "name": viewmodel.profile_display_name(p, lang)} for p in available.values()]
         scenarios.append({"id": "auto", "name": i18n.tr("scenario_auto", lang)})
         fb = profiles.load_fallback()
+        has_dyn = bool((self._state.get("tuning") or {}).get("hasDynamic"))
         self._state = dict(
             self._state,
-            modes=viewmodel.modes_for_lang(lang),
+            modes=viewmodel.modes_for_lang(lang, has_dynamic=has_dyn),
             profiles=viewmodel.profile_cards(available, rules, lang=lang),
             scenarios=scenarios,
             fallback=fb if fb in available else "",

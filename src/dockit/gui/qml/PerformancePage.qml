@@ -8,6 +8,7 @@ Flickable {
     readonly property var modeIcons: ({
         "low-power": "fan",
         "balanced": "gauge",
+        "dynamic": "pulse",
         "performance": "zap"
     })
 
@@ -17,6 +18,7 @@ Flickable {
     function modeDesc(id, fallback) {
         if (id === "low-power") return Theme.tr("mode_low_power_desc")
         if (id === "balanced") return Theme.tr("mode_balanced_desc")
+        if (id === "dynamic") return Theme.tr("mode_dynamic_desc")
         if (id === "performance") return Theme.tr("mode_performance_desc")
         return String(fallback || "")
     }
@@ -91,7 +93,7 @@ Flickable {
             GridLayout {
                 visible: col.width >= 580
                 Layout.fillWidth: true
-                columns: 3
+                columns: modesModel.count > 3 ? (col.width >= 760 ? 4 : 2) : 3
                 columnSpacing: 12
                 rowSpacing: 12
 
