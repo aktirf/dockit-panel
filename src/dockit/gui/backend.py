@@ -17,7 +17,7 @@ from collections import deque
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from ..core import audio, i18n, kbd_backlight, periph_battery, processes, profiles, sysfs
+from ..core import audio, i18n, kbd_backlight, periph_battery, processes, profiles, session_state, sysfs
 from ..core import idle
 from ..core import bluetooth, gpu_power, tuning
 from ..core.cpu import CpuMonitor
@@ -62,6 +62,7 @@ class Backend(QObject):
         self._idle = idle.IdleWatcher()
         self._auto_last: str | None = None
         self._busy = False
+        self._refresh_queued = False
         self._window_visible = True
         self._toggle_busy: set[str] = set()
         self._periph_at = -999.0
@@ -80,6 +81,28 @@ class Backend(QObject):
         self._timer.timeout.connect(self.refresh)
         self._timer.start()
         self.refresh()
+        if session_state.has_saved():
+            self._restore_session_on_start()
+
+    def _restore_session_on_start(self) -> None:
+        """Quietly re-apply saved refresh rate, power mode, and keyboard RGB on login/startup."""
+        include_pr = self._scenario != "auto"
+
+        def target():
+            def quiet_ask(payload: dict):
+                res, _ = client.ask(dict(payload, interactive=False))
+                return res
+
+            try:
+                applied = session_state.restore(quiet_ask, include_power_and_refresh=include_pr)
+            except Exception:
+                return
+            if applied:
+                self._tuning_at = 0
+                self._display_at = 0
+                self._finished.emit("")
+
+        threading.Thread(target=target, daemon=True).start()
 
     # ---- what the window reads ----
     @Property("QVariantMap", notify=stateChanged)
@@ -468,15 +491,26 @@ class Backend(QObject):
 
     @Slot(bool)
     def setBoost(self, value: bool) -> None:
+        val = bool(value)
+        t = dict(self._state.get("tuning") or {})
+        t["boost"] = val
+        self._state = dict(self._state, tuning=t)
+        self.stateChanged.emit()
+
         def work() -> str:
-            result, error = client.ask({"action": "set_boost", "value": bool(value)})
+            result, error = client.ask({"action": "set_boost", "value": val})
             self._tuning_at = 0
-            return "Turbo Boost " + ("включён" if value else "выключен") if result is not None else error
+            return "Turbo Boost " + ("включён" if val else "выключен") if result is not None else error
 
         self._run(work)
 
     @Slot(str)
     def setEpp(self, value: str) -> None:
+        t = dict(self._state.get("tuning") or {})
+        t["epp"] = value
+        self._state = dict(self._state, tuning=t)
+        self.stateChanged.emit()
+
         def work() -> str:
             result, error = client.ask({"action": "set_epp", "value": value})
             self._tuning_at = 0
@@ -579,6 +613,7 @@ class Backend(QObject):
     @Slot()
     def refresh(self) -> None:
         if self._busy:
+            self._refresh_queued = True
             return
         self._busy = True
         threading.Thread(target=self._collect, daemon=True).start()
@@ -710,6 +745,9 @@ class Backend(QObject):
                     state["kbdBacklight"] = dict(kbd, **target)
             self._state = state
             self.stateChanged.emit()
+        if self._refresh_queued:
+            self._refresh_queued = False
+            self.refresh()
 
     @Slot(str)
     def _done(self, message: str) -> None:
@@ -741,6 +779,18 @@ class Backend(QObject):
             return result
 
         profiles.apply(profile, ask, errors=errors)
+        if profile.power:
+            time.sleep(0.08)
+        self._tuning_at = 0
+        self._display_at = 0
+        if interactive:
+            updates: dict = {}
+            if profile.power:
+                updates["power"] = profile.power
+            if profile.refresh:
+                updates["refresh"] = int(profile.refresh)
+            if updates:
+                session_state.save(updates)
         if errors:
             return f"Профиль «{profile.name}»: {errors[0]}"
         return f"Профиль «{profile.name}» включён"
@@ -749,10 +799,15 @@ class Backend(QObject):
     def setMode(self, mode: str) -> None:
         if mode not in profiles.POWER_VALUES:
             return
+        self._state = dict(self._state, currentMode=mode)
+        self.stateChanged.emit()
 
         def work() -> str:
             result, error = client.ask({"action": "set_power_profile", "value": mode})
             if result is not None:
+                session_state.save({"power": mode})
+                time.sleep(0.08)  # let kernel amd_pstate update EPP choices before refresh
+                self._tuning_at = 0
                 self._log(f"Режим мощности: {MODE_NAMES.get(mode, mode)}")
             return f"Режим: {MODE_NAMES.get(mode, mode)}" if result is not None else error
 
@@ -858,6 +913,7 @@ class Backend(QObject):
 
     @Slot(int)
     def setRefresh(self, hz: int) -> None:
+        hz = int(hz)
         disp = dict(self._state.get("display") or {})
         disp["refresh"] = hz
         self._display_cache = dict(getattr(self, "_display_cache", disp), refresh=hz)
@@ -867,7 +923,10 @@ class Backend(QObject):
         def work() -> str:
             from ..core import display
             self._display_at = 0
-            return display.set_refresh(hz) or f"Частота экрана: {hz} Гц"
+            err = display.set_refresh(hz)
+            if err is None:
+                session_state.save({"refresh": hz})
+            return err or f"Частота экрана: {hz} Гц"
 
         self._run(work)
 
@@ -886,6 +945,7 @@ class Backend(QObject):
         }
         self._kbd_saved = dict(payload)
         self._save_kbd_saved()
+        session_state.save({"kbd_backlight": payload})
         self._pending_kbd = (time.monotonic() + 2.0, dict(payload))
         kbd = dict(self._state.get("kbdBacklight") or {})
         kbd.update(payload)

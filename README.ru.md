@@ -8,7 +8,7 @@
 
 Открытая панель управления для ноутбуков на Linux — лёгкая и честная альтернатива фирменным Windows-программам вроде **Gigabyte GiMATE**, **Lenovo Vantage**, **MSI Center** и не только.
 
-[![Версия](https://img.shields.io/badge/version-0.11.0%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel)
+[![Версия](https://img.shields.io/badge/version-0.11.1%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel)
 [![Python](https://img.shields.io/badge/python-3.11%2B-5AB0FF?style=flat-square)](https://www.python.org/)
 [![Лицензия](https://img.shields.io/badge/license-GPL--3.0--or--later-A78BFA?style=flat-square)](LICENSE)
 [![Языки](https://img.shields.io/badge/UI-RU%20%7C%20EN%20%7C%20UK-F5B942?style=flat-square)](#возможности)
@@ -24,7 +24,7 @@
 
 ---
 
-> **Статус:** активная бета (`0.11.0`), ежедневно тестируется на **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) под CachyOS (Hyprland и KDE Plasma).
+> **Статус:** активная бета (`0.11.1`), ежедневно тестируется на **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) под CachyOS (Hyprland и KDE Plasma).
 > Неофициальный открытый проект — не связан с Gigabyte, Lenovo, MSI, EPOS, Hator и другими производителями.
 
 ## Скриншоты
@@ -83,6 +83,7 @@ dockit gui               # открыть окно (просмотр без сл
 | `dockit auto` | Автоматическое переключение профилей по правилам в фоне |
 | `dockit profile [low-power\|balanced\|performance]` | Показать или сменить режим мощности ядра |
 | `dockit backlight [status\|on\|off\|auto] [--color #RRGGBB] [--brightness 0..100]` | Управление RGB / LED-подсветкой клавиатуры |
+| `dockit restore` | Тихо восстановить сохранённые Гц экрана, режим мощности и RGB при входе |
 | `dockit gpu` | Проверить, спит ли видеокарта NVIDIA и кто её держит |
 | `dockit camera status\|on\|off` | Включить или выключить встроенную веб-камеру |
 | `dockit audio [status\|output\|input\|mic\|volume]` | Управление звуком и громкостью PipeWire |
