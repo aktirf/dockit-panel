@@ -74,7 +74,7 @@ PageFrame {
                     Txt { text: part.now ? part.now : "—"; font.pixelSize: 30; font.family: Theme.mono; color: tColor }
                     Txt { text: "°C"; color: Theme.muted; Layout.alignment: Qt.AlignBottom; bottomPadding: 6 }
                 }
-                Row2 { label: Theme.tr("max_session"); value: (part.max ? part.max : "—") + " °C" }
+                Row2 { label: Theme.tr("max_session"); value: (part.max && part.max !== "—") ? (part.max + " °C") : "—" }
                 Spark {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46

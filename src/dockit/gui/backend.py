@@ -27,8 +27,6 @@ from ..daemon.actions import PROFILE
 from ..modules.battery import ac_online
 from . import viewmodel
 
-MODE_NAMES = {m["id"]: m["name"] for m in viewmodel.MODES}
-
 
 class Backend(QObject):
     stateChanged = Signal()
@@ -62,6 +60,7 @@ class Backend(QObject):
         self._idle = idle.IdleWatcher()
         self._auto_last: str | None = None
         self._busy = False
+        self._closing = False
         self._refresh_queued = False
         self._last_mode: str | None = None
         self._window_visible = True
@@ -89,9 +88,24 @@ class Backend(QObject):
         if session_state.has_saved():
             self._restore_session_on_start()
 
+    def _safe_emit(self, sig, *args) -> None:
+        if self._closing:
+            return
+        try:
+            sig.emit(*args)
+        except RuntimeError:
+            pass
+
+    def _mode_name(self, mode: str, lang: str | None = None) -> str:
+        code = self._lang() if lang is None else lang
+        for m in viewmodel.modes_for_lang(code):
+            if m["id"] == mode:
+                return m["name"]
+        return mode
+
     def _watch_mode(self) -> None:
         """Lightweight 1s sysfs check so external mode changes (serpantinum/KDE/Fn) appear promptly even at 10s interval."""
-        if not self._window_visible or self._busy or self._last_mode is None:
+        if self._closing or not self._window_visible or self._busy or self._last_mode is None:
             return
         cur = sysfs.read_text(PROFILE)
         if cur is not None and cur != self._last_mode:
@@ -114,7 +128,7 @@ class Backend(QObject):
             if applied:
                 self._tuning_at = 0
                 self._display_at = 0
-                self._finished.emit("")
+                self._safe_emit(self._finished, "")
 
         threading.Thread(target=target, daemon=True).start()
 
@@ -222,7 +236,7 @@ class Backend(QObject):
             with open(self._settings_path(), "w", encoding="utf-8") as f:
                 json.dump(self._settings, f)
         except OSError:
-            self._say("Не удалось сохранить настройку")
+            self._say(i18n.tr("toast_settings_save_err", self._lang()))
         self._state = dict(self._state, settings=self._settings_view())
         self.settingsChanged.emit()
         self.stateChanged.emit()
@@ -327,29 +341,41 @@ class Backend(QObject):
         self._save_settings()
         self.refresh()
 
+    def _write_autostart(self) -> None:
+        path = self._autostart_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        cmd = "dockit gui --minimized" if self._settings.get("tray") else "dockit gui"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(
+                f"[Desktop Entry]\nType=Application\nName=DOCKIT\nExec={cmd}\n"
+                "Icon=dockit\nX-GNOME-Autostart-enabled=true\n"
+            )
+
     @Slot(bool)
     def setTray(self, value: bool) -> None:
         self._settings["tray"] = bool(value)
         self._save_settings()
+        if os.path.exists(self._autostart_path()):
+            try:
+                self._write_autostart()
+            except OSError:
+                pass
         self.trayChanged.emit()
         self.refresh()
 
     @Slot(bool)
     def setAutostart(self, value: bool) -> None:
         path = self._autostart_path()
+        lang = self._lang()
         try:
             if value:
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write("[Desktop Entry]\nType=Application\nName=DOCKIT\nExec=dockit gui\n"
-                            "Icon=dockit\nX-GNOME-Autostart-enabled=true\n")
-                self._say("Автозапуск включён. Если окно не появится при входе, добавьте в конфиг: "
-                          "в Hyprland строку exec-once = dockit gui, в niri spawn-at-startup \"dockit\" \"gui\"")
+                self._write_autostart()
+                self._say(i18n.tr("toast_autostart_on", lang))
             elif os.path.exists(path):
                 os.remove(path)
-                self._say("Автозапуск выключен")
+                self._say(i18n.tr("toast_autostart_off", lang))
         except OSError:
-            self._say("Не удалось изменить автозапуск")
+            self._say(i18n.tr("toast_autostart_err", lang))
         self.settingsChanged.emit()
         self.refresh()
 
@@ -374,56 +400,64 @@ class Backend(QObject):
 
     @Slot()
     def loadLog(self) -> None:
+        lang = self._lang()
+
         def target():
             try:
                 proc = subprocess.run(["journalctl", "-u", "dockit", "-n", "40", "--no-pager"],
                                       capture_output=True, text=True, timeout=8)
-                text = proc.stdout.strip() or proc.stderr.strip() or "Журнал пуст."
+                text = proc.stdout.strip() or proc.stderr.strip() or i18n.tr("log_empty", lang)
             except (OSError, subprocess.TimeoutExpired):
-                text = "Не удалось прочитать журнал (нужна команда journalctl)."
+                text = i18n.tr("log_read_err", lang)
             self._log_text = text
-            self._logLoaded.emit()
+            self._safe_emit(self._logLoaded)
 
         threading.Thread(target=target, daemon=True).start()
 
     @Slot()
     def copyLog(self) -> None:
         from PySide6.QtGui import QGuiApplication
+        lang = self._lang()
         text = getattr(self, "_log_text", "")
         if not text:
-            self._say("Сначала нажмите «Обновить», чтобы загрузить журнал")
+            self._say(i18n.tr("toast_log_load_first", lang))
             return
         QGuiApplication.clipboard().setText(text)
-        self._say("Журнал службы скопирован в буфер обмена")
+        self._say(i18n.tr("toast_log_copied", lang))
 
     @Slot(str)
     def installFix(self, feature_id: str) -> None:
+        lang = self._lang()
         packages = viewmodel.FIX_PACKAGES.get(feature_id)
         if not packages or shutil.which("pkexec") is None or shutil.which("pacman") is None:
-            self._say("Автоматическая установка недоступна на этой системе")
+            self._say(i18n.tr("toast_install_unavail", lang))
             return
+
+        pkgs_str = ", ".join(packages)
 
         def work() -> str:
             proc = subprocess.run(["pkexec", "pacman", "-S", "--needed", "--noconfirm", *packages],
                                   capture_output=True, text=True, timeout=900)
             if proc.returncode == 0:
-                return "Установлено: " + ", ".join(packages) + ". Если функция не появилась, перезапустите DOCKIT."
-            return "Не удалось установить (пароль не введён или нет сети)."
+                return i18n.tr("toast_install_done", lang, pkgs=pkgs_str)
+            return i18n.tr("toast_install_err", lang)
 
-        self._say("Устанавливаю " + ", ".join(packages) + "…")
+        self._say(i18n.tr("toast_install_started", lang, pkgs=pkgs_str))
         self._run(work)
 
     @Slot(str, str)
     def setAudio(self, kind: str, description: str) -> None:
         if kind not in ("output", "input"):
             return
+        lang = self._lang()
 
         def work() -> str:
             try:
                 device = audio.set_default(kind, description)
             except audio.AudioError as exc:
                 return str(exc)
-            return ("Звук: " if kind == "output" else "Микрофон: ") + device.description
+            key = "toast_audio_out" if kind == "output" else "toast_audio_in"
+            return i18n.tr(key, lang, name=device.description)
 
         self._run(work)
 
@@ -435,13 +469,15 @@ class Backend(QObject):
         audio_state["outputVolume"] = percent
         self._state = dict(self._state, audio=audio_state)
         self.stateChanged.emit()
+        lang = self._lang()
 
         def work() -> str:
             try:
                 audio.set_volume("output", percent)
             except audio.AudioError as exc:
+                self._pending_vol = None
                 return str(exc)
-            return f"Громкость: {percent} %"
+            return i18n.tr("toast_volume", lang, pct=percent)
 
         self._run(work)
 
@@ -452,13 +488,14 @@ class Backend(QObject):
         audio_state["outputMuted"] = not cur_muted
         self._state = dict(self._state, audio=audio_state)
         self.stateChanged.emit()
+        lang = self._lang()
 
         def work() -> str:
             try:
                 audio.set_mute("output", not cur_muted)
             except audio.AudioError as exc:
                 return str(exc)
-            return "Звук выключен" if not cur_muted else "Звук включён"
+            return i18n.tr("toast_muted" if not cur_muted else "toast_unmuted", lang)
 
         self._run(work)
 
@@ -510,11 +547,12 @@ class Backend(QObject):
         t["boost"] = val
         self._state = dict(self._state, tuning=t)
         self.stateChanged.emit()
+        lang = self._lang()
 
         def work() -> str:
-            result, error = client.ask({"action": "set_boost", "value": val})
+            result, error = client.ask({"action": "set_boost", "value": val}, lang=lang)
             self._tuning_at = 0
-            return "Turbo Boost " + ("включён" if val else "выключен") if result is not None else error
+            return i18n.tr("toast_boost_on" if val else "toast_boost_off", lang) if result is not None else error
 
         self._run(work)
 
@@ -524,21 +562,28 @@ class Backend(QObject):
         t["epp"] = value
         self._state = dict(self._state, tuning=t)
         self.stateChanged.emit()
+        lang = self._lang()
 
         def work() -> str:
-            result, error = client.ask({"action": "set_epp", "value": value})
+            result, error = client.ask({"action": "set_epp", "value": value}, lang=lang)
             self._tuning_at = 0
-            return f"Энергопотребление процессора: {value}" if result is not None else error
+            epp_key = f"epp_{value}"
+            label = i18n.tr(epp_key, lang)
+            if label == epp_key:
+                label = value
+            return i18n.tr("toast_epp", lang, val=label) if result is not None else error
 
         self._run(work)
 
     @Slot(int)
     def setGpuLimit(self, watts: int) -> None:
+        lang = self._lang()
+
         def work() -> str:
-            result, error = client.ask({"action": "set_gpu_power_limit", "value": watts})
+            result, error = client.ask({"action": "set_gpu_power_limit", "value": watts}, lang=lang)
             self._tuning_at = 0
             self._gpu_lim_at = -999
-            return f"Лимит видеокарты: {watts} Вт" if result is not None else error
+            return i18n.tr("toast_gpu_limit", lang, watts=watts) if result is not None else error
 
         self._run(work)
 
@@ -577,8 +622,12 @@ class Backend(QObject):
         now = time.monotonic()
         if hot and now - self._warn_at > 300:
             self._warn_at = now
-            self._log(f"Перегрев: {hottest:.0f} °C")
-            self._notify("DOCKIT: ноутбук горячий", f"Температура {hottest:.0f} °C. Можно переключить режим на «Баланс» или «Тишина».")
+            lang = self._lang()
+            self._log(i18n.tr("journal_overheat", lang, t=f"{hottest:.0f}"))
+            self._notify(
+                i18n.tr("notify_overheat_title", lang),
+                i18n.tr("notify_overheat_body", lang, t=f"{hottest:.0f}"),
+            )
 
         def part(key, now_value, hist, throttled=False):
             return {"has": now_value is not None,
@@ -607,11 +656,14 @@ class Backend(QObject):
 
     @Slot()
     def shutdown(self) -> None:
+        self._closing = True
+        self._timer.stop()
+        self._mode_timer.stop()
         self._idle.stop()
 
     @Slot(str, result=str)
     def describeProgram(self, name: str) -> str:
-        return processes.describe(name)
+        return processes.describe(name, lang=self._lang())
 
     @Slot(str, result=str)
     def describeToggle(self, what: str) -> str:
@@ -682,18 +734,19 @@ class Backend(QObject):
                 reason = ""
                 if matched is not None:
                     wanted = matched.profile
-                    reason = profiles.explain(matched, running)
+                    reason = profiles.explain(matched, running, lang=lang)
                 else:
                     fallback = profiles.load_fallback()
                     wanted = fallback if fallback in available else None
-                    reason = "ни одно правило не подошло"
+                    reason = i18n.tr("reason_no_rule", lang)
                 if wanted and wanted != self._auto_last:
                     first = self._auto_last is None
                     self._auto_last = wanted
-                    note = self._apply_profile(available[wanted], interactive=False)
-                    self._log(f"Авто: «{available[wanted].name}» ({reason})")
+                    pname = viewmodel.profile_display_name(available[wanted], lang)
+                    note = self._apply_profile(available[wanted], interactive=False, lang=lang)
+                    self._log(i18n.tr("journal_auto", lang, name=pname, reason=reason))
                     if not first:
-                        self._notify("DOCKIT", f"Включён профиль «{available[wanted].name}»: {reason}")
+                        self._notify("DOCKIT", i18n.tr("notify_auto_body", lang, name=pname, reason=reason))
             else:
                 self._idle.stop()
             state = viewmodel.build(result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
@@ -725,11 +778,11 @@ class Backend(QObject):
                 "outputVolume": def_out["volume"] if (def_out and def_out.get("volume") is not None) else -1,
                 "outputMuted": bool(def_out.get("muted")) if def_out else False,
             }
-            self._snapshot.emit(state)
+            self._safe_emit(self._snapshot, state)
             if note:
-                self._finished.emit(note)
+                self._safe_emit(self._finished, note)
         except Exception:  # the window must stay alive whatever happens
-            self._snapshot.emit(None)
+            self._safe_emit(self._snapshot, None)
 
     @Slot(object)
     def _apply(self, state) -> None:
@@ -774,28 +827,32 @@ class Backend(QObject):
 
     # ---- actions (all in threads) ----
     def _run(self, work) -> None:
+        lang = self._lang()
+
         def target():
             try:
                 message = work()
             except Exception:
-                message = "Не удалось выполнить действие."
-            self._finished.emit(message)
+                message = i18n.tr("toast_action_failed", lang)
+            self._safe_emit(self._finished, message)
 
         threading.Thread(target=target, daemon=True).start()
 
-    def _apply_profile(self, profile: profiles.Profile, interactive: bool = True) -> str:
+    def _apply_profile(self, profile: profiles.Profile, interactive: bool = True, lang: str | None = None) -> str:
         """interactive=False (automatic switching) never pops up a password dialog."""
+        code = self._lang() if lang is None else lang
+        pname = viewmodel.profile_display_name(profile, code)
         errors: list[str] = []
 
         def ask(payload: dict):
             if not interactive:
                 payload = dict(payload, interactive=False)
-            result, error = client.ask(payload)
+            result, error = client.ask(payload, lang=code)
             if result is None:
                 errors.append(error)
             return result
 
-        profiles.apply(profile, ask, errors=errors)
+        profiles.apply(profile, ask, errors=errors, lang=code)
         if profile.power:
             time.sleep(0.08)
         self._tuning_at = 0
@@ -809,8 +866,8 @@ class Backend(QObject):
             if updates:
                 session_state.save(updates)
         if errors:
-            return f"Профиль «{profile.name}»: {errors[0]}"
-        return f"Профиль «{profile.name}» включён"
+            return i18n.tr("toast_profile_err", code, name=pname, err=errors[0])
+        return i18n.tr("toast_profile_on", code, name=pname)
 
     @Slot(str)
     def setMode(self, mode: str) -> None:
@@ -818,15 +875,17 @@ class Backend(QObject):
             return
         self._state = dict(self._state, currentMode=mode)
         self.stateChanged.emit()
+        lang = self._lang()
+        label = self._mode_name(mode, lang)
 
         def work() -> str:
-            result, error = client.ask({"action": "set_power_profile", "value": mode})
+            result, error = client.ask({"action": "set_power_profile", "value": mode}, lang=lang)
             if result is not None:
                 session_state.save({"power": mode})
                 time.sleep(0.08)  # let kernel amd_pstate update EPP choices before refresh
                 self._tuning_at = 0
-                self._log(f"Режим мощности: {MODE_NAMES.get(mode, mode)}")
-            return f"Режим: {MODE_NAMES.get(mode, mode)}" if result is not None else error
+                self._log(i18n.tr("journal_mode", lang, mode=label))
+            return i18n.tr("toast_mode_set", lang, mode=label) if result is not None else error
 
         self._run(work)
 
@@ -837,16 +896,18 @@ class Backend(QObject):
         self._auto_last = None
         self._state = dict(self._state, scenario=scenario)
         self.stateChanged.emit()
+        lang = self._lang()
         if scenario == "auto":
-            self._say("Автоматический выбор профиля включён")
+            self._say(i18n.tr("toast_auto_on", lang))
             self.refresh()
             return
         available, _ = profiles.load()
         profile = available.get(scenario)
         if profile is None:
             return
-        self._log(f"Вручную: «{profile.name}»")
-        self._run(lambda: self._apply_profile(profile))
+        pname = viewmodel.profile_display_name(profile, lang)
+        self._log(i18n.tr("journal_manual", lang, name=pname))
+        self._run(lambda: self._apply_profile(profile, lang=lang))
 
     def _sync_profiles_now(self) -> None:
         """Immediately reflect profile/rule/language edits in the UI without waiting for the next scan."""
@@ -870,41 +931,45 @@ class Backend(QObject):
         available, _ = profiles.load()
         if pid not in available:
             return
+        lang = self._lang()
         try:
             profiles.save_profile(pid, power, camera, output, mic, brightness=brightness, refresh=refresh)
         except (ValueError, OSError):
-            self._say("Не удалось сохранить профиль")
+            self._say(i18n.tr("toast_profile_save_err", lang))
             return
         self._sync_profiles_now()
+        pname = viewmodel.profile_display_name(available[pid], lang)
         if self._scenario == pid:
-            self._say(f"Профиль «{available[pid].name}» сохранён. Нажмите «Применить изменения», чтобы обновить.")
+            self._say(i18n.tr("toast_profile_saved_dirty", lang, name=pname))
         else:
-            self._say(f"Профиль «{available[pid].name}» сохранён.")
+            self._say(i18n.tr("toast_profile_saved", lang, name=pname))
         self.refresh()
 
     @Slot(str)
     def createProfile(self, name: str) -> None:
+        lang = self._lang()
         try:
             pid = profiles.create_profile(name)
         except (ValueError, OSError):
-            self._say("Не удалось создать профиль (название от 1 до 30 символов)")
+            self._say(i18n.tr("toast_profile_create_err", lang))
             return
         self._sync_profiles_now()
-        self._say(f"Профиль «{name.strip()}» создан. Настройте его справа.")
+        self._say(i18n.tr("toast_profile_created", lang, name=name.strip()))
         self.profileCreated.emit(pid)
         self.refresh()
 
     @Slot(str)
     def deleteProfile(self, pid: str) -> None:
+        lang = self._lang()
         try:
             profiles.delete_profile(pid)
         except (ValueError, OSError):
-            self._say("Не удалось удалить профиль")
+            self._say(i18n.tr("toast_profile_delete_err", lang))
             return
         if self._scenario == pid:
             self.setScenario("auto")
         self._sync_profiles_now()
-        self._say("Профиль удалён")
+        self._say(i18n.tr("toast_profile_deleted", lang))
         self.refresh()
 
     @Slot(int)
@@ -916,15 +981,19 @@ class Backend(QObject):
         self._display_cache = dict(getattr(self, "_display_cache", disp), brightness=percent)
         self._state = dict(self._state, display=disp)
         self.stateChanged.emit()
+        lang = self._lang()
 
         def work() -> str:
             from ..core import display
             if display.set_brightness_user(percent) is None:  # logind, no password
                 self._display_at = 0
-                return f"Яркость: {percent} %"
-            result, error = client.ask({"action": "set_brightness", "value": percent})
+                return i18n.tr("toast_brightness", lang, pct=percent)
+            result, error = client.ask({"action": "set_brightness", "value": percent}, lang=lang)
             self._display_at = 0
-            return f"Яркость: {percent} %" if result is not None else error
+            if result is None:
+                self._pending_bright = None
+                return error
+            return i18n.tr("toast_brightness", lang, pct=percent)
 
         self._run(work)
 
@@ -936,14 +1005,15 @@ class Backend(QObject):
         self._display_cache = dict(getattr(self, "_display_cache", disp), refresh=hz)
         self._state = dict(self._state, display=disp)
         self.stateChanged.emit()
+        lang = self._lang()
 
         def work() -> str:
             from ..core import display
             self._display_at = 0
-            err = display.set_refresh(hz)
+            err = display.set_refresh(hz, lang=lang)
             if err is None:
                 session_state.save({"refresh": hz})
-            return err or f"Частота экрана: {hz} Гц"
+            return err or i18n.tr("toast_refresh", lang, hz=hz)
 
         self._run(work)
 
@@ -960,9 +1030,6 @@ class Backend(QObject):
             "color": norm_color,
             "autonomous": bool(autonomous),
         }
-        self._kbd_saved = dict(payload)
-        self._save_kbd_saved()
-        session_state.save({"kbd_backlight": payload})
         self._pending_kbd = (time.monotonic() + 2.0, dict(payload))
         kbd = dict(self._state.get("kbdBacklight") or {})
         kbd.update(payload)
@@ -972,9 +1039,13 @@ class Backend(QObject):
         lang = self._lang()
 
         def work() -> str:
-            result, error = client.ask({"action": "set_kbd_backlight", "value": payload})
+            result, error = client.ask({"action": "set_kbd_backlight", "value": payload}, lang=lang)
             if result is None:
+                self._pending_kbd = None
                 return error
+            self._kbd_saved = dict(payload)
+            self._save_kbd_saved()
+            session_state.save({"kbd_backlight": payload})
             if result.get("autonomous"):
                 return i18n.tr("kbd_toast_auto", lang)
             if not result.get("on"):
@@ -990,27 +1061,33 @@ class Backend(QObject):
         available, _ = profiles.load()
         if pid not in available:
             return
+        lang = self._lang()
+        hours = hours.strip()
+        if not profiles.valid_hours(hours):
+            self._say(i18n.tr("toast_bad_hours", lang))
+            return
         names = [n for n in programs.split(",") if n.strip()]
         try:
             profiles.save_rule(pid, names, when, idle_minutes, temp=temp, hours=hours)
         except (ValueError, OSError):
-            self._say("Не удалось сохранить правило")
+            self._say(i18n.tr("toast_rule_save_err", lang))
             return
         self._auto_last = None
         self._sync_profiles_now()
-        self._say("Правило сохранено")
+        self._say(i18n.tr("toast_rule_saved", lang))
         self.refresh()
 
     @Slot(str)
     def saveFallback(self, value: str) -> None:
+        lang = self._lang()
         try:
             profiles.save_fallback(value)
         except (ValueError, OSError):
-            self._say("Не удалось сохранить")
+            self._say(i18n.tr("toast_save_err", lang))
             return
         self._auto_last = None
         self._sync_profiles_now()
-        self._say("Сохранено")
+        self._say(i18n.tr("toast_saved", lang))
         self.refresh()
 
     @Slot(str)
@@ -1022,16 +1099,17 @@ class Backend(QObject):
         if item is None or not item.get("can"):
             return
         self._toggle_busy.add(what)
+        lang = self._lang()
         if what == "camera":
             def work() -> str:
-                result, error = client.ask({"action": "set_camera", "value": not item["on"]})
+                result, error = client.ask({"action": "set_camera", "value": not item["on"]}, lang=lang)
                 if result is None:
                     return error
-                return "Камера включена" if not item["on"] else "Камера выключена"
+                return i18n.tr("toast_cam_on" if not item["on"] else "toast_cam_off", lang)
         elif what == "mic":
             def work() -> str:
                 audio.set_mute("input", item["on"])  # on = sound is on, so the switch mutes it
-                return "Микрофон выключен" if item["on"] else "Микрофон включён"
+                return i18n.tr("toast_mic_off" if item["on"] else "toast_mic_on", lang)
         elif what in ("wifi", "bluetooth"):
             def work() -> str:
                 turn_on = not item["on"]
@@ -1047,11 +1125,11 @@ class Backend(QObject):
                 try:
                     done = subprocess.run(command, capture_output=True, timeout=15)
                 except (OSError, subprocess.TimeoutExpired):
-                    return "Не удалось переключить"
+                    return i18n.tr("toast_toggle_err", lang)
                 name = "Wi-Fi" if what == "wifi" else "Bluetooth"
                 if done.returncode != 0:
-                    return f"{name}: не удалось переключить"
-                return f"{name} включён" if turn_on else f"{name} выключен"
+                    return i18n.tr("toast_toggle_named_err", lang, name=name)
+                return i18n.tr("toast_toggle_on" if turn_on else "toast_toggle_off", lang, name=name)
         else:
             self._toggle_busy.discard(what)
             return

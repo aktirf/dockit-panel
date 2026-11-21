@@ -43,40 +43,43 @@ def user_programs(uid: int | None = None, proc: str = "/proc") -> list[str]:
     return sorted(names, key=str.lower)
 
 
-# short plain-language descriptions shown as hints in the window
-KNOWN = {
-    "steam": "Steam — магазин и запуск игр.",
-    "steamwebhelper": "Встроенный браузер Steam (часть Steam).",
-    "cs2": "Counter-Strike 2.",
-    "gamescope": "Gamescope — оболочка для запуска игр с настройкой кадров и разрешения.",
-    "gamemoded": "GameMode — подстраивает систему под игру.",
-    "lutris": "Lutris — запуск игр и эмуляторов.",
-    "heroic": "Heroic — запуск игр из Epic и GOG.",
-    "wine*": "Wine — запуск Windows-программ и игр.",
-    "proton*": "Proton — запуск Windows-игр из Steam.",
-    "firefox*": "Firefox — браузер.",
-    "zen*": "Zen — браузер.",
-    "chrome*": "Chrome — браузер.",
-    "code*": "Редактор кода.",
-    "discord*": "Discord — голосовой чат.",
-    "telegram*": "Telegram — мессенджер.",
-    "obs*": "OBS — запись и трансляция экрана.",
-    "mpv": "mpv — видеоплеер.",
-    "vlc": "VLC — видеоплеер.",
-    "blender*": "Blender — 3D-редактор.",
+# short plain-language descriptions shown as hints in the window (keys in i18n locales)
+KNOWN_KEYS = {
+    "steam": "proc_desc_steam",
+    "steamwebhelper": "proc_desc_steamwebhelper",
+    "cs2": "proc_desc_cs2",
+    "gamescope": "proc_desc_gamescope",
+    "gamemoded": "proc_desc_gamemoded",
+    "lutris": "proc_desc_lutris",
+    "heroic": "proc_desc_heroic",
+    "wine*": "proc_desc_wine",
+    "proton*": "proc_desc_proton",
+    "firefox*": "proc_desc_firefox",
+    "zen*": "proc_desc_zen",
+    "chrome*": "proc_desc_chrome",
+    "code*": "proc_desc_code",
+    "discord*": "proc_desc_discord",
+    "telegram*": "proc_desc_telegram",
+    "obs*": "proc_desc_obs",
+    "mpv": "proc_desc_mpv",
+    "vlc": "proc_desc_vlc",
+    "blender*": "proc_desc_blender",
 }
 
 
-def describe(name: str) -> str:
+def describe(name: str, lang: str = "ru") -> str:
     """One line about a program: what it is, or how the rule will match it."""
-    for pattern, text in KNOWN.items():
-        if fnmatch.fnmatchcase(name.lower(), pattern):
-            return text
+    from . import i18n
+
+    low = name.lower()
+    for pattern, key in KNOWN_KEYS.items():
+        if fnmatch.fnmatchcase(low, pattern):
+            return i18n.tr(key, lang)
     if "*" in name or "?" in name:
-        return f"Шаблон: подойдёт любая программа с таким именем ({name})."
+        return i18n.tr("proc_desc_wildcard", lang, name=name)
     if name.startswith("steam_app_"):
-        return "Игра, запущенная через Steam."
-    return f"Программа «{name}». Правило сработает, пока она запущена."
+        return i18n.tr("proc_desc_steam_game", lang)
+    return i18n.tr("proc_desc_generic", lang, name=name)
 
 
 class TopCpu:

@@ -7,7 +7,7 @@ ComboBox {
     id: root
     property var items: []          // [{ id: "...", label: "..." }]
     property string currentId: ""
-    property string placeholder: "Выберите…"
+    property string placeholder: Theme.tr("select_placeholder")
     signal picked(string itemId)
 
     Layout.fillWidth: true

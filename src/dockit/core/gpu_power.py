@@ -89,9 +89,10 @@ def summary(base: str = PCI, proc: str = PROC) -> dict | None:
     if not gpus:
         return None
     state = power_state(gpus[0])
+    asleep = state["runtime"] == "suspended"
     return {
         "runtime": state["runtime"],
         "control": state["control"],
-        "asleep": state["runtime"] == "suspended",
-        "users": gpu_users(proc),
+        "asleep": asleep,
+        "users": [] if asleep else gpu_users(proc),
     }
