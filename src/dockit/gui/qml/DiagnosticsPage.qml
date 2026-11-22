@@ -31,11 +31,9 @@ PageFrame {
     Connections { target: backend; function onStateChanged() { syncAll() } }
     Component.onCompleted: syncAll()
 
-    GridLayout {
+    ColumnLayout {
         Layout.fillWidth: true
-        columns: diagPage.width >= 660 ? 2 : 1
-        columnSpacing: 12
-        rowSpacing: 10
+        spacing: 10
 
         SegmentBar {
             id: diagFilterBar
@@ -48,25 +46,24 @@ PageFrame {
             onPicked: function (val) { diagPage.filter = val }
         }
         Flow {
-            Layout.fillWidth: diagPage.width < 660
-            Layout.alignment: diagPage.width >= 660 ? Qt.AlignRight : Qt.AlignLeft
+            Layout.fillWidth: true
             spacing: 8
             Btn {
                 text: Theme.tr("welcome_recheck_btn")
-                implicitHeight: 42
+                implicitHeight: 38
                 tip: Theme.tr("welcome_recheck_tip")
                 onClicked: backend.openWelcome()
             }
             Btn {
                 text: Theme.tr("copy_report")
-                implicitHeight: 42
+                implicitHeight: 38
                 tip: Theme.tr("copy_report_tip")
                 onClicked: backend.copyReport()
             }
             Btn {
                 primary: true
                 text: Theme.tr("report_github_btn")
-                implicitHeight: 42
+                implicitHeight: 38
                 tip: Theme.tr("report_github_tip")
                 onClicked: backend.openIssue("device")
             }
@@ -146,7 +143,7 @@ PageFrame {
                         }
                     }
                 }
-                Flow {
+                RowLayout {
                     Layout.alignment: diagPage.width >= 640 ? Qt.AlignRight | Qt.AlignVCenter : Qt.AlignLeft
                     spacing: 8
                     Btn {
@@ -170,7 +167,7 @@ PageFrame {
             columnSpacing: 12
             rowSpacing: 8
             Txt { Layout.fillWidth: true; text: Theme.tr("service_log"); font.pixelSize: 16; font.weight: Font.DemiBold }
-            Flow {
+            RowLayout {
                 Layout.alignment: diagPage.width >= 600 ? Qt.AlignRight : Qt.AlignLeft
                 spacing: 8
                 Btn {

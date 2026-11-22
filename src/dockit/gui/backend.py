@@ -71,6 +71,7 @@ class Backend(QObject):
         self._pending_bright: tuple[float, int] | None = None
         self._pending_vol: tuple[float, int] | None = None
         self._pending_kbd: tuple[float, dict] | None = None
+        self._pending_limit: tuple[float, int] | None = None
         self._kbd_saved = self._load_kbd_saved()
         self._hist_at = 0.0
         self._snapshot.connect(self._apply)
@@ -176,6 +177,7 @@ class Backend(QObject):
     DEFAULTS = {
         "interval": 3, "warn_temp": 90, "notify": True, "tray": False,
         "accent": "blue", "compact_nav": False, "lang": "auto", "onboarded": False,
+        "has_dynamic_cpu": False,
     }
 
     @staticmethod
@@ -233,7 +235,7 @@ class Backend(QObject):
                 data["accent"] = loaded["accent"]
             if loaded.get("lang") in ("auto", *i18n.SUPPORTED):
                 data["lang"] = loaded["lang"]
-            for key in ("notify", "tray", "compact_nav", "onboarded"):
+            for key in ("notify", "tray", "compact_nav", "onboarded", "has_dynamic_cpu"):
                 if isinstance(loaded.get(key), bool):
                     data[key] = loaded[key]
         except (OSError, ValueError, AttributeError):
@@ -535,16 +537,26 @@ class Backend(QObject):
         now = time.monotonic()
         if now - getattr(self, "_tuning_at", 0) > 10 or not hasattr(self, "_tuning_cache"):
             self._tuning_at = now
+            driver = tuning.cpu_driver()
             all_epp = tuning.epp_choices()
             if "dynamic" in all_epp:
                 self._ever_saw_dynamic = True
-            has_dynamic = ("dynamic" in all_epp) or bool(getattr(self, "_ever_saw_dynamic", False))
+                if not self._settings.get("has_dynamic_cpu"):
+                    self._settings["has_dynamic_cpu"] = True
+                    try:
+                        os.makedirs(os.path.dirname(self._settings_path()), exist_ok=True)
+                        with open(self._settings_path(), "w", encoding="utf-8") as f:
+                            json.dump(self._settings, f)
+                    except OSError:
+                        pass
+            remembered_dyn = bool(self._settings.get("has_dynamic_cpu")) and driver == "amd-pstate-epp"
+            has_dynamic = ("dynamic" in all_epp) or bool(getattr(self, "_ever_saw_dynamic", False)) or remembered_dyn
             data = {
                 "boost": tuning.read_boost(),
                 "epp": tuning.read_epp(),
                 "eppChoices": [c for c in all_epp if c != "dynamic"],
                 "hasDynamic": has_dynamic,
-                "driver": tuning.cpu_driver(),
+                "driver": driver,
             }
             if now - getattr(self, "_gpu_lim_at", -999) > 60 and not gpu_power.gpu_asleep():
                 # nvidia-smi would wake a sleeping card: keep the old value meanwhile
@@ -632,6 +644,7 @@ class Backend(QObject):
     @Slot(int)
     def setBatteryLimit(self, percent: int) -> None:
         percent = max(50, min(100, int(percent)))
+        self._pending_limit = (time.monotonic() + 2.0, percent)
         lim = dict(self._state.get("limit") or {})
         lim["value"] = percent
         lim["statusText"] = f"{percent} %"
@@ -644,6 +657,7 @@ class Backend(QObject):
         def work() -> str:
             result, error = client.ask({"action": "set_battery_limit", "value": percent}, lang=lang)
             if result is None:
+                self._pending_limit = None
                 return error
             if result.get("kind") == "conservation":
                 key = "toast_battery_limit_cons_on" if result.get("conservation") else "toast_battery_limit_cons_off"
@@ -923,6 +937,17 @@ class Backend(QObject):
                     self._pending_kbd = None
                 elif kbd.get("available"):
                     state["kbdBacklight"] = dict(kbd, **target)
+            if self._pending_limit is not None:
+                until, target = self._pending_limit
+                lim = state.get("limit") or {}
+                cur = lim.get("value")
+                if now >= until or (cur is not None and int(cur) == target):
+                    self._pending_limit = None
+                elif lim.get("available"):
+                    updated = dict(lim, value=target, statusText=f"{target} %")
+                    if updated.get("kind") == "conservation":
+                        updated["conservation"] = target < 100
+                    state["limit"] = updated
             self._state = state
             self.stateChanged.emit()
         if self._refresh_queued:

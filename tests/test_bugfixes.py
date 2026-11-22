@@ -235,3 +235,18 @@ def test_no_dead_backlight_page():
     assert not (qml_dir / "BacklightPage.qml").exists()
     assert "BacklightPage" not in (qml_dir / "Main.qml").read_text(encoding="utf-8")
     assert "BacklightPage" not in (qml_dir / "qmldir").read_text(encoding="utf-8")
+
+
+def test_every_qml_flow_has_stable_width_constraint():
+    """Regression test: Flow without Layout.fillWidth or anchors inside a GridLayout jumps on relayout."""
+    from pathlib import Path
+
+    qml_dir = Path(__file__).resolve().parents[1] / "src/dockit/gui/qml"
+    for path in sorted(qml_dir.glob("*.qml")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for idx, line in enumerate(lines):
+            if line.strip() == "Flow {":
+                block = "\n".join(lines[idx : idx + 8])
+                assert ("Layout.fillWidth: true" in block) or ("anchors.right:" in block), (
+                    f"{path.name}:{idx + 1} Flow lacks stable width constraint"
+                )
