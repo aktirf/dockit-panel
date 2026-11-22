@@ -1,0 +1,91 @@
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag (e.g. v0.14.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run unit tests
+        run: |
+          pip install pytest build
+          python -m pytest -q
+      - name: Build Python wheel and sdist
+        run: python -m build --outdir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-python
+          path: dist/*
+
+  build-arch:
+    runs-on: ubuntu-latest
+    needs: [build-python]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - name: Build Arch Linux package (.pkg.tar.zst)
+        run: |
+          mkdir -p arch-out
+          docker run --rm \
+            -v "$PWD/packaging/arch:/src:ro" \
+            -v "$PWD/arch-out:/out" \
+            archlinux:base-devel \
+            bash -euo pipefail -c '
+              pacman -Syu --noconfirm --needed python python-build python-installer python-setuptools python-wheel curl
+              useradd -m builder
+              cp -r /src /home/builder/build
+              chown -R builder:builder /home/builder/build
+              su - builder -c "cd /home/builder/build && makepkg --nodeps --noconfirm"
+              rm -f /home/builder/build/*-debug-*.pkg.tar.zst
+              cp /home/builder/build/*.pkg.tar.zst /out/
+              pkg=$(ls /out/*.pkg.tar.zst | head -n1)
+              tar --zstd -tf "$pkg" | grep -q "^usr/bin/dockit$"
+              tar --zstd -tf "$pkg" | grep -q "^usr/lib/systemd/system/dockit.service$"
+              tar --zstd -tf "$pkg" | grep -q "^usr/share/polkit-1/actions/org.dockit.policy$"
+              tar --zstd -tf "$pkg" | grep -q "^usr/share/dockit/devices/"
+            '
+          ls -lh arch-out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-arch
+          path: arch-out/*.pkg.tar.zst
+
+  upload:
+    runs-on: ubuntu-latest
+    needs: [build-python, build-arch]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Generate SHA256SUMS.txt
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Upload assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" release-assets/* \
+            --repo "${{ github.repository }}" \
+            --clobber
