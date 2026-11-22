@@ -110,7 +110,7 @@ class Backend(QObject):
 
     @staticmethod
     def _effective_mode(raw_mode: str | None, epp: str | None) -> str | None:
-        if raw_mode == "balanced" and epp == "dynamic":
+        if tuning.is_dynamic_epp(epp):
             return "dynamic"
         return raw_mode
 

@@ -35,6 +35,22 @@ class ActionError(Exception):
     """A request was refused. The message is safe to show to the user."""
 
 
+def _leave_dynamic_epp(value: str, cpu_base: str) -> None:
+    """Restore a manual EPP when leaving dynamic mode (PPD may no-op if already on balanced)."""
+    if not tuning.is_dynamic_epp(tuning.read_epp(cpu_base)):
+        return
+    choices = tuning.epp_choices(cpu_base)
+    target_epp = "power" if value == "low-power" else "balance_performance"
+    if target_epp not in choices:
+        target_epp = "default" if "default" in choices else ""
+    if target_epp:
+        for f in tuning.epp_files(cpu_base):
+            try:
+                Path(f).write_text(target_epp, encoding="ascii")
+            except OSError:
+                pass
+
+
 def _sync_power_state(value: str, cpu_base: str = tuning.CPU, use_ppd: bool = True) -> None:
     """Keep power-profiles-daemon (serpantinum/KDE/GNOME) and amd-pstate-epp governor in sync."""
     if use_ppd:
@@ -44,6 +60,8 @@ def _sync_power_state(value: str, cpu_base: str = tuning.CPU, use_ppd: bool = Tr
             try:
                 proc = subprocess.run([ppd, "set", ppd_name], capture_output=True, text=True, timeout=3)
                 if proc.returncode == 0:
+                    if value != "performance":
+                        _leave_dynamic_epp(value, cpu_base)
                     return
             except (OSError, subprocess.TimeoutExpired):
                 pass
@@ -59,18 +77,8 @@ def _sync_power_state(value: str, cpu_base: str = tuning.CPU, use_ppd: bool = Tr
             path.write_text(gov, encoding="ascii")
         except OSError:
             pass
-    # If leaving dynamic EPP without power-profiles-daemon, restore a matching manual EPP.
-    if gov == "powersave" and tuning.read_epp(cpu_base) == "dynamic":
-        choices = tuning.epp_choices(cpu_base)
-        target_epp = "power" if value == "low-power" else "balance_performance"
-        if target_epp not in choices:
-            target_epp = "default" if "default" in choices else ""
-        if target_epp:
-            for f in tuning.epp_files(cpu_base):
-                try:
-                    Path(f).write_text(target_epp, encoding="ascii")
-                except OSError:
-                    pass
+    if gov == "powersave":
+        _leave_dynamic_epp(value, cpu_base)
 
 
 def set_power_profile(
