@@ -12,6 +12,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import Callable
 
+from . import i18n
+
 Runner = Callable[[list[str]], str]
 
 
@@ -29,15 +31,15 @@ class AudioDevice:
     default: bool
 
 
-def run_pactl(args: list[str]) -> str:
+def run_pactl(args: list[str], lang: str = "ru") -> str:
     if shutil.which("pactl") is None:
-        raise AudioError("Нет команды pactl (пакет libpulse) или не запущен PipeWire.")
+        raise AudioError(i18n.tr("err_audio_no_pactl", lang))
     try:
         proc = subprocess.run(["pactl", *args], capture_output=True, text=True, timeout=5)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise AudioError("Звуковая система не отвечает.") from exc
+        raise AudioError(i18n.tr("err_audio_timeout", lang)) from exc
     if proc.returncode != 0:
-        raise AudioError("Звуковая система вернула ошибку.")
+        raise AudioError(i18n.tr("err_audio_failed", lang))
     return proc.stdout
 
 
@@ -52,17 +54,18 @@ def _percent(item: dict) -> int | None:
     return max(values) if values else None
 
 
-def list_devices(run: Runner = run_pactl) -> list[AudioDevice]:
+def list_devices(run: Runner = run_pactl, lang: str = "ru") -> list[AudioDevice]:
+    call = (lambda args: run_pactl(args, lang=lang)) if run is run_pactl else run
     devices: list[AudioDevice] = []
     for kind, listing, getter in (
         ("output", "sinks", "get-default-sink"),
         ("input", "sources", "get-default-source"),
     ):
         try:
-            items = json.loads(run(["-f", "json", "list", listing]))
+            items = json.loads(call(["-f", "json", "list", listing]))
         except ValueError as exc:
-            raise AudioError("Не удалось разобрать ответ звуковой системы.") from exc
-        default = run([getter]).strip()
+            raise AudioError(i18n.tr("err_audio_parse", lang)) from exc
+        default = call([getter]).strip()
         for item in items if isinstance(items, list) else []:
             name = item.get("name")
             if not isinstance(name, str) or name.endswith(".monitor"):
@@ -92,30 +95,33 @@ def find(devices: list[AudioDevice], kind: str, query: str) -> AudioDevice | Non
     return None
 
 
-def _target(kind: str) -> tuple[str, str]:
+def _target(kind: str, lang: str = "ru") -> tuple[str, str]:
     if kind == "output":
         return "sink", "@DEFAULT_SINK@"
     if kind == "input":
         return "source", "@DEFAULT_SOURCE@"
-    raise AudioError("Неизвестный тип устройства.")
+    raise AudioError(i18n.tr("err_audio_kind", lang))
 
 
-def set_default(kind: str, query: str, run: Runner = run_pactl) -> AudioDevice:
-    device = find(list_devices(run), kind, query)
+def set_default(kind: str, query: str, run: Runner = run_pactl, lang: str = "ru") -> AudioDevice:
+    call = (lambda args: run_pactl(args, lang=lang)) if run is run_pactl else run
+    device = find(list_devices(call, lang=lang), kind, query)
     if device is None:
-        raise AudioError(f"Устройство «{query}» не найдено.")
-    word, _ = _target(kind)
-    run([f"set-default-{word}", device.name])  # name comes from the system list, not from the user
+        raise AudioError(i18n.tr("err_audio_not_found", lang, query=query))
+    word, _ = _target(kind, lang=lang)
+    call([f"set-default-{word}", device.name])  # name comes from the system list, not from the user
     return device
 
 
-def set_mute(kind: str, muted: bool, run: Runner = run_pactl) -> None:
-    word, default = _target(kind)
-    run([f"set-{word}-mute", default, "1" if muted else "0"])
+def set_mute(kind: str, muted: bool, run: Runner = run_pactl, lang: str = "ru") -> None:
+    call = (lambda args: run_pactl(args, lang=lang)) if run is run_pactl else run
+    word, default = _target(kind, lang=lang)
+    call([f"set-{word}-mute", default, "1" if muted else "0"])
 
 
-def set_volume(kind: str, percent: int, run: Runner = run_pactl) -> None:
+def set_volume(kind: str, percent: int, run: Runner = run_pactl, lang: str = "ru") -> None:
     if not isinstance(percent, int) or isinstance(percent, bool) or not 0 <= percent <= 150:
-        raise AudioError("Громкость должна быть числом от 0 до 150.")
-    word, default = _target(kind)
-    run([f"set-{word}-volume", default, f"{percent}%"])
+        raise AudioError(i18n.tr("err_audio_volume", lang))
+    call = (lambda args: run_pactl(args, lang=lang)) if run is run_pactl else run
+    word, default = _target(kind, lang=lang)
+    call([f"set-{word}-volume", default, f"{percent}%"])

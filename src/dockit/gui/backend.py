@@ -72,6 +72,7 @@ class Backend(QObject):
         self._pending_vol: tuple[float, int] | None = None
         self._pending_kbd: tuple[float, dict] | None = None
         self._pending_limit: tuple[float, int] | None = None
+        self._pending_mode: tuple[float, str] | None = None
         self._kbd_saved = self._load_kbd_saved()
         self._hist_at = 0.0
         self._snapshot.connect(self._apply)
@@ -487,7 +488,7 @@ class Backend(QObject):
 
         def work() -> str:
             try:
-                device = audio.set_default(kind, description)
+                device = audio.set_default(kind, description, lang=lang)
             except audio.AudioError as exc:
                 return str(exc)
             key = "toast_audio_out" if kind == "output" else "toast_audio_in"
@@ -507,7 +508,7 @@ class Backend(QObject):
 
         def work() -> str:
             try:
-                audio.set_volume("output", percent)
+                audio.set_volume("output", percent, lang=lang)
             except audio.AudioError as exc:
                 self._pending_vol = None
                 return str(exc)
@@ -526,7 +527,7 @@ class Backend(QObject):
 
         def work() -> str:
             try:
-                audio.set_mute("output", not cur_muted)
+                audio.set_mute("output", not cur_muted, lang=lang)
             except audio.AudioError as exc:
                 return str(exc)
             return i18n.tr("toast_muted" if not cur_muted else "toast_unmuted", lang)
@@ -948,6 +949,13 @@ class Backend(QObject):
                     if updated.get("kind") == "conservation":
                         updated["conservation"] = target < 100
                     state["limit"] = updated
+            if self._pending_mode is not None:
+                until, target = self._pending_mode
+                cur = state.get("currentMode")
+                if now >= until or cur == target:
+                    self._pending_mode = None
+                else:
+                    state["currentMode"] = target
             self._state = state
             self.stateChanged.emit()
         if self._refresh_queued:
@@ -1008,6 +1016,7 @@ class Backend(QObject):
     def setMode(self, mode: str) -> None:
         if mode not in (*profiles.POWER_VALUES, "dynamic"):
             return
+        self._pending_mode = (time.monotonic() + 2.0, mode)
         self._state = dict(self._state, currentMode=mode)
         self.stateChanged.emit()
         lang = self._lang()
@@ -1020,6 +1029,8 @@ class Backend(QObject):
                 time.sleep(0.08)  # let kernel amd_pstate update EPP choices before refresh
                 self._tuning_at = 0
                 self._log(i18n.tr("journal_mode", lang, mode=label))
+            else:
+                self._pending_mode = None
             return i18n.tr("toast_mode_set", lang, mode=label) if result is not None else error
 
         self._run(work)
@@ -1145,8 +1156,8 @@ class Backend(QObject):
 
         def work() -> str:
             from ..core import display
-            self._display_at = 0
             err = display.set_refresh(hz, lang=lang)
+            self._display_at = 0
             if err is None:
                 session_state.save({"refresh": hz})
             return err or i18n.tr("toast_refresh", lang, hz=hz)
@@ -1244,7 +1255,10 @@ class Backend(QObject):
                 return i18n.tr("toast_cam_on" if not item["on"] else "toast_cam_off", lang)
         elif what == "mic":
             def work() -> str:
-                audio.set_mute("input", item["on"])  # on = sound is on, so the switch mutes it
+                try:
+                    audio.set_mute("input", item["on"], lang=lang)  # on = sound is on, so the switch mutes it
+                except audio.AudioError as exc:
+                    return str(exc)
                 return i18n.tr("toast_mic_off" if item["on"] else "toast_mic_on", lang)
         elif what in ("wifi", "bluetooth"):
             def work() -> str:

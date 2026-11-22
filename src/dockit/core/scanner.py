@@ -187,12 +187,23 @@ def localize_item(item: ScanItem, lang: str = "ru") -> tuple[str, str, str]:
         elif st is not Status.OK:
             detail = i18n.tr("mod_battery_no", lang)
     elif mid == "battery_limit":
-        detail = i18n.tr(
-            "mod_battery_limit_ok" if st is Status.OK else (
-                "mod_battery_limit_setup" if st is Status.NEEDS_SETUP else "mod_battery_limit_no"
-            ),
-            lang,
-        )
+        if st is Status.OK and isinstance(state, dict):
+            if state.get("kind") == "conservation":
+                detail = i18n.tr(
+                    "mod_battery_limit_cons_on" if state.get("conservation") else "mod_battery_limit_cons_off",
+                    lang,
+                )
+            elif state.get("value") is not None:
+                detail = i18n.tr("mod_battery_limit_ok_pct", lang, pct=state["value"])
+            else:
+                detail = i18n.tr("mod_battery_limit_ok", lang)
+        else:
+            detail = i18n.tr(
+                "mod_battery_limit_ok" if st is Status.OK else (
+                    "mod_battery_limit_setup" if st is Status.NEEDS_SETUP else "mod_battery_limit_no"
+                ),
+                lang,
+            )
         if hint:
             hint = i18n.tr("mod_battery_limit_hint_no" if st is Status.UNAVAILABLE else "mod_battery_limit_hint_setup", lang)
     elif mid == "camera":

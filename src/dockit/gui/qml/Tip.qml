@@ -64,7 +64,7 @@ Item {
                 var w = root.Window.window
                 var mapped = root.mapToItem(null, 0, root.anchorY)
                 if (w && mapped.y + height + 12 > w.height)
-                    return root.anchorY - height - 26
+                    return Math.max(-mapped.y + 8, root.anchorY - height - 26)
                 return root.anchorY
             }
             text: root.text
