@@ -606,5 +606,22 @@
   "charge_limit_conservation_off": "100 % (полный)",
   "toast_battery_limit": "Лимит заряда: {pct} %",
   "toast_battery_limit_cons_on": "Режим сбережения батареи включён (≈80 %)",
-  "toast_battery_limit_cons_off": "Режим сбережения батареи выключен (100 %)"
+  "toast_battery_limit_cons_off": "Режим сбережения батареи выключен (100 %)",
+
+  "report_features_summary": "Статус функций (нажмите, чтобы развернуть)",
+  "report_github_btn": "Отправить на GitHub",
+  "report_github_tip": "Скопирует подробный Markdown-отчёт (без личных данных) и откроет страницу создания Issue на GitHub.",
+  "toast_report_github_opened": "Отчёт скопирован — открываю GitHub Issues, просто нажмите Ctrl+V",
+
+  "wizard_step_1": "Приветствие",
+  "wizard_step_2": "Проверка ПК",
+  "wizard_step_3": "Быстрый старт",
+  "wizard_skip": "Пропустить",
+  "wizard_back": "Назад",
+  "wizard_next": "Далее",
+  "wizard_hello_title": "Добро пожаловать в DOCKIT",
+  "wizard_hello_sub": "Открытая панель управления ноутбуком и ПК для Linux. Выберите удобный язык и цвет оформления — всё меняется мгновенно.",
+  "wizard_prefs_title": "Быстрая настройка",
+  "wizard_prefs_sub": "Настройте поведение окна под себя — всё это можно изменить позже в «Настройках».",
+  "wizard_prefs_note": "Готово! Нажмите «Начать работу», чтобы открыть главную панель."
 }

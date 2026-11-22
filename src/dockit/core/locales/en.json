@@ -606,5 +606,22 @@
   "charge_limit_conservation_off": "100% (full)",
   "toast_battery_limit": "Charge limit: {pct}%",
   "toast_battery_limit_cons_on": "Battery conservation mode enabled (~80%)",
-  "toast_battery_limit_cons_off": "Battery conservation mode disabled (100%)"
+  "toast_battery_limit_cons_off": "Battery conservation mode disabled (100%)",
+
+  "report_features_summary": "Feature status (click to expand)",
+  "report_github_btn": "Report on GitHub",
+  "report_github_tip": "Copies a detailed Markdown report (no personal data) and opens a new GitHub Issue.",
+  "toast_report_github_opened": "Report copied — opening GitHub Issues, just press Ctrl+V",
+
+  "wizard_step_1": "Welcome",
+  "wizard_step_2": "Hardware check",
+  "wizard_step_3": "Quick setup",
+  "wizard_skip": "Skip",
+  "wizard_back": "Back",
+  "wizard_next": "Next",
+  "wizard_hello_title": "Welcome to DOCKIT",
+  "wizard_hello_sub": "Open-source Linux laptop & PC control panel. Pick your preferred language and accent color — changes apply live.",
+  "wizard_prefs_title": "Quick setup",
+  "wizard_prefs_sub": "Adjust window behavior to your liking — you can change all of these anytime in Settings.",
+  "wizard_prefs_note": "All set! Click Get started to open the main panel."
 }

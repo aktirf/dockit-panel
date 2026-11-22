@@ -21,7 +21,7 @@ from ..core import audio, gpu_amd, hardware, i18n, kbd_backlight, periph_battery
 from ..core import idle
 from ..core import bluetooth, gpu_power, tuning
 from ..core.cpu import CpuMonitor
-from ..core.scanner import scan
+from ..core.scanner import display_name, format_report, scan
 from ..daemon import client
 from ..daemon.actions import PROFILE
 from ..modules.battery import ac_online
@@ -79,6 +79,8 @@ class Backend(QObject):
         self._timer = QTimer(self)
         self._settings = self._load_settings()
         self._welcome_open = not self._settings.get("onboarded", False)
+        self._welcome_step = 0
+        self._last_scan = None
         self._timer.setInterval(self._settings["interval"] * 1000)
         self._timer.timeout.connect(self.refresh)
         self._timer.start()
@@ -268,6 +270,10 @@ class Backend(QObject):
     def welcomeOpen(self) -> bool:
         return self._welcome_open
 
+    @Property(int, notify=welcomeChanged)
+    def welcomeStep(self) -> int:
+        return self._welcome_step
+
     @Slot()
     def completeOnboarding(self) -> None:
         self._settings["onboarded"] = True
@@ -277,6 +283,7 @@ class Backend(QObject):
 
     @Slot()
     def openWelcome(self) -> None:
+        self._welcome_step = 1
         self._welcome_open = True
         self.welcomeChanged.emit()
         self.refresh()
@@ -698,10 +705,10 @@ class Backend(QObject):
                 "ssd": part("ssd", ssd_temp, self._ssd_hist),
                 "warn": warn, "hot": hot}
 
-    @Slot()
-    def copyReport(self) -> None:
-        from PySide6.QtGui import QGuiApplication
+    def _build_report_text(self, markdown: bool = True) -> str:
         lang = self._lang()
+        if self._last_scan is not None:
+            return format_report(self._last_scan, lang=lang, markdown=markdown)
         fix_lbl = i18n.tr("report_fix", lang)
         st = self._state
         lines = [f"DOCKIT {self.version}", ", ".join(f"{k}: {v}" for k, v in st.get("system", {}).items()), ""]
@@ -709,8 +716,33 @@ class Backend(QObject):
             lines.append(f"[{f['statusText']}] {f['name']}: {f['detail']}")
             if f.get("hint"):
                 lines.append(f"    {fix_lbl}: {f['hint']}")
-        QGuiApplication.clipboard().setText("\n".join(lines))
+        return "\n".join(lines)
+
+    @Slot()
+    def copyReport(self) -> None:
+        from PySide6.QtGui import QGuiApplication
+        lang = self._lang()
+        QGuiApplication.clipboard().setText(self._build_report_text(markdown=True))
         self._say(i18n.tr("report_copied", lang))
+
+    @Slot(str)
+    def openIssue(self, kind: str = "device") -> None:
+        from urllib.parse import urlencode
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices, QGuiApplication
+
+        lang = self._lang()
+        QGuiApplication.clipboard().setText(self._build_report_text(markdown=True))
+        sys_info = self._state.get("system") or {}
+        model = display_name(sys_info) if sys_info else ""
+        if kind == "bug":
+            params = {"template": "bug_report.md", "title": "[Bug] "}
+        else:
+            title = f"[Device] {model}".strip() if model else "[Device] "
+            params = {"template": "device_report.md", "title": title}
+        url = "https://github.com/aktirf/dockit-panel/issues/new?" + urlencode(params)
+        QDesktopServices.openUrl(QUrl(url))
+        self._say(i18n.tr("toast_report_github_opened", lang))
 
     @Slot()
     def shutdown(self) -> None:
@@ -752,6 +784,7 @@ class Backend(QObject):
                 self._periph_cache = (result.peripherals, result.laptop)
             else:
                 result.peripherals, result.laptop = self._periph_cache
+            self._last_scan = result
             raw_mode = sysfs.read_text(PROFILE)
             cur_epp = tuning.read_epp()
             mode = self._effective_mode(raw_mode, cur_epp)
