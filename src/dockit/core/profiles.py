@@ -167,7 +167,7 @@ def valid_hours(text) -> bool:
             return False
         if int(h) > 23 or int(m) > 59:
             return False
-    return True
+    return text[:5] != text[6:]
 
 
 def in_hours(text: str, now) -> bool:
@@ -366,7 +366,7 @@ def apply(
 
         label = i18n.tr("apply_out_label" if kind == "output" else "apply_in_label", lang)
         try:
-            device = audio.set_default(kind, query)
+            device = audio.set_default(kind, query) if lang == "ru" else audio.set_default(kind, query, lang=lang)
             lines.append(f"{label}: {device.description}")
         except audio.AudioError as exc:
             if errors is not None:

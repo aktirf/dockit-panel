@@ -250,3 +250,55 @@ def test_every_qml_flow_has_stable_width_constraint():
                 assert ("Layout.fillWidth: true" in block) or ("anchors.right:" in block), (
                     f"{path.name}:{idx + 1} Flow lacks stable width constraint"
                 )
+
+
+def test_non_bat_system_battery_and_limit_detected_while_peripheral_skipped(tmp_path):
+    from dockit.core import battery_limit
+    from dockit.modules import battery
+
+    # Main battery named CMB0 (common on some Lenovo/ASUS/ARM laptops)
+    cmb = tmp_path / "CMB0"
+    cmb.mkdir()
+    (cmb / "type").write_text("Battery\n")
+    (cmb / "scope").write_text("System\n")
+    (cmb / "capacity").write_text("74\n")
+    (cmb / "status").write_text("Discharging\n")
+    (cmb / "charge_control_end_threshold").write_text("80\n")
+
+    # Peripheral mouse battery (scope=Device) must be ignored
+    mouse = tmp_path / "hidpp_battery_0"
+    mouse.mkdir()
+    (mouse / "type").write_text("Battery\n")
+    (mouse / "scope").write_text("Device\n")
+    (mouse / "capacity").write_text("50\n")
+    (mouse / "charge_control_end_threshold").write_text("100\n")
+
+    bats = battery.read_batteries(str(tmp_path))
+    assert len(bats) == 1 and bats[0]["name"] == "CMB0" and bats[0]["percent"] == 74
+
+    lim = battery_limit.discover(str(tmp_path), str(tmp_path / "none"))
+    assert lim is not None and lim["value"] == 80 and len(lim["paths"]) == 1
+
+
+def test_equal_hours_range_is_rejected_and_audio_errors_localize():
+    import pytest
+    from dockit.core import audio
+    from dockit.core.scanner import ScanItem, localize_item
+
+    assert pf.valid_hours("09:00-09:00") is False
+    assert pf.valid_hours("22:00-07:00") is True
+
+    with pytest.raises(audio.AudioError) as exc_en:
+        audio.set_volume("output", 200, lang="en")
+    assert "0 and 150" in str(exc_en.value)
+
+    with pytest.raises(audio.AudioError) as exc_uk:
+        audio.set_default("output", "missing", run=lambda args: "[]" if "list" in args else "", lang="uk")
+    assert "не знайдено" in str(exc_uk.value)
+
+    item = ScanItem("battery_limit", "Лимит", "power_supply", Status.OK, "ok",
+                    state={"kind": "threshold", "value": 80, "conservation": None})
+    _, detail_en, _ = localize_item(item, "en")
+    assert "80%" in detail_en
+    _, detail_uk, _ = localize_item(item, "uk")
+    assert "80 %" in detail_uk

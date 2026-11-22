@@ -408,6 +408,9 @@
 
   "mod_battery_limit_name": "Battery charge limit",
   "mod_battery_limit_ok": "Charge limit can be read and changed.",
+  "mod_battery_limit_ok_pct": "Charge limit: {pct}% (adjustable).",
+  "mod_battery_limit_cons_on": "Battery conservation mode: enabled (80%).",
+  "mod_battery_limit_cons_off": "Battery conservation mode: disabled (100%).",
   "mod_battery_limit_setup": "Charge limit is visible, but changing it requires the DOCKIT service (or a udev rule).",
   "mod_battery_limit_no": "Kernel does not expose a charge limit for this model.",
   "mod_battery_limit_hint_no": "Update the kernel or check whether the driver supports your model.",
@@ -623,5 +626,13 @@
   "wizard_hello_sub": "Open-source Linux laptop & PC control panel. Pick your preferred language and accent color — changes apply live.",
   "wizard_prefs_title": "Quick setup",
   "wizard_prefs_sub": "Adjust window behavior to your liking — you can change all of these anytime in Settings.",
-  "wizard_prefs_note": "All set! Click Get started to open the main panel."
+  "wizard_prefs_note": "All set! Click Get started to open the main panel.",
+
+  "err_audio_no_pactl": "pactl is missing (install libpulse) or PipeWire is not running.",
+  "err_audio_timeout": "Audio system did not respond.",
+  "err_audio_failed": "Audio system returned an error.",
+  "err_audio_parse": "Could not parse audio system response.",
+  "err_audio_kind": "Unknown audio device type.",
+  "err_audio_not_found": "Device “{query}” not found.",
+  "err_audio_volume": "Volume must be a number between 0 and 150."
 }

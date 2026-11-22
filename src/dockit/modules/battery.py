@@ -24,9 +24,21 @@ def _int(path: str) -> int | None:
     return int(raw) if raw is not None and raw.lstrip("-").isdigit() else None
 
 
+def _is_system_battery(d: str) -> bool:
+    name = os.path.basename(d)
+    scope = sysfs.read_text(f"{d}/scope")
+    if scope == "Device":
+        return False
+    if name.startswith("BAT"):
+        return True
+    return sysfs.read_text(f"{d}/type") == "Battery"
+
+
 def read_batteries(base: str = BASE) -> list[dict]:
     result = []
-    for d in sorted(glob.glob(os.path.join(base, "BAT*"))):
+    for d in sorted(glob.glob(os.path.join(base, "*"))):
+        if not os.path.isdir(d) or not _is_system_battery(d):
+            continue
         full = _int(f"{d}/energy_full")
         design = _int(f"{d}/energy_full_design")
         if full is None or design is None:  # some batteries report charge, not energy
