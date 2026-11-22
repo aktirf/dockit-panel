@@ -117,7 +117,7 @@ def restore(
             else:
                 from . import tuning
                 raw_power = sysfs.read_text(PROFILE_PATH)
-                cur_power = "dynamic" if (raw_power == "balanced" and tuning.read_epp() == "dynamic") else raw_power
+                cur_power = "dynamic" if tuning.is_dynamic_epp(tuning.read_epp()) else raw_power
             if cur_power != power:
                 res = ask_fn({"action": "set_power_profile", "value": power, "interactive": False})
                 if res is not None:

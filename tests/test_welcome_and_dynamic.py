@@ -62,7 +62,12 @@ def test_set_power_profile_dynamic_on_amd_and_refused_on_intel(tmp_path):
     assert prof.read_text().strip() == "balanced"
     assert tuning.read_epp(amd) == "dynamic"
 
-    # Leaving dynamic without power-profiles-daemon restores a manual EPP.
+    # Leaving dynamic without power-profiles-daemon restores a manual EPP,
+    # including when Linux 7.x reports "dynamic(profile:performance)".
+    (tmp_path / "amd" / "cpu0" / "cpufreq" / "energy_performance_preference").write_text("dynamic(profile:performance)\n")
+    (tmp_path / "amd" / "cpu1" / "cpufreq" / "energy_performance_preference").write_text("dynamic(profile:performance)\n")
+    assert tuning.is_dynamic_epp(tuning.read_epp(amd)) is True
+    assert tuning.is_dynamic_epp("balance_performance") is False
     actions._sync_power_state("balanced", cpu_base=amd, use_ppd=False)
     assert tuning.read_epp(amd) == "balance_performance"
 

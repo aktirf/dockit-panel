@@ -39,6 +39,15 @@ def has_dynamic_epp(base: str = CPU) -> bool:
     return "dynamic" in epp_choices(base)
 
 
+def is_dynamic_epp(epp: str | None) -> bool:
+    """True when EPP is active in dynamic mode.
+
+    Linux 7.x `amd-pstate-epp` reports the active dynamic state as
+    `dynamic(profile:performance)` / `dynamic(profile:balanced)` rather than bare `dynamic`.
+    """
+    return bool(epp) and (epp == "dynamic" or epp.startswith("dynamic("))
+
+
 def read_epp(base: str = CPU) -> str | None:
     return sysfs.read_text(f"{base}/cpu0/cpufreq/energy_performance_preference")
 
