@@ -596,5 +596,15 @@
   "welcome_dynamic_intel": "This kernel mode is currently AMD-only (amd-pstate-epp). Standard Intel EPP presets still work.",
   "welcome_dynamic_no": "Kernel does not expose dynamic EPP (requires an AMD CPU with amd-pstate-epp on a recent Linux kernel).",
   "welcome_cpu_tuning": "CPU fine tuning",
-  "welcome_refresh_ok": "Available: {rates} Hz ({desktop})."
+  "welcome_refresh_ok": "Available: {rates} Hz ({desktop}).",
+  "welcome_gpu_amd_title": "AMD GPU",
+  "welcome_gpu_amd_ok": "{name}: telemetry via amdgpu sysfs.",
+  "charge_limit_title": "Battery charge limit",
+  "charge_limit_tip": "Caps maximum battery charge to extend battery lifespan when plugged in.",
+  "charge_limit_need_service": "Running DOCKIT service is required to change the charge limit (sudo scripts/install-dev.sh).",
+  "charge_limit_conservation_on": "80% (conservation)",
+  "charge_limit_conservation_off": "100% (full)",
+  "toast_battery_limit": "Charge limit: {pct}%",
+  "toast_battery_limit_cons_on": "Battery conservation mode enabled (~80%)",
+  "toast_battery_limit_cons_off": "Battery conservation mode disabled (100%)"
 }

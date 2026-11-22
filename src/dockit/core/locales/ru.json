@@ -596,5 +596,15 @@
   "welcome_dynamic_intel": "Эта функция ядра пока есть только на процессорах AMD (amd-pstate-epp). Обычные режимы EPP на Intel работают.",
   "welcome_dynamic_no": "Ядро не отдаёт режим dynamic (нужен AMD Ryzen с драйвером amd-pstate-epp и свежее ядро Linux).",
   "welcome_cpu_tuning": "Тонкая настройка процессора",
-  "welcome_refresh_ok": "Доступно {rates} Гц ({desktop})."
+  "welcome_refresh_ok": "Доступно {rates} Гц ({desktop}).",
+  "welcome_gpu_amd_title": "Видеокарта AMD",
+  "welcome_gpu_amd_ok": "{name}: мониторинг через amdgpu sysfs.",
+  "charge_limit_title": "Лимит заряда батареи",
+  "charge_limit_tip": "Ограничивает максимальный заряд, чтобы продлить ресурс батареи при работе от сети.",
+  "charge_limit_need_service": "Для изменения лимита нужна запущенная служба DOCKIT (sudo scripts/install-dev.sh).",
+  "charge_limit_conservation_on": "80 % (сбережение)",
+  "charge_limit_conservation_off": "100 % (полный)",
+  "toast_battery_limit": "Лимит заряда: {pct} %",
+  "toast_battery_limit_cons_on": "Режим сбережения батареи включён (≈80 %)",
+  "toast_battery_limit_cons_off": "Режим сбережения батареи выключен (100 %)"
 }

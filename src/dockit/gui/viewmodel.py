@@ -260,7 +260,8 @@ def empty() -> dict:
                     "memPct": 0, "power": "—", "status": "no", "statusText": "", **GPU_SLEEP_EMPTY},
             "battery": {"percent": None, "text": "—", "source": "", "health": "—", "cycles": None,
                         "power": "—", "left": "", "status": "no", "statusText": ""},
-            "limit": {"status": "no", "statusText": ""}, "toggles": [], "temps": [], "fans": [],
+            "limit": {"status": "no", "statusText": "", "hint": "", "available": False, "can": False,
+                      "kind": "", "value": None, "conservation": None}, "toggles": [], "temps": [], "fans": [],
             "peripherals": [], "periphBatteries": [], "backlight": [], "kbdBacklight": dict(KBD_BACKLIGHT_EMPTY), "system": {},
             "features": [], "counts": [], "cooling": {}, "journal": [], "display": {}, "tuning": {}, "top": [], "bluetooth": [], "batteryHistory": [], "settings": {}, "cpuHistory": [], "gpuHistory": [], "profiles": [],
             "audio": {"outputs": [], "inputs": []}, "apps": [], "idleAvailable": False,
@@ -270,7 +271,8 @@ def empty() -> dict:
 def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str,
           cpu_history: list, gpu_history: list, mic_muted: bool | None,
           scenarios: list[dict], scenario: str, lang: str = "ru",
-          kbd_saved: dict | None = None, has_dynamic: bool = False) -> dict:
+          kbd_saved: dict | None = None, has_dynamic: bool = False,
+          amd_gpu: dict | None = None) -> dict:
     service = _item(result, "service")
     sensors = _item(result, "sensors")
     gpu_item = _item(result, "gpu_nvidia")
@@ -285,6 +287,12 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
     fan = max(fans.values()) if fans else None
 
     g = (gpu_item.state if gpu_item else None) or {}
+    using_amd = False
+    if not g and isinstance(amd_gpu, dict) and amd_gpu:
+        g = amd_gpu
+        using_amd = True
+    gpu_status = "ok" if using_amd else (STATUS_KEY[gpu_item.status] if gpu_item else "no")
+    gpu_status_text = status_label(Status.OK, lang) if using_amd else (status_label(gpu_item.status, lang) if gpu_item else "")
     gpu = {
         "name": g.get("name", ""),
         "clock": num(g.get("clock_mhz")),
@@ -294,8 +302,8 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "memTotal": num(g["mem_total_mb"] / 1024, 1) if g.get("mem_total_mb") is not None else "—",
         "memPct": round(100 * g["mem_used_mb"] / g["mem_total_mb"]) if g.get("mem_used_mb") is not None and g.get("mem_total_mb") else 0,
         "power": num(g.get("power_w"), 0),
-        "status": STATUS_KEY[gpu_item.status] if gpu_item else "no",
-        "statusText": status_label(gpu_item.status, lang) if gpu_item else "",
+        "status": gpu_status,
+        "statusText": gpu_status_text,
     }
     gpu.update(gpu_sleep_view(g, lang))
 
@@ -315,10 +323,22 @@ def build(result: ScanResult, current_mode: str | None, cpu: dict, cpu_name: str
         "status": STATUS_KEY[bat_item.status] if bat_item else "no",
         "statusText": status_label(bat_item.status, lang) if bat_item else "",
     }
+    lim_state = limit_item.state if (limit_item and isinstance(limit_item.state, dict)) else {}
+    lim_avail = bool(limit_item and limit_item.status is not Status.UNAVAILABLE and lim_state)
+    lim_val = lim_state.get("value")
+    lim_status_text = (
+        f"{lim_val} %" if (lim_avail and lim_val is not None)
+        else (status_label(limit_item.status, lang) if limit_item else "")
+    )
     limit = {
         "status": STATUS_KEY[limit_item.status] if limit_item else "no",
-        "statusText": status_label(limit_item.status, lang) if limit_item else "",
+        "statusText": lim_status_text,
         "hint": limit_item.hint if limit_item else "",
+        "available": lim_avail,
+        "can": bool(lim_avail and ((service and service.status is Status.OK) or (limit_item and limit_item.status is Status.OK))),
+        "kind": str(lim_state.get("kind") or ""),
+        "value": lim_val,
+        "conservation": lim_state.get("conservation"),
     }
 
     cam_state = cam_item.state if cam_item and cam_item.state else None

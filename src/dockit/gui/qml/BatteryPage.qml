@@ -175,10 +175,15 @@ PageFrame {
         }
     }
 
-    // Compact charge limit strip
+    // Battery charge limit card (interactive on laptops that expose sysfs threshold or Lenovo conservation_mode)
     Card {
+        id: chargeLimitCard
         Layout.fillWidth: true
         pad: 16
+        readonly property bool limAvail: !!(d.limit && d.limit.available === true)
+        readonly property bool limCan: !!(d.limit && d.limit.can === true)
+        readonly property bool limCons: !!(d.limit && d.limit.kind === "conservation")
+
         Item {
             Layout.fillWidth: true
             implicitHeight: limHdrRow.implicitHeight
@@ -186,15 +191,46 @@ PageFrame {
                 id: limHdrRow
                 anchors.fill: parent
                 spacing: 12
-                Txt { Layout.fillWidth: true; text: Theme.tr("charge_limit_example"); font.pixelSize: 15; font.weight: Font.DemiBold }
-                Chip { kind: d.limit ? d.limit.status : "no"; text: d.limit ? d.limit.statusText : "" }
+                Txt {
+                    Layout.fillWidth: true
+                    text: chargeLimitCard.limAvail ? Theme.tr("charge_limit_title") : Theme.tr("charge_limit_example")
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                }
+                Chip { kind: d.limit ? d.limit.status : "no"; text: d.limit ? String(d.limit.statusText || "") : "" }
             }
             Tip { text: Theme.tr("tip_charge_limit") }
+        }
+        SegmentBar {
+            visible: chargeLimitCard.limAvail
+            enabled: chargeLimitCard.limCan
+            opacity: chargeLimitCard.limCan ? 1.0 : 0.55
+            options: chargeLimitCard.limCons
+                ? [
+                    { id: "80", label: Theme.tr("charge_limit_conservation_on"), tip: Theme.tr("charge_limit_tip") },
+                    { id: "100", label: Theme.tr("charge_limit_conservation_off"), tip: Theme.tr("charge_limit_tip") }
+                  ]
+                : [
+                    { id: "60", label: "60 %", tip: Theme.tr("charge_limit_tip") },
+                    { id: "80", label: "80 %", tip: Theme.tr("charge_limit_tip") },
+                    { id: "90", label: "90 %", tip: Theme.tr("charge_limit_tip") },
+                    { id: "100", label: "100 %", tip: Theme.tr("charge_limit_tip") }
+                  ]
+            current: (d.limit && d.limit.value !== null && d.limit.value !== undefined) ? String(d.limit.value) : ""
+            onPicked: function (val) { backend.setBatteryLimit(Number(val)) }
         }
         Txt {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            visible: !!(d.limit && d.limit.status !== "ok")
+            visible: chargeLimitCard.limAvail && !chargeLimitCard.limCan
+            color: Theme.warn
+            font.pixelSize: 12
+            text: Theme.tr("charge_limit_need_service")
+        }
+        Txt {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            visible: !chargeLimitCard.limAvail && !!(d.limit && d.limit.status !== "ok")
             color: Theme.muted
             font.pixelSize: 12
             text: Theme.tr("charge_limit_unavail")
@@ -202,7 +238,7 @@ PageFrame {
         Txt {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            visible: !!(d.limit && d.limit.hint !== undefined && d.limit.hint !== "")
+            visible: !chargeLimitCard.limAvail && !!(d.limit && d.limit.hint !== undefined && d.limit.hint !== "")
             color: Theme.warn
             font.pixelSize: 12
             text: Theme.tr("hint_prefix") + (d.limit ? d.limit.hint : "")
