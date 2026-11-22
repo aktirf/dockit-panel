@@ -8,7 +8,7 @@
 
 Открытая панель управления для ноутбуков на Linux — лёгкая и честная альтернатива фирменным Windows-программам вроде **Gigabyte GiMATE**, **Lenovo Vantage**, **MSI Center** и не только.
 
-[![Версия](https://img.shields.io/badge/version-0.11.2%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel)
+[![Версия](https://img.shields.io/badge/version-0.14.3%20beta-4CC38A?style=flat-square)](https://github.com/aktirf/dockit-panel/releases)
 [![Python](https://img.shields.io/badge/python-3.11%2B-5AB0FF?style=flat-square)](https://www.python.org/)
 [![Лицензия](https://img.shields.io/badge/license-GPL--3.0--or--later-A78BFA?style=flat-square)](LICENSE)
 [![Языки](https://img.shields.io/badge/UI-RU%20%7C%20EN%20%7C%20UK-F5B942?style=flat-square)](#возможности)
@@ -24,7 +24,7 @@
 
 ---
 
-> **Статус:** активная бета (`0.11.2`), ежедневно тестируется на **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) под CachyOS (Hyprland и KDE Plasma).
+> **Статус:** активная бета (`0.14.3`), ежедневно тестируется на **Gigabyte Gaming A16 3VH** (Ryzen 7 260, RTX 5060) под CachyOS (Hyprland и KDE Plasma).
 > Неофициальный открытый проект — не связан с Gigabyte, Lenovo, MSI, EPOS, Hator и другими производителями.
 
 ## Скриншоты
@@ -37,8 +37,9 @@
 
 ## Возможности
 
-- **Честная диагностика железа** — при запуске сканирует ноутбук в режиме «только чтение» и честно показывает, что работает, что нет и как это исправить.
-- **Производительность и защита сна NVIDIA** — режимы мощности (`Тишина`, `Баланс`, `Производительность`), CPU Turbo Boost и EPP, лимит мощности GPU, а также **мониторинг сна RTX (D3)**: DOCKIT никогда не вызывает `nvidia-smi`, пока карта спит, и показывает, какие программы не дают ей уснуть.
+- **Честная диагностика железа и мастер первого запуска** — при первом открытии сканирует ноутбук/ПК в режиме «только чтение» и честно показывает, что уже работает, что требует настройки и чего нет на этом железе.
+- **Производительность, AMD и защита сна NVIDIA** — режимы мощности (`Тишина`, `Баланс`, `Динамический` на AMD `amd-pstate-epp`, `Производительность`), CPU Turbo Boost и EPP, лимит мощности GPU, мониторинг **AMD Radeon** (`amdgpu`) и **защита сна RTX (D3)**: DOCKIT никогда не вызывает `nvidia-smi`, пока карта спит, и показывает, какие программы не дают ей уснуть.
+- **Универсальное управление ноутбуками** — автоматическое определение и переключение встроенных USB UVC веб-камер на любых ноутбуках и универсальный лимит заряда батареи (`charge_control_end_threshold` + режим сбережения Lenovo `conservation_mode`).
 - **RGB-подсветка клавиатуры** — нативная поддержка стандарта **USB HID LampArray** (работает прямо из коробки на Gigabyte Gaming A16 `0414:8104` и клавиатурах с Windows Dynamic Lighting с гамма-коррекцией `sRGB → LED`) + классический `/sys/class/leds/*kbd_backlight*`.
 - **Профили и автоправила** — объединяйте режим мощности, частоту экрана, яркость, камеру и звук PipeWire в профили (`Игры`, `Работа`, `Ночь` или свои) с автопереключением по запущенным играм/программам, питанию, простою, температуре или расписанию.
 - **Периферия и заряд устройств** — громкость и выбор аудио PipeWire, Bluetooth-устройства, мониторинг заряда беспроводной периферии (`UPower`, `/sys/class/power_supply` HID++, Bluetooth, опционально `headsetcontrol`) и открытая текстовая база устройств (`devices/`).
@@ -78,10 +79,11 @@ dockit gui               # открыть окно (просмотр без сл
 |---|---|
 | `dockit gui` | Открыть графическое окно (один экземпляр) |
 | `dockit scan [--json]` | Безопасное сканирование доступных функций |
-| `dockit report [--lang auto\|ru\|en\|uk]` | Отчёт для GitHub Issues (без серийных номеров и имён хоста) |
+| `dockit report [--markdown] [--lang auto\|ru\|en\|uk]` | Текстовый или Markdown-отчёт для GitHub Issues (без серийных номеров и имён хоста) |
 | `dockit mode [games\|work\|night\|next]` | Список профилей, переключение или цикл `next` (удобно на хоткей) |
 | `dockit auto` | Автоматическое переключение профилей по правилам в фоне |
-| `dockit profile [low-power\|balanced\|performance]` | Показать или сменить режим мощности ядра |
+| `dockit profile [low-power\|balanced\|dynamic\|performance]` | Показать или сменить режим мощности ядра / динамический режим AMD |
+| `dockit battery-limit [status\|60..100\|on\|off]` | Показать или задать лимит заряда батареи / режим сбережения Lenovo |
 | `dockit backlight [status\|on\|off\|auto] [--color #RRGGBB] [--brightness 0..100]` | Управление RGB / LED-подсветкой клавиатуры |
 | `dockit restore` | Тихо восстановить сохранённые Гц экрана, режим мощности и RGB при входе |
 | `dockit gpu` | Проверить, спит ли видеокарта NVIDIA и кто её держит |
@@ -121,7 +123,7 @@ when = "battery"
 ## Безопасность и архитектура
 
 - **Ядро без зависимостей** (`src/dockit/core/`): чистый Python 3.11+ без импорта Qt, покрыт юнит-тестами без привязки к реальному железу (`pytest`).
-- **Строгая фоновая служба** (`src/dockit/daemon/`): принимает только разрешённый список действий (`set_power_profile`, `set_camera`, `set_brightness`, `set_boost`, `set_epp`, `set_gpu_power_limit`, `set_kbd_backlight`), валидирует каждый параметр, никогда не принимает пути от клиента и проверяет настоящий PID вызывающего процесса через `polkit`.
+- **Строгая фоновая служба** (`src/dockit/daemon/`): принимает только разрешённый список действий (`set_power_profile`, `set_camera`, `set_brightness`, `set_boost`, `set_epp`, `set_gpu_power_limit`, `set_kbd_backlight`, `set_battery_limit`), валидирует каждый параметр, никогда не принимает пути от клиента и проверяет настоящий PID вызывающего процесса через `polkit`.
 - **Текстовая база устройств** (`devices/`): один маленький TOML-файл на ноутбук или USB-устройство — легко пополнять.
 
 ## Помогите поддержать больше ноутбуков
