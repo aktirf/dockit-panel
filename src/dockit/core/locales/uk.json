@@ -408,15 +408,15 @@
 
   "mod_battery_limit_name": "Ліміт заряду батареї",
   "mod_battery_limit_ok": "Ліміт можна читати й змінювати.",
-  "mod_battery_limit_setup": "Ліміт видно, але немає прав на запис. Потрібне правило udev.",
+  "mod_battery_limit_setup": "Ліміт видно, але для зміни потрібна служба DOCKIT (або правило udev).",
   "mod_battery_limit_no": "Ядро не показує ліміт заряду для цієї моделі.",
   "mod_battery_limit_hint_no": "Оновіть ядро або перевірте, чи підтримує драйвер вашу модель.",
-  "mod_battery_limit_hint_setup": "Додайте правило udev, яке дозволяє запис у charge_control_end_threshold.",
+  "mod_battery_limit_hint_setup": "Встановіть і запустіть службу DOCKIT: sudo scripts/install-dev.sh.",
 
   "mod_camera_name": "Вебкамера (увімкнення та вимкнення)",
   "mod_camera_ok": "Камеру можна вмикати та вимикати.",
   "mod_camera_setup": "Камера знайдена, але для перемикання потрібна служба DOCKIT.",
-  "mod_camera_no": "Камеру не знайдено серед відомих пристроїв (база devices/).",
+  "mod_camera_no": "USB-камеру не знайдено.",
   "mod_camera_hint": "Встановіть і запустіть службу DOCKIT: sudo scripts/install-dev.sh.",
 
   "mod_wireless_name": "Wi-Fi та Bluetooth",

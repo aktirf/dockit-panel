@@ -62,6 +62,7 @@ Rectangle {
 
                 Flow {
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                     spacing: 8
                     Repeater {
                         model: [

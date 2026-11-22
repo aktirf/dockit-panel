@@ -53,8 +53,9 @@ Window {
     readonly property int problems: d.features ? d.features.filter(function (f) { return f.status !== "ok" }).length : 0
 
     function modeName(id) {
-        for (var i = 0; i < d.modes.length; i++)
-            if (d.modes[i].id === id) return d.modes[i].name
+        var modes = (d && d.modes) ? d.modes : []
+        for (var i = 0; i < modes.length; i++)
+            if (modes[i].id === id) return modes[i].name
         return "—"
     }
 

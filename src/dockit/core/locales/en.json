@@ -408,15 +408,15 @@
 
   "mod_battery_limit_name": "Battery charge limit",
   "mod_battery_limit_ok": "Charge limit can be read and changed.",
-  "mod_battery_limit_setup": "Charge limit is visible, but write permission is missing (udev rule needed).",
+  "mod_battery_limit_setup": "Charge limit is visible, but changing it requires the DOCKIT service (or a udev rule).",
   "mod_battery_limit_no": "Kernel does not expose a charge limit for this model.",
   "mod_battery_limit_hint_no": "Update the kernel or check whether the driver supports your model.",
-  "mod_battery_limit_hint_setup": "Add a udev rule granting write access to charge_control_end_threshold.",
+  "mod_battery_limit_hint_setup": "Install and start the DOCKIT service: sudo scripts/install-dev.sh.",
 
   "mod_camera_name": "Webcam (on/off)",
   "mod_camera_ok": "Camera can be switched on and off.",
   "mod_camera_setup": "Camera found, but switching requires the DOCKIT service.",
-  "mod_camera_no": "Camera not found among known devices (devices/ database).",
+  "mod_camera_no": "No USB webcam found.",
   "mod_camera_hint": "Install and start the DOCKIT service: sudo scripts/install-dev.sh.",
 
   "mod_wireless_name": "Wi-Fi and Bluetooth",

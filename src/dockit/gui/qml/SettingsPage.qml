@@ -166,50 +166,23 @@ PageFrame {
     // About card
     Card {
         Layout.fillWidth: true
-        GridLayout {
+        RowLayout {
             Layout.fillWidth: true
-            columns: settingsPage.width >= 600 ? 2 : 1
-            columnSpacing: 14
-            rowSpacing: 10
-            RowLayout {
+            Layout.minimumWidth: 0
+            spacing: 14
+            Rectangle {
+                implicitWidth: 44
+                implicitHeight: 44
+                radius: 12
+                color: "#1B2A3A"
+                Icon { anchors.centerIn: parent; name: "gauge"; size: 22; color: Theme.accent }
+            }
+            ColumnLayout {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                spacing: 14
-                Rectangle {
-                    implicitWidth: 44
-                    implicitHeight: 44
-                    radius: 12
-                    color: "#1B2A3A"
-                    Icon { anchors.centerIn: parent; name: "gauge"; size: 22; color: Theme.accent }
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    spacing: 2
-                    Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: "DOCKIT " + backend.version + " (" + Theme.tr("beta_tag") + ")"; font.pixelSize: 16; font.weight: Font.DemiBold }
-                    Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: "GPL-3.0-or-later · github.com/aktirf/dockit-panel"; color: Theme.muted; font.pixelSize: 12 }
-                }
-            }
-            Flow {
-                Layout.alignment: settingsPage.width >= 600 ? Qt.AlignRight | Qt.AlignVCenter : Qt.AlignLeft
-                spacing: 8
-                Btn {
-                    text: Theme.tr("welcome_recheck_btn")
-                    implicitHeight: 34
-                    tip: Theme.tr("welcome_recheck_tip")
-                    onClicked: backend.openWelcome()
-                }
-                Btn {
-                    text: Theme.tr("copy_report")
-                    implicitHeight: 34
-                    onClicked: backend.copyReport()
-                }
-                Btn {
-                    text: Theme.tr("report_github_btn")
-                    implicitHeight: 34
-                    tip: Theme.tr("report_github_tip")
-                    onClicked: backend.openIssue("device")
-                }
+                spacing: 2
+                Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: "DOCKIT " + backend.version + " (" + Theme.tr("beta_tag") + ")"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                Txt { Layout.fillWidth: true; elide: Text.ElideRight; text: "GPL-3.0-or-later · github.com/aktirf/dockit-panel"; color: Theme.muted; font.pixelSize: 12 }
             }
         }
         Txt {
@@ -218,6 +191,27 @@ PageFrame {
             color: Theme.muted
             font.pixelSize: 12
             text: Theme.tr("about_desc")
+        }
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            Btn {
+                text: Theme.tr("welcome_recheck_btn")
+                implicitHeight: 34
+                tip: Theme.tr("welcome_recheck_tip")
+                onClicked: backend.openWelcome()
+            }
+            Btn {
+                text: Theme.tr("copy_report")
+                implicitHeight: 34
+                onClicked: backend.copyReport()
+            }
+            Btn {
+                text: Theme.tr("report_github_btn")
+                implicitHeight: 34
+                tip: Theme.tr("report_github_tip")
+                onClicked: backend.openIssue("device")
+            }
         }
     }
 }
