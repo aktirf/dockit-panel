@@ -236,19 +236,148 @@ def localize_item(item: ScanItem, lang: str = "ru") -> tuple[str, str, str]:
     return name, detail, hint
 
 
-def format_report(result: ScanResult, lang: str | None = None) -> str:
-    """Plain text report the user can paste into a GitHub issue, localized to lang."""
+def collect_environment_details(result: ScanResult | None = None) -> dict[str, str]:
+    """Read-only snapshot of CPU, GPU, display, and laptop driver details for bug/device reports.
+
+    Never reads serial numbers, hostnames, or usernames, and never wakes a sleeping NVIDIA GPU.
+    """
+    import glob
+    import shutil
+    from . import battery_limit, cpu, display, gpu_amd, hardware, idle, tuning
+
+    details: dict[str, str] = {}
+    cpu_name = cpu.CpuMonitor().name()
+    if cpu_name:
+        details["cpu"] = cpu_name
+    drv = tuning.cpu_driver()
+    if drv:
+        details["cpu_driver"] = drv
+    epp = tuning.epp_choices()
+    if epp:
+        details["epp_choices"] = " ".join(epp)
+    boost = tuning.read_boost()
+    if boost is not None:
+        details["turbo_boost"] = "on" if boost else "off"
+    acpi_choices = sysfs.read_text("/sys/firmware/acpi/platform_profile_choices")
+    if acpi_choices:
+        details["acpi_profiles"] = acpi_choices
+    details["desktop"] = hardware.detect_desktop()
+    has_bat = None
+    if result is not None:
+        bat = next((i for i in result.items if i.id == "battery"), None)
+        if bat is not None:
+            has_bat = bat.status is Status.OK
+    details["form_factor"] = hardware.detect_form_factor(has_battery=has_bat)
+
+    try:
+        disp = display.refresh_info()
+        if disp.get("output"):
+            rates = ", ".join(f"{r}Hz" for r in (disp.get("rates") or []))
+            details["display"] = f"{disp['output']} ({disp.get('current')}Hz; rates: {rates or 'none'})"
+    except Exception:
+        pass
+
+    lim = battery_limit.discover()
+    if lim is not None:
+        details["battery_limit"] = f"{lim['kind']}={lim.get('value')}%"
+
+    amd = gpu_amd.summary()
+    if amd is not None:
+        details["amd_gpu"] = f"{amd['name']} (asleep={amd['asleep']})"
+
+    hwmons = []
+    for hm in sorted(glob.glob("/sys/class/hwmon/hwmon*")):
+        name = sysfs.read_text(f"{hm}/name")
+        if name:
+            fans = len(glob.glob(f"{hm}/fan*_input"))
+            hwmons.append(f"{name}({fans}f)" if fans else name)
+    if hwmons:
+        details["hwmon"] = ", ".join(hwmons[:12])
+
+    helpers = []
+    if shutil.which("powerprofilesctl"):
+        helpers.append("power-profiles-daemon")
+    if idle.available():
+        helpers.append("swayidle")
+    if shutil.which("notify-send"):
+        helpers.append("libnotify")
+    if helpers:
+        details["helpers"] = ", ".join(helpers)
+    return details
+
+
+def format_report(
+    result: ScanResult,
+    lang: str | None = None,
+    *,
+    markdown: bool = False,
+    env_details: dict[str, str] | None = None,
+) -> str:
+    """Plain text or GitHub Markdown report the user can paste into a GitHub issue."""
+    from .. import __version__
+
     resolved = i18n.resolve_lang(lang)
-    lines = ["DOCKIT report", ""]
+    details = collect_environment_details(result) if env_details is None else env_details
+    counts = result.counts()
+    db_lbl = i18n.tr("report_laptop_db", resolved)
+    db_val = (
+        f"{i18n.tr('report_yes', resolved)} ({result.laptop.status})"
+        if result.laptop else i18n.tr("report_no", resolved)
+    )
+    fix_lbl = i18n.tr("report_fix", resolved)
+
+    if markdown:
+        lines = [
+            f"### DOCKIT report (`v{__version__}`)",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
+        ]
+        for key, value in result.system.items():
+            lines.append(f"| `{key}` | {value} |")
+        lines.append(f"| `{db_lbl}` | {db_val} |")
+        for key, value in details.items():
+            lines.append(f"| `{key}` | {value} |")
+        lines.append("")
+        lines.append(
+            "**" + i18n.tr("report_total", resolved) + ":** "
+            + ", ".join(f"{i18n.tr(_STATUS_KEYS[s], resolved)}: {counts[s]}" for s in Status)
+        )
+        lines.append("")
+        lines.append("<details>")
+        lines.append(f"<summary>{i18n.tr('report_features_summary', resolved)}</summary>")
+        lines.append("")
+        lines.append("```text")
+        for item in result.items:
+            name, detail, hint = localize_item(item, resolved)
+            status_text = i18n.tr(_STATUS_KEYS[item.status], resolved)
+            lines.append(f"[{status_text}] {name} ({item.source})")
+            lines.append(f"    {detail}")
+            if hint:
+                lines.append(f"    {fix_lbl}: {hint}")
+        lines.append("```")
+        lines.append("</details>")
+        if result.peripherals:
+            not_in_db = i18n.tr("report_not_in_db", resolved)
+            lines.append("")
+            lines.append("<details>")
+            lines.append(f"<summary>{i18n.tr('report_usb', resolved)} ({len(result.peripherals)})</summary>")
+            lines.append("")
+            lines.append("```text")
+            for p in result.peripherals:
+                tag = p.status if p.known else not_in_db
+                lines.append(f"{p.usb_id}  {p.name}  [{tag}]")
+            lines.append("```")
+            lines.append("</details>")
+        return "\n".join(lines)
+
+    lines = [f"DOCKIT report (v{__version__})", ""]
     for key, value in result.system.items():
         lines.append(f"{key}: {value}")
-    db_lbl = i18n.tr("report_laptop_db", resolved)
-    if result.laptop:
-        lines.append(f"{db_lbl}: {i18n.tr('report_yes', resolved)} ({result.laptop.status})")
-    else:
-        lines.append(f"{db_lbl}: {i18n.tr('report_no', resolved)}")
+    for key, value in details.items():
+        lines.append(f"{key}: {value}")
+    lines.append(f"{db_lbl}: {db_val}")
     lines.append("")
-    fix_lbl = i18n.tr("report_fix", resolved)
     for item in result.items:
         name, detail, hint = localize_item(item, resolved)
         status_text = i18n.tr(_STATUS_KEYS[item.status], resolved)
@@ -263,7 +392,6 @@ def format_report(result: ScanResult, lang: str | None = None) -> str:
         for p in result.peripherals:
             tag = p.status if p.known else not_in_db
             lines.append(f"    {p.usb_id}  {p.name}  [{tag}]")
-    counts = result.counts()
     lines.append("")
     lines.append(
         i18n.tr("report_total", resolved)

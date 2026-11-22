@@ -47,7 +47,8 @@ PageFrame {
             ]
             onPicked: function (val) { diagPage.filter = val }
         }
-        RowLayout {
+        Flow {
+            Layout.fillWidth: diagPage.width < 660
             Layout.alignment: diagPage.width >= 660 ? Qt.AlignRight : Qt.AlignLeft
             spacing: 8
             Btn {
@@ -61,6 +62,13 @@ PageFrame {
                 implicitHeight: 42
                 tip: Theme.tr("copy_report_tip")
                 onClicked: backend.copyReport()
+            }
+            Btn {
+                primary: true
+                text: Theme.tr("report_github_btn")
+                implicitHeight: 42
+                tip: Theme.tr("report_github_tip")
+                onClicked: backend.openIssue("device")
             }
         }
     }
