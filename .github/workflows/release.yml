@@ -57,10 +57,11 @@ jobs:
               rm -f /home/builder/build/*-debug-*.pkg.tar.zst
               cp /home/builder/build/*.pkg.tar.zst /out/
               pkg=$(ls /out/*.pkg.tar.zst | head -n1)
-              tar --zstd -tf "$pkg" | grep -q "^usr/bin/dockit$"
-              tar --zstd -tf "$pkg" | grep -q "^usr/lib/systemd/system/dockit.service$"
-              tar --zstd -tf "$pkg" | grep -q "^usr/share/polkit-1/actions/org.dockit.policy$"
-              tar --zstd -tf "$pkg" | grep -q "^usr/share/dockit/devices/"
+              tar --zstd -tf "$pkg" > /tmp/pkgfiles.txt
+              grep -q "^usr/bin/dockit$" /tmp/pkgfiles.txt
+              grep -q "^usr/lib/systemd/system/dockit.service$" /tmp/pkgfiles.txt
+              grep -q "^usr/share/polkit-1/actions/org.dockit.policy$" /tmp/pkgfiles.txt
+              grep -q "^usr/share/dockit/devices/" /tmp/pkgfiles.txt
             '
           ls -lh arch-out/
       - uses: actions/upload-artifact@v4
