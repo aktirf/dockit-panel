@@ -234,12 +234,21 @@ def cmd_auto(args: argparse.Namespace) -> int:
 
 def cmd_gpu(args: argparse.Namespace) -> int:
     """Read-only, never starts nvidia-smi (that would wake the card)."""
-    from ..core import gpu_power
+    from ..core import gpu_amd, gpu_power
     from ..gui.viewmodel import gpu_sleep_view
 
     info = gpu_power.summary()
     if info is None:
-        print("Видеокарта NVIDIA не найдена.")
+        amd = gpu_amd.summary()
+        if amd is None:
+            print("Дискретная видеокарта (NVIDIA или AMD) не найдена.")
+            return 0
+        temp = f"{amd['temp_c']} °C" if amd.get("temp_c") is not None else "—"
+        util = f"{amd['util_pct']} %" if amd.get("util_pct") is not None else "—"
+        pwr = f"{amd['power_w']} Вт" if amd.get("power_w") is not None else "—"
+        clk = f"{amd['clock_mhz']} МГц" if amd.get("clock_mhz") is not None else "—"
+        print(f"Видеокарта AMD: {amd['name']}")
+        print(f"  Загрузка: {util}  |  Температура: {temp}  |  Частота: {clk}  |  Мощность: {pwr}")
         return 0
     view = gpu_sleep_view({"sleep": info})
     print(f"Видеокарта: {view['sleepText']} (runtime_status={info['runtime']}, control={info['control']})")
@@ -328,6 +337,41 @@ def cmd_backlight(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_battery_limit(args: argparse.Namespace) -> int:
+    from ..core import battery_limit as bl
+
+    info = bl.discover()
+    if args.value in (None, "status"):
+        if info is None:
+            print("Ядро не показывает лимит заряда батареи для этой модели.")
+            return 1
+        if info["kind"] == "conservation":
+            st = "включён (≈80 %)" if info.get("conservation") else "выключен (100 %)"
+            print(f"Режим сбережения Lenovo: {st}")
+        else:
+            print(f"Лимит заряда: {info['value']} %")
+        return 0
+    if args.value == "on":
+        target = 80
+    elif args.value == "off":
+        target = 100
+    else:
+        try:
+            target = int(args.value)
+        except ValueError:
+            print("Укажите число от 50 до 100 (или on / off / status).")
+            return 1
+    result = _ask_service({"action": "set_battery_limit", "value": target})
+    if result is None:
+        return 1
+    if result.get("kind") == "conservation":
+        st = "включён (≈80 %)" if result.get("conservation") else "выключен (100 %)"
+        print(f"Режим сбережения батареи: {st}")
+    else:
+        print(f"Лимит заряда: {result.get('value')} %")
+    return 0
+
+
 def cmd_restore(_: argparse.Namespace) -> int:
     from ..core import session_state
 
@@ -398,6 +442,10 @@ def main(argv: list[str] | None = None) -> int:
     p_bl.add_argument("--color", help="RGB color in #RRGGBB format (e.g. #5AB0FF)")
     p_bl.add_argument("--brightness", type=int, help="brightness 0..100")
     p_bl.set_defaults(func=cmd_backlight)
+
+    p_blim = sub.add_parser("battery-limit", help="show or set battery charge limit (50..100, on, off, status)")
+    p_blim.add_argument("value", nargs="?", default="status", help="percentage (50..100), on, off, or status")
+    p_blim.set_defaults(func=cmd_battery_limit)
 
     p_restore = sub.add_parser("restore", help="quietly restore saved refresh rate, power mode, and keyboard RGB")
     p_restore.set_defaults(func=cmd_restore)

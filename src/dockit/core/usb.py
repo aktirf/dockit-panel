@@ -20,6 +20,27 @@ class UsbDevice:
     port: str          # kernel name like "3-1"; needed to switch a device off
 
 
+def is_uvc_camera(base: str | Path, port: str) -> bool:
+    """True if this USB device exposes the standard USB Video Class (0x0e) interface.
+
+    Works universally across built-in and external laptop webcams without needing an entry
+    in the devices/ database.
+    """
+    root = Path(base)
+    dev_dir = root / port
+    if (sysfs.read_text(dev_dir / "bDeviceClass") or "").lower() == "0e":
+        return True
+    prefix = f"{port}:"
+    try:
+        for entry in root.iterdir():
+            if entry.name.startswith(prefix):
+                if (sysfs.read_text(entry / "bInterfaceClass") or "").lower() == "0e":
+                    return True
+    except OSError:
+        return False
+    return False
+
+
 def list_usb(base: str | Path = BASE) -> list[UsbDevice]:
     devices = []
     root = Path(base)

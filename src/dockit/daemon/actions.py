@@ -6,18 +6,20 @@ the service decides which files to touch.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
 from pathlib import Path
 
-from ..core import display, kbd_backlight, sysfs, tuning
+from ..core import battery_limit, display, kbd_backlight, sysfs, tuning
 from ..core.usb import BASE as USB_BASE
-from ..core.usb import list_usb
+from ..core.usb import is_uvc_camera, list_usb
 from ..peripherals.database import DeviceEntry, load_database
 
 PROFILE = "/sys/firmware/acpi/platform_profile"
 CHOICES = "/sys/firmware/acpi/platform_profile_choices"
+UVC_CACHE_PATH = "/run/dockit/uvc_cameras.json"
 
 _PPD_MAP = {
     "low-power": "power-saver",
@@ -83,7 +85,8 @@ def set_power_profile(
     if not choices:
         raise ActionError("Эта модель не поддерживает смену режима мощности.")
     if value == "dynamic":
-        if "balanced" not in choices or not tuning.has_dynamic_epp(cpu_base):
+        driver = tuning.cpu_driver(cpu_base)
+        if "balanced" not in choices or (not tuning.has_dynamic_epp(cpu_base) and driver != "amd-pstate-epp"):
             raise ActionError("Динамический режим CPU не поддерживается этим ядром или процессором.")
         if profile_path == PROFILE:
             _sync_power_state("balanced", cpu_base=cpu_base)
@@ -92,8 +95,10 @@ def set_power_profile(
                 Path(profile_path).write_text("balanced", encoding="ascii")
             except OSError as exc:
                 raise ActionError(f"Не удалось записать режим: {exc.strerror or 'ошибка'}.") from exc
-        # Ensure powersave governor so EPP accepts "dynamic" on amd-pstate-epp.
+        # Ensure powersave governor so amd-pstate-epp unlocks full EPP choices including "dynamic".
         _sync_power_state("balanced", cpu_base=cpu_base, use_ppd=False)
+        if not tuning.has_dynamic_epp(cpu_base):
+            raise ActionError("Динамический режим CPU не поддерживается этим ядром или процессором.")
         try:
             for f in tuning.epp_files(cpu_base):
                 Path(f).write_text("dynamic", encoding="ascii")
@@ -112,31 +117,88 @@ def set_power_profile(
     return {"profile": sysfs.read_text(profile_path)}
 
 
-def _camera_devices(usb_base: str, entries: list[DeviceEntry] | None):
-    """Connected USB devices that the database says are cameras."""
+def _load_uvc_cache(cache_path: str | Path | None) -> set[str]:
+    if not cache_path:
+        return set()
+    try:
+        data = json.loads(Path(cache_path).read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return {str(x).lower() for x in data if isinstance(x, str)}
+    except (OSError, ValueError):
+        pass
+    return set()
+
+
+def _save_uvc_cache(cache_path: str | Path | None, ids: set[str]) -> None:
+    if not cache_path or not ids:
+        return
+    p = Path(cache_path)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(sorted(ids)) + "\n", encoding="utf-8")
+        tmp.chmod(0o644)
+        tmp.replace(p)
+    except OSError:
+        pass
+
+
+def _camera_devices(
+    usb_base: str,
+    entries: list[DeviceEntry] | None,
+    uvc_cache: str | Path | None = None,
+):
+    """Connected USB cameras: matched by devices/ database OR standard USB Video Class (0x0e).
+
+    When a UVC camera is disabled (`authorized=0`), Linux unregisters its USB interfaces,
+    so previously seen UVC USB IDs are remembered in `/run/dockit/uvc_cameras.json` so the
+    user can always re-enable the camera.
+    """
     if entries is None:
         entries = load_database()
+    if uvc_cache is None and usb_base == USB_BASE:
+        uvc_cache = UVC_CACHE_PATH
     camera_ids = set()
     for entry in entries:
         if entry.kind == "camera":
             camera_ids.update(i for i in [entry.usb_id, *entry.usb_ids] if i)
-    return [d for d in list_usb(usb_base) if d.usb_id in camera_ids]
+    cached_uvc = _load_uvc_cache(uvc_cache)
+    found = []
+    discovered_uvc = set(cached_uvc)
+    for dev in list_usb(usb_base):
+        if dev.usb_id in camera_ids or dev.usb_id in cached_uvc:
+            found.append(dev)
+        elif is_uvc_camera(usb_base, dev.port):
+            found.append(dev)
+            discovered_uvc.add(dev.usb_id)
+    if discovered_uvc != cached_uvc:
+        _save_uvc_cache(uvc_cache, discovered_uvc)
+    return found
 
 
-def camera_state(usb_base: str = USB_BASE, entries: list[DeviceEntry] | None = None) -> dict:
+def camera_state(
+    usb_base: str = USB_BASE,
+    entries: list[DeviceEntry] | None = None,
+    uvc_cache: str | Path | None = None,
+) -> dict:
     cameras = []
-    for dev in _camera_devices(usb_base, entries):
+    for dev in _camera_devices(usb_base, entries, uvc_cache=uvc_cache):
         raw = sysfs.read_text(Path(usb_base) / dev.port / "authorized")
         cameras.append({"usb_id": dev.usb_id, "port": dev.port, "enabled": raw == "1"})
     return {"cameras": cameras}
 
 
-def set_camera(enabled, usb_base: str = USB_BASE, entries: list[DeviceEntry] | None = None) -> dict:
+def set_camera(
+    enabled,
+    usb_base: str = USB_BASE,
+    entries: list[DeviceEntry] | None = None,
+    uvc_cache: str | Path | None = None,
+) -> dict:
     if not isinstance(enabled, bool):
         raise ActionError("Значение должно быть true или false.")
-    devices = _camera_devices(usb_base, entries)
+    devices = _camera_devices(usb_base, entries, uvc_cache=uvc_cache)
     if not devices:
-        raise ActionError("Камера не найдена в базе устройств.")
+        raise ActionError("USB-камера не найдена.")
     for dev in devices:
         if not PORT_RE.match(dev.port):
             raise ActionError("Неожиданное имя USB-порта.")
@@ -146,7 +208,7 @@ def set_camera(enabled, usb_base: str = USB_BASE, entries: list[DeviceEntry] | N
             )
         except OSError as exc:
             raise ActionError(f"Не удалось переключить камеру: {exc.strerror or 'ошибка'}.") from exc
-    return camera_state(usb_base, entries)
+    return camera_state(usb_base, entries, uvc_cache=uvc_cache)
 
 
 def set_brightness(value, base: str = display.BACKLIGHT) -> dict:
@@ -267,3 +329,27 @@ def set_kbd_backlight(
         return applied[0]
 
     raise ActionError("Подсветка клавиатуры не найдена.")
+
+
+def set_battery_limit(
+    value,
+    ps_base: str = battery_limit.PS_BASE,
+    ideapad_base: str = battery_limit.IDEAPAD_BASE,
+) -> dict:
+    if isinstance(value, bool) or not isinstance(value, int) or not 50 <= value <= 100:
+        raise ActionError("Лимит заряда должен быть числом от 50 до 100.")
+    info = battery_limit.discover(ps_base, ideapad_base)
+    if info is None:
+        raise ActionError("Эта модель не поддерживает лимит заряда батареи.")
+    raw_value = str(value) if info["kind"] == "threshold" else ("1" if value < 100 else "0")
+    for path in info["paths"]:
+        try:
+            Path(path).write_text(raw_value, encoding="ascii")
+        except OSError as exc:
+            raise ActionError(f"Не удалось изменить лимит заряда: {exc.strerror or 'ошибка'}.") from exc
+    updated = battery_limit.discover(ps_base, ideapad_base) or info
+    return {
+        "kind": updated["kind"],
+        "value": updated["value"],
+        "conservation": updated["conservation"],
+    }

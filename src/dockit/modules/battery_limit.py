@@ -1,18 +1,12 @@
-"""Battery charge limit (for example stop charging at 80%)."""
+"""Battery charge limit (standard charge_control_end_threshold & Lenovo conservation_mode)."""
 
 from __future__ import annotations
 
-import glob
-
+from ..core import battery_limit as bl
 from ..core import sysfs
 from ..core.module import Detection, Module
 from ..core.status import Status
-
-PATTERN = "/sys/class/power_supply/BAT*/charge_control_end_threshold"
-
-
-def _paths() -> list[str]:
-    return sorted(glob.glob(PATTERN))
+from ..daemon.client import daemon_running
 
 
 class BatteryLimit(Module):
@@ -20,27 +14,45 @@ class BatteryLimit(Module):
     name = "Лимит заряда батареи"
     source = "power_supply"
 
+    def __init__(self, ps_base: str = bl.PS_BASE, ideapad_base: str = bl.IDEAPAD_BASE) -> None:
+        self._ps = ps_base
+        self._ideapad = ideapad_base
+
+    def _info(self) -> dict | None:
+        return bl.discover(self._ps, self._ideapad)
+
     def detect(self) -> Detection:
-        paths = _paths()
-        if not paths:
+        info = self._info()
+        if info is None:
             return Detection(
                 Status.UNAVAILABLE,
                 "Ядро не показывает лимит заряда для этой модели.",
             )
-        if not all(sysfs.is_writable(p) for p in paths):
+        writable = all(sysfs.is_writable(p) for p in info["paths"])
+        if not writable and not daemon_running():
             return Detection(
                 Status.NEEDS_SETUP,
-                "Лимит виден, но нет прав на запись. Нужно правило udev.",
+                "Лимит виден, но для изменения нужна служба DOCKIT (или правило udev).",
             )
+        val = info.get("value")
+        if info["kind"] == "conservation":
+            state_txt = "включён (80 %)" if info.get("conservation") else "выключен (100 %)"
+            return Detection(Status.OK, f"Режим сбережения батареи: {state_txt}.")
+        if val is not None:
+            return Detection(Status.OK, f"Лимит заряда: {val} % (можно менять).")
         return Detection(Status.OK, "Лимит можно читать и менять.")
 
     def get_state(self):
-        paths = _paths()
-        if not paths:
+        info = self._info()
+        if info is None:
             return None
-        return sysfs.read_text(paths[0])
+        return {
+            "kind": info["kind"],
+            "value": info["value"],
+            "conservation": info["conservation"],
+        }
 
     def fix_hint(self) -> str:
-        if not _paths():
+        if self._info() is None:
             return "Обновите ядро или проверьте, поддерживает ли драйвер вашу модель."
-        return "Добавьте правило udev, которое разрешает запись в этот файл."
+        return "Установите и запустите службу DOCKIT: sudo scripts/install-dev.sh."

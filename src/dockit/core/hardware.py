@@ -95,6 +95,7 @@ def build_welcome(
     idle_available: bool = False,
     lang: str = "ru",
     *,
+    amd_gpu: dict | None = None,
     dmi_dir: str = DMI,
     env: dict[str, str] | None = None,
 ) -> dict:
@@ -114,6 +115,8 @@ def build_welcome(
     gpu_name = ""
     if gpu_item and isinstance(gpu_item.state, dict) and gpu_item.state.get("name"):
         gpu_name = str(gpu_item.state["name"])
+    elif isinstance(amd_gpu, dict) and amd_gpu.get("name"):
+        gpu_name = str(amd_gpu["name"])
 
     working: list[dict] = []
     needs_setup: list[dict] = []
@@ -133,6 +136,14 @@ def build_welcome(
                 "hint": hint,
             })
         else:
+            if item.id == "gpu_nvidia" and isinstance(amd_gpu, dict) and amd_gpu.get("name"):
+                working.append({
+                    "id": "gpu_amd",
+                    "icon": "monitor",
+                    "title": i18n.tr("welcome_gpu_amd_title", lang),
+                    "detail": i18n.tr("welcome_gpu_amd_ok", lang, name=amd_gpu["name"]),
+                })
+                continue
             reason = detail
             if item.id == "battery" and form_factor == "desktop":
                 reason = i18n.tr("welcome_desktop_no_battery", lang)

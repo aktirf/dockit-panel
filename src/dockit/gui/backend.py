@@ -17,7 +17,7 @@ from collections import deque
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from ..core import audio, hardware, i18n, kbd_backlight, periph_battery, processes, profiles, session_state, sysfs
+from ..core import audio, gpu_amd, hardware, i18n, kbd_backlight, periph_battery, processes, profiles, session_state, sysfs
 from ..core import idle
 from ..core import bluetooth, gpu_power, tuning
 from ..core.cpu import CpuMonitor
@@ -529,11 +529,14 @@ class Backend(QObject):
         if now - getattr(self, "_tuning_at", 0) > 10 or not hasattr(self, "_tuning_cache"):
             self._tuning_at = now
             all_epp = tuning.epp_choices()
+            if "dynamic" in all_epp:
+                self._ever_saw_dynamic = True
+            has_dynamic = ("dynamic" in all_epp) or bool(getattr(self, "_ever_saw_dynamic", False))
             data = {
                 "boost": tuning.read_boost(),
                 "epp": tuning.read_epp(),
                 "eppChoices": [c for c in all_epp if c != "dynamic"],
-                "hasDynamic": "dynamic" in all_epp,
+                "hasDynamic": has_dynamic,
                 "driver": tuning.cpu_driver(),
             }
             if now - getattr(self, "_gpu_lim_at", -999) > 60 and not gpu_power.gpu_asleep():
@@ -616,6 +619,29 @@ class Backend(QObject):
             self._tuning_at = 0
             self._gpu_lim_at = -999
             return i18n.tr("toast_gpu_limit", lang, watts=watts) if result is not None else error
+
+        self._run(work)
+
+    @Slot(int)
+    def setBatteryLimit(self, percent: int) -> None:
+        percent = max(50, min(100, int(percent)))
+        lim = dict(self._state.get("limit") or {})
+        lim["value"] = percent
+        lim["statusText"] = f"{percent} %"
+        if lim.get("kind") == "conservation":
+            lim["conservation"] = percent < 100
+        self._state = dict(self._state, limit=lim)
+        self.stateChanged.emit()
+        lang = self._lang()
+
+        def work() -> str:
+            result, error = client.ask({"action": "set_battery_limit", "value": percent}, lang=lang)
+            if result is None:
+                return error
+            if result.get("kind") == "conservation":
+                key = "toast_battery_limit_cons_on" if result.get("conservation") else "toast_battery_limit_cons_off"
+                return i18n.tr(key, lang)
+            return i18n.tr("toast_battery_limit", lang, pct=result.get("value", percent))
 
         self._run(work)
 
@@ -742,7 +768,13 @@ class Backend(QObject):
             if temp is not None and fresh:
                 self._cpu_hist.append(temp)
             gpu_item = next((i for i in result.items if i.id == "gpu_nvidia"), None)
-            gpu_temp = gpu_item.state.get("temp_c") if gpu_item and gpu_item.state else None
+            amd_gpu = None
+            if gpu_item is None or not gpu_item.state:
+                amd_gpu = gpu_amd.summary()
+            gpu_temp = (
+                gpu_item.state.get("temp_c") if (gpu_item and gpu_item.state)
+                else (amd_gpu.get("temp_c") if amd_gpu else None)
+            )
             if fresh and gpu_temp is not None:
                 self._gpu_hist.append(gpu_temp)
             ssd_temp = viewmodel.chip_temps(sensors.state if sensors else None).get("SSD (NVMe)")
@@ -790,7 +822,7 @@ class Backend(QObject):
             state = viewmodel.build(
                 result, mode, cpu, self._cpu_name, self._cpu_hist, self._gpu_hist,
                 muted, scenarios, self._scenario, lang=lang, kbd_saved=dict(self._kbd_saved),
-                has_dynamic=bool(tuning_data.get("hasDynamic")),
+                has_dynamic=bool(tuning_data.get("hasDynamic")), amd_gpu=amd_gpu,
             )
             bt_list, pbat_list = self._bluetooth_and_periph_batteries(lang)
             state["bluetooth"] = bt_list
@@ -809,7 +841,7 @@ class Backend(QObject):
             idle_ok = idle.available()
             state["idleAvailable"] = idle_ok
             state["welcome"] = hardware.build_welcome(
-                result, self._cpu_name, tuning_data, disp_data, idle_ok, lang=lang
+                result, self._cpu_name, tuning_data, disp_data, idle_ok, lang=lang, amd_gpu=amd_gpu,
             )
             fb = profiles.load_fallback()
             state["fallback"] = fb if fb in available else ""

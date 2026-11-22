@@ -18,7 +18,7 @@ class Camera(Module):
         if not cameras:
             return Detection(
                 Status.UNAVAILABLE,
-                "Камера не найдена среди известных устройств (база devices/).",
+                "USB-камера не найдена.",
             )
         if not daemon_running():
             return Detection(
